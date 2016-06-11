@@ -15,11 +15,12 @@ ADD_LIBRARY( DSF STATIC
 #  util/tbl/tbl.cpp
 #  util/tbl/tbl2d.cpp
 #  util/xml/xml.cpp
-  vis/MainWindow.cpp
-  vis/render.cpp
+#  vis/MainWindow.cpp
+#  vis/render.cpp
 )
 
-TARGET_LINK_LIBRARIES(DSF sim vis util)
+#TARGET_LINK_LIBRARIES(DSF sim vis util)
+TARGET_LINK_LIBRARIES(DSF sim util)
 
 SET(CMAKE_C++_CREATE_STATIC_LIBRARY 1)
 SET_TARGET_PROPERTIES(DSF PROPERTIES LINKER_LANGUAGE C)
