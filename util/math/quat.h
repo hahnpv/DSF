@@ -1,9 +1,10 @@
 #ifndef QUAT_H
 #define QUAT_H
 #include <iostream>
-
-class Mat3;
-class Mat4;
+#include "mat3.h"
+#include "mat4.h"
+// class Mat3;
+// class Mat4;
 namespace dsf
 {
 	namespace util

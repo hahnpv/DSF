@@ -1,8 +1,8 @@
 #ifndef MAT4_H
 #define MAT4_H
 #include <iostream>
-
-class Quaternion;
+#include "quat.h"
+//class Quaternion;
 namespace dsf
 {
 	namespace util

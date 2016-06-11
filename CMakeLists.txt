@@ -10,11 +10,11 @@ add_subdirectory(util)
 ADD_LIBRARY( DSF STATIC
   sim/integratorRK4.cpp
   sim/sim.cpp
-#  util/math/mat3.cpp
-#  util/math/vec3.cpp
-#  util/tbl/tbl.cpp
-#  util/tbl/tbl2d.cpp
-#  util/xml/xml.cpp
+  util/math/mat3.cpp
+  util/math/vec3.cpp
+  util/tbl/tbl.cpp
+  util/tbl/tbl2d.cpp
+  util/xml/xml.cpp
 #  vis/MainWindow.cpp
 #  vis/render.cpp
 )
