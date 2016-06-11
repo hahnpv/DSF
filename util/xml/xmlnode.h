@@ -3,6 +3,7 @@
 #include "../math/Vec3.h"
 #include "../math/Mat3.h"
 #include "../parse.h"	// string splitter
+#include "node.h"
 
 	// don't like the name but brain was crapping out
 	// this class hold pointer to a node. can then search or move up to parent.
@@ -180,7 +181,7 @@ namespace dsf
 			}
 
 		private:
-			node *node;
+			dsf::xml::node *node;
 		};
 	}
 }

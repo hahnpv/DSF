@@ -22,7 +22,7 @@ namespace dsf
 			
 			// need some way of matching a key to a location, pair?
 
-			std::vector< std::vector< double>>table;	// table out of vectors you got a problem with that? :)
+			std::vector< std::vector< double> > table;	// table out of vectors you got a problem with that? :)
 														// means we dont have to worry about validating size, etc.
 		};
 	}

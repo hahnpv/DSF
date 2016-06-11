@@ -34,7 +34,9 @@ namespace dsf
 		  while (string::npos != pos || string::npos != lastPos)
 			{
 				TClass result;
-				istringstream( str.substr(lastPos, pos - lastPos) ) >> result;
+				istringstream is( str.substr(lastPos, pos - lastPos) );
+				is >> result;
+//2016			istringstream( str.substr(lastPos, pos - lastPos) ) >> result;
 
 			  // Found a token, add it to the vector.
 			  tokens.push_back( result );

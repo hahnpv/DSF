@@ -1,6 +1,7 @@
 #pragma once
-
+#ifdef WINDOWS
 #include <winsock.h>
+
 #include <iostream>
 
 //internalize sockfd
@@ -120,3 +121,4 @@ private:
 	struct sockaddr_in my_addr;    // my address information
     struct sockaddr_in their_addr; // connector's address information
 };
+#endif

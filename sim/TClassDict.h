@@ -56,8 +56,8 @@ namespace dsf
 				int ni = search( compareid);
 				if ( ni >= 0)
 				{
-					cout << "match " << typeid(RClass).name() << "  " << classDict[ni].name() << endl;
-					return (RClass *)classDict[ni]->get();				
+					cout << "match " << typeid(RClass).name() << "  " << classDictPtr[ni].name() << endl;
+					return (RClass *)classDictPtr[ni]->get();				
 				}
 
 				return 0;											/// null pointer
@@ -97,7 +97,7 @@ namespace dsf
 			virtual std::string base()   { return tBase; };							///< Return the name of the base class.
 			virtual BClass * get()    { return obj; };						///< Returns singleton instance 
 			virtual BClass * getnew() { cout << "TClassBase" << endl; return new BClass; };				///< Get a unique copy
-			static  BClass * getStatic() { return static (new BClass); };	///< Get a new static copy (to get into dict)
+			static  BClass * getStatic() { return (new BClass); };	///< Get a new static copy (to get into dict) [TODO NOTE: removed static from return arg due to compiler error]
 		protected:
 			std::string tBase;												///< base class inheritance name.
 			std::string tDerived;											///< derived class inheritance name.
@@ -111,9 +111,9 @@ namespace dsf
 		template<class DClass, class BClass> class TClass : public TClassBase<BClass>
 		{
 		public:
-			BClass * get()			    { return   obj; };							///< Get ptr to obj; not unique DClass
+			BClass * get()			    { return   this->obj; };							///< Get ptr to obj; not unique DClass
 			BClass * getnew()		    {  cout << "TClass" << endl; return new DClass; };						///< Get a unique DClass object ptr
-			static BClass * getStatic() { return (BClass*)(static (new DClass)); };	///< Get a new static copy (to get into dict)
+			static BClass * getStatic() { return (BClass*)((new DClass)); };	///< Get a new static copy (to get into dict) [TODO NOTE: removed static from return arg due to compiler error]
 
 			static TClass<DClass,BClass> * Instance()							///< Create an instance, and add to the TClassDict
 			{
@@ -127,9 +127,9 @@ namespace dsf
 		private:
 			TClass<DClass, BClass>()
 			{
-				tBase    = typeid(BClass).name();
-				tDerived = typeid(DClass).name();
-				obj = new DClass;							// calls constructor, which calls the integrator template, recursion.
+				this->tBase    = typeid(BClass).name();
+				this->tDerived = typeid(DClass).name();
+				this->obj = new DClass;							// calls constructor, which calls the integrator template, recursion.
 			}
 			static TClass<DClass,BClass> * SingletonInstance;						///< Singleton Instance of this
 		};

@@ -12,7 +12,7 @@ namespace dsf
 			std::string name;				///< Node name
 			node *parent;					///< parent of the node.
 			std::vector< node *>child;		///< children of the node.
-			std::vector< std::pair< std::string,std::string>>attributes;	///< vector of key/attribute pairs.
+			std::vector< std::pair< std::string,std::string> >attributes;	///< vector of key/attribute pairs.
 			std::string value;		///< value if <name>value</name> structure.					
 		};
 	}

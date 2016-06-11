@@ -63,7 +63,7 @@ namespace dsf
 				cout << "done " << endl;
 				out->precision(10);		// places after the decimal
 				out->width(10);			// digits to write
-				out->setstate(ios::fixed);
+				//TODO 2016 this causes compiler error out->setstate(ios::fixed);
 				// print title and units.
 				*out <<" Time ";
 				for (unsigned int i=0; i < title.size(); i++)
@@ -138,8 +138,8 @@ namespace dsf
 
 		private:
 			double rate;
-			vector< vector<std::string>>title;
-			vector< vector<std::string>>units;
+			vector< vector<std::string> >title;
+			vector< vector<std::string> >units;
 			vector< double *>doubles;
 			vector< dsf::util::Vec3 *>vectors;
 			vector< dsf::util::Mat3 *>matrices;
