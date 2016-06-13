@@ -41,7 +41,8 @@ namespace dsf
 		/// Returns a pointer to a unique object by searching ID
 		template<class BClass> BClass* TRefUnique(std::string id)
 		{
-			return TClassDict<BClass>::Instance()->Get("class " + id, true);
+//2016 - is this MSVC kludge?			return TClassDict<BClass>::Instance()->Get("class " + id, true);return TClassDict<BClass>::Instance()->Get("class " + id, true);
+			return TClassDict<BClass>::Instance()->Get(id, true);
 		}
 
 		/// Recursively traverses block tree, starting at leaf node, going up until it finds BClass by ID
@@ -50,7 +51,8 @@ namespace dsf
 			for ( unsigned int i = 0; i < b->getChildren().size(); i++)
 			{
 				std::string classid   = boost::core::demangle( typeid(*(b->getChild(i))).name() );
-				std::string compareid = "class " + id;
+				// std::string compareid = "class " + id;
+				std::string compareid = id;
 				if ( classid.compare(compareid) == 0)
 				{
 					return dynamic_cast<DClass*>( b->getChild(i));

@@ -45,7 +45,7 @@ namespace dsf
 				cout << " there are "  << classDictPtr.size() << " elements" << endl;
 				for (unsigned int i=0; i<classDictPtr.size(); i++)
 				{
-					cout << "\t" << classDictPtr[i]->name() << " of base" << classDictPtr->base() << endl;
+					cout << "\t." << classDictPtr[i]->name() << "." << endl;
 					if ( classDictPtr[i]->name().compare( compareid) == 0)
 						return i;
 				}
