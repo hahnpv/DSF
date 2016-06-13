@@ -1,6 +1,10 @@
 cmake_minimum_required (VERSION 2.6)
 project (DSF)
 
+FIND_PACKAGE( Boost 1.50 )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+
+
 # TODO need to make Net platform agnostic
 # add_subdirectory(net)
 add_subdirectory(sim)
@@ -20,7 +24,7 @@ ADD_LIBRARY( DSF STATIC
 )
 
 #TARGET_LINK_LIBRARIES(DSF sim vis util)
-TARGET_LINK_LIBRARIES(DSF sim util)
+TARGET_LINK_LIBRARIES(DSF sim util ${Boost_LIBRARIES} )
 
 SET(CMAKE_C++_CREATE_STATIC_LIBRARY 1)
 SET_TARGET_PROPERTIES(DSF PROPERTIES LINKER_LANGUAGE C)

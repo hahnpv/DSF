@@ -24,7 +24,7 @@ namespace dsf
 		public:
 
 			/// Static method which retrieves the instance.
-			/// If no instance is present, will istantiate one based on template data.
+			/// If no instance is present, will instantiate one based on template data.
 			static TSkedDict<TClass> * Instance()
 			{
 				cout << "TClassDict::Instance" << endl;

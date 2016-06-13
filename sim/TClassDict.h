@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <boost/core/demangle.hpp>
 
 #include "TIntDict.h"		// temporary, eventually make derived classes include as needed
 using namespace std;
@@ -41,23 +42,25 @@ namespace dsf
 
 			int search(std::string compareid)
 			{
+				cout << " there are "  << classDictPtr.size() << " elements" << endl;
 				for (unsigned int i=0; i<classDictPtr.size(); i++)
 				{
+					cout << "\t" << classDictPtr[i]->name() << " of base" << classDictPtr->base() << endl;
 					if ( classDictPtr[i]->name().compare( compareid) == 0)
 						return i;
-				}			
-				cout << " No match for id: " << compareid << " in dictionary " << typeid(BClass).name() << endl;
+				}
+				cout << " No match for id: " << compareid << " in dictionary " << boost::core::demangle( typeid(BClass).name() ) << endl;
 				return -1;
 			}
 
 			template<class RClass> RClass * Get(void)				///< Returns the class in dictionary corresponding to RClass
 			{
-				std::string compareid = typeid(RClass).name();
+				std::string compareid = boost::core::demangle( typeid(RClass).name() );
 				int ni = search( compareid);
 				if ( ni >= 0)
 				{
-					cout << "match " << typeid(RClass).name() << "  " << classDictPtr[ni].name() << endl;
-					return (RClass *)classDictPtr[ni]->get();				
+					cout << "match " << boost::core::demangle( typeid(RClass).name() ) << "  " << classDictPtr[ni].name() << endl;
+					return (RClass *)classDictPtr[ni]->get();
 				}
 
 				return 0;											/// null pointer
@@ -73,7 +76,7 @@ namespace dsf
 					else 
 						return classDictPtr[ni]->get();
 				}
-				
+
 				return 0;											/// null pointer
 			}
 
@@ -95,8 +98,8 @@ namespace dsf
 		public:
 			virtual std::string name()   { return tDerived; };						///< Return the name of the derived class.
 			virtual std::string base()   { return tBase; };							///< Return the name of the base class.
-			virtual BClass * get()    { return obj; };						///< Returns singleton instance 
-			virtual BClass * getnew() { cout << "TClassBase" << endl; return new BClass; };				///< Get a unique copy
+			virtual BClass * get()    	 { return obj; };						///< Returns singleton instance 
+			virtual BClass * getnew() 	 { cout << "TClassBase" << endl; return new BClass; };				///< Get a unique copy
 			static  BClass * getStatic() { return (new BClass); };	///< Get a new static copy (to get into dict) [TODO NOTE: removed static from return arg due to compiler error]
 		protected:
 			std::string tBase;												///< base class inheritance name.
@@ -127,8 +130,8 @@ namespace dsf
 		private:
 			TClass<DClass, BClass>()
 			{
-				this->tBase    = typeid(BClass).name();
-				this->tDerived = typeid(DClass).name();
+				this->tBase    = boost::core::demangle( typeid(BClass).name() );
+				this->tDerived = boost::core::demangle( typeid(DClass).name() );
 				this->obj = new DClass;							// calls constructor, which calls the integrator template, recursion.
 			}
 			static TClass<DClass,BClass> * SingletonInstance;						///< Singleton Instance of this
