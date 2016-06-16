@@ -3,7 +3,6 @@
 #include "../math/Vec3.h"
 #include "../math/Mat3.h"
 #include "../parse.h"	// string splitter
-#include "node.h"
 
 	// don't like the name but brain was crapping out
 	// this class hold pointer to a node. can then search or move up to parent.
@@ -153,15 +152,20 @@ namespace dsf
 
 			/// Searches for a child node, returning the child node if found.
 			/// Otherwise, it returns the *this pointer.
-			xmlnode search( std::string str)
+			xmlnode search(std::string str)
 			{
-				for (unsigned int i=0; i<node->child.size(); i++)
+				for (unsigned int i = 0; i < node->child.size(); i++)
 				{
 					if (node->child[i]->name.compare(str) == 0)
 					{
 						cout << "returning " << node->child[i]->name << endl;
 						return *(node = node->child[i]);
 					}
+				}
+				// 2016 - if node is str return it!
+				if (node->name.compare(str) == 0)
+				{
+					return *node;
 				}
 				cout << "no match found: " << str << endl;
 				return *this;
@@ -181,7 +185,7 @@ namespace dsf
 			}
 
 		private:
-			dsf::xml::node *node;
+			node *node;
 		};
 	}
 }

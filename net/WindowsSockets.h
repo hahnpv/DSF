@@ -1,5 +1,5 @@
 #pragma once
-#ifdef WINDOWS
+
 #include <winsock.h>
 #include <iostream>
 // Handles all of the Windows Sockets stuff (WSAblah)
@@ -16,4 +16,3 @@ void WS_Start()
 		std::cout << "WSAStartup Success!" << std::endl;
 	}
 }
-#endif

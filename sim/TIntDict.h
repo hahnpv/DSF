@@ -91,8 +91,8 @@ namespace dsf
 			std::vector<double*>x;											///< The state vector.
 			std::vector<double>x0;											///< The initial condition of x, set at the beginning of an integration cycle.
 			std::vector<double*>xd;											///< The derivative vector.
-			std::vector< std::vector<double> >xdd;							///< Intermediate integration results.
-			std::vector< TClassBase<TClass > >classDict;					///< The class corresponding to the integrand.
+			std::vector< std::vector<double> > xdd;							///< Intermediate integration results.
+			std::vector<TClassBase<TClass > >classDict;						///< The class corresponding to the integrand.
 			static TClassIntegrandDict<TClass> * SingletonInstance;			///< Singleton Instance.
 		};
 			/// static member initialization for TClassIntegrandDict

@@ -4,7 +4,6 @@
 #include <iostream>
 #include <string>
 #include <boost/core/demangle.hpp>
-
 #include "TIntDict.h"		// temporary, eventually make derived classes include as needed
 using namespace std;
 
@@ -42,10 +41,9 @@ namespace dsf
 
 			int search(std::string compareid)
 			{
-				cout << " there are "  << classDictPtr.size() << " elements" << endl;
 				for (unsigned int i=0; i<classDictPtr.size(); i++)
 				{
-					cout << "\t." << classDictPtr[i]->name() << "." << endl;
+					cout << "member: " << classDictPtr[i]->name() << endl;
 					if ( classDictPtr[i]->name().compare( compareid) == 0)
 						return i;
 				}
@@ -60,7 +58,7 @@ namespace dsf
 				if ( ni >= 0)
 				{
 					cout << "match " << boost::core::demangle( typeid(RClass).name() ) << "  " << classDictPtr[ni].name() << endl;
-					return (RClass *)classDictPtr[ni]->get();
+					return (RClass *)classDictPtr[ni]->get();				
 				}
 
 				return 0;											/// null pointer
@@ -76,7 +74,7 @@ namespace dsf
 					else 
 						return classDictPtr[ni]->get();
 				}
-
+				
 				return 0;											/// null pointer
 			}
 
@@ -98,9 +96,9 @@ namespace dsf
 		public:
 			virtual std::string name()   { return tDerived; };						///< Return the name of the derived class.
 			virtual std::string base()   { return tBase; };							///< Return the name of the base class.
-			virtual BClass * get()    	 { return obj; };						///< Returns singleton instance 
-			virtual BClass * getnew() 	 { cout << "TClassBase" << endl; return new BClass; };				///< Get a unique copy
-			static  BClass * getStatic() { return (new BClass); };	///< Get a new static copy (to get into dict) [TODO NOTE: removed static from return arg due to compiler error]
+			virtual BClass * get()    { return obj; };						///< Returns singleton instance 
+			virtual BClass * getnew() { cout << "TClassBase" << endl; return new BClass; };				///< Get a unique copy
+			static  BClass * getStatic() { return (new BClass); };	///< Get a new static copy (to get into dict)
 		protected:
 			std::string tBase;												///< base class inheritance name.
 			std::string tDerived;											///< derived class inheritance name.
@@ -116,7 +114,7 @@ namespace dsf
 		public:
 			BClass * get()			    { return   this->obj; };							///< Get ptr to obj; not unique DClass
 			BClass * getnew()		    {  cout << "TClass" << endl; return new DClass; };						///< Get a unique DClass object ptr
-			static BClass * getStatic() { return (BClass*)((new DClass)); };	///< Get a new static copy (to get into dict) [TODO NOTE: removed static from return arg due to compiler error]
+			static BClass * getStatic() { return (BClass*)(new DClass); };	///< Get a new static copy (to get into dict)
 
 			static TClass<DClass,BClass> * Instance()							///< Create an instance, and add to the TClassDict
 			{

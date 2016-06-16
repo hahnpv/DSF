@@ -9,7 +9,8 @@ namespace dsf
 		/// \param TClass Class type of the graph.
 		/// \param fpt Pointer to member function
 		template <class TClass> 
-		void TFunctor(std::vector<TClass*> objvec, void(TClass::*fpt)(void)) // 2016 was &objvec
+//MSVC		void TFunctor(std::vector<TClass*> &objvec, void(TClass::*fpt)(void))
+		void TFunctor(std::vector<TClass*>  objvec, void(TClass::*fpt)(void))
 		{
 			for (unsigned int i=0; i < objvec.size(); i++)
 			{
@@ -27,7 +28,8 @@ namespace dsf
 		/// \param fpt Pointer to member function
 		/// \param c Object to pass to fpt
 		template <class TClass, class RClass>
-		void TFunctor(void(TClass::*fpt)(RClass *), std::vector<TClass*> objvec, RClass &c) // 2016 was &objvec
+//MSVC		void TFunctor(void(TClass::*fpt)(RClass *), std::vector<TClass*> &objvec, RClass &c)
+		void TFunctor(void(TClass::*fpt)(RClass *), std::vector<TClass*>  objvec, RClass &c)
 		{
 			for (unsigned int i=0; i < objvec.size(); i++)
 			{

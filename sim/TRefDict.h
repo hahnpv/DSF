@@ -6,7 +6,6 @@
 #include <iostream>
 #include <string>
 #include <boost/core/demangle.hpp>
-
 #include "TClassDict.h"
 
 using namespace std;
@@ -29,7 +28,9 @@ namespace dsf
 		/// Returns a pointer to class obj held by TClassDict by searching ID
 		template<class BClass> BClass * TRef(std::string id)
 		{
-			return TClassDict<BClass>::Instance()->Get("class " + id, false);
+// TODO: #define linux v. msvc
+// MSVC uses this	return TClassDict<BClass>::Instance()->Get("class " + id, false);
+			return TClassDict<BClass>::Instance()->Get( id, false);
 		}
 
 		/// Returns a pointer to class obj held by TClassDict by searching ID, typecast to RClass
@@ -41,8 +42,9 @@ namespace dsf
 		/// Returns a pointer to a unique object by searching ID
 		template<class BClass> BClass* TRefUnique(std::string id)
 		{
-//2016 - is this MSVC kludge?			return TClassDict<BClass>::Instance()->Get("class " + id, true);return TClassDict<BClass>::Instance()->Get("class " + id, true);
-			return TClassDict<BClass>::Instance()->Get(id, true);
+// TODO: #define linux v. msvc
+// MSVC uses this	return TClassDict<BClass>::Instance()->Get("class " + id, true);
+			return TClassDict<BClass>::Instance()->Get( id, true);
 		}
 
 		/// Recursively traverses block tree, starting at leaf node, going up until it finds BClass by ID
@@ -51,7 +53,7 @@ namespace dsf
 			for ( unsigned int i = 0; i < b->getChildren().size(); i++)
 			{
 				std::string classid   = boost::core::demangle( typeid(*(b->getChild(i))).name() );
-				// std::string compareid = "class " + id;
+//MSVC TODO #define 		std::string compareid = "class " + id;
 				std::string compareid = id;
 				if ( classid.compare(compareid) == 0)
 				{
