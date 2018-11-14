@@ -1,2 +1,0 @@
-/usr/bin/ar qc libutil.a  CMakeFiles/util.dir/math/mat3.cpp.o CMakeFiles/util.dir/math/vec3.cpp.o CMakeFiles/util.dir/tbl/tbl.cpp.o CMakeFiles/util.dir/tbl/tbl2d.cpp.o CMakeFiles/util.dir/xml/xml.cpp.o
-/usr/bin/ranlib libutil.a

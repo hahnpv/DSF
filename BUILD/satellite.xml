@@ -1,9 +1,0 @@
-<sim>
-	<configuration dt="0.0001" tmax="86400" />
-	<vehicle name="Guided_Bullet">
-		<position lambda_d="0" l_i="0" h="6378500" />
-		<orientation eulerangles="0,0,0" />
-		<velocity uvw="0,7905.141346,0" />
-		<rates bodyrates="0,0,0" />
-	</vehicle>
-</sim>
