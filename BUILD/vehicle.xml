@@ -1,0 +1,188 @@
+<sim dt="0.0001" tmax="3.5" file="0.01">
+	<vehicle name="Guided_Bullet" id="Vehicle">
+		<rbeom id="OblateEarth" rollingAirframe="false" rpt="0.1" frame="earth">
+			<position lambda_d="0" l_i="0" h="0" />
+			<orientation>0,0.809396,0</orientation>
+			<velocity>500,0,0</velocity>
+			<rates>2573.15,0,0</rates>
+		</rbeom>
+		<aero id="MissileAero" filename="6dofTables.dat" area="0.039" />
+		<mass id="Mass">
+			<mass>1.495</mass>
+			<area>0.039</area>
+			<MOI>0.000311,0,0,0,0.00488,0,0,0,0.00488</MOI>
+		</mass>
+		<vehicle name="Mortar" id="ScriptedTarget" filename="config/6dofMortar3.dat" error="false" rpt="0.1" />
+		<guidance id="SimpleGuidance" rpt="0.1" />
+	</vehicle>
+ 	<atmosphere id="Atmosphere" />
+	<earth id="WGS84" />
+</sim>
+<dummy>
+		<control id="MissileFin" />
+	<vehicle name="Mortar" id="ScriptedTarget" filename="config/6dofMortar3WGS84.dat" error="false" rpt="0.1" />
+	<vehicle name="Guided_Bullet" id="Vehicle">
+		<rbeom id="OblateEarth" rollingAirframe="false" rpt="0.1" frame="earth">
+			<position lambda_d="0" l_i="0" h="0" />
+			<orientation>0,0.809396,0</orientation>
+			<velocity>500,0,0</velocity>
+			<rates>2573.15,0,0</rates>
+		</rbeom>
+		<aero id="MissileAero" filename="6dofTables.dat" area="0.039" />
+		<mass id="Mass">
+			<mass>1.495</mass>
+			<area>0.039</area>
+			<MOI>0.000311,0,0,0,0.00488,0,0,0,0.00488</MOI>
+		</mass>
+		<vehicle name="Mortar" id="ScriptedTarget" filename="config/6dofMortar3.dat" error="false" rpt="0.1" />
+		<guidance id="SimpleGuidance" rpt="0.1" />
+	</vehicle>
+	<vehicle name="Guided_Bullet" id="Vehicle">
+		<rbeom id="FlatEarth" rollingAirframe="false" rpt="0.1">
+			<position>0,0,0</position>
+			<orientation>0,0.809396,0</orientation>
+			<velocity>500,0,0</velocity>
+			<rates>2573.15,0,0</rates>
+		</rbeom>
+		<aero id="MissileAero" filename="6dofTables.dat" area="0.039" />
+		<mass id="Mass">
+			<mass>1.495</mass>
+			<area>0.039</area>
+			<MOI>0.000311,0,0,0,0.00488,0,0,0,0.00488</MOI>
+		</mass>
+		<guidance id="SimpleGuidance" rpt="0.1" />
+		<vehicle name="Mortar" id="ScriptedTarget" filename="config/6dofMortar3.dat" error="false" rpt="0.1" />
+	</vehicle>
+	<vehicle name="Satellite" id="Vehicle">
+		<rbeom id="OblateEarth" rpt="1000" frame="inertial">
+			<position lambda_d="0" l_i="0" h="35786000" />
+			<orientation>0,0,0</orientation>
+			<velocity>0,3074.60,0</velocity>
+			<rates>0,0,0</rates>
+		</rbeom>
+		<aero id="AeroBase" />
+		<mass id="MassBase" />
+	</vehicle>
+	<vehicle name="Guided_Bullet" id="Vehicle">
+		<rbeom id="OblateEarth" rollingAirframe="true" rpt="1." frame="earth">
+			<position lambda_d="0" l_i="0" h="0" />
+			<orientation>0,0.809396,0</orientation>
+			<velocity>500,0,0</velocity>
+			<rates>2573.15,0,0</rates>
+		</rbeom>
+		<aero id="MissileAero" filename="6dofTables.dat" area="0.039" />
+		<mass id="Mass">
+			<mass>1.495</mass>
+			<area>0.039</area>
+			<MOI>0.000311,0,0,0,0.00488,0,0,0,0.00488</MOI>
+		</mass>
+	</vehicle>
+	<vehicle name="Satellite" id="Vehicle">
+		<rbeom id="OblateEarth" rpt="1000">
+			<position lambda_d="0" l_i="0" h="35786000" />
+			<orientation>0,0,0</orientation>
+			<velocity>0,3074.60,0</velocity>
+			<rates>0,0,0</rates>
+		</rbeom>
+		<aero id="AeroBase" />
+		<mass id="MassBase" />
+	</vehicle>
+	<vehicle name="Guided_Bullet" id="Vehicle">
+		<rbeom id="OblateEarth" rollingAirframe="true" rpt="1.">
+			<position lambda_d="0" l_i="0" h="0" />
+			<orientation>0,0.809396,0</orientation>
+			<velocity>500,0,0</velocity>
+			<rates>2573.15,0,0</rates>
+		</rbeom>
+		<aero id="MissileAero" filename="6dofTables.dat" area="0.039" />
+		<mass id="Mass">
+			<mass>1.495</mass>
+			<area>0.039</area>
+			<MOI>0.000311,0,0,0,0.00488,0,0,0,0.00488</MOI>
+		</mass>
+	</vehicle>
+	<vehicle name="ISS_Reentry_100msdv" id="Vehicle">
+		<rbeom id="OblateEarth" rpt="900." >
+			<position lambda_d="0.901385" l_i="0" h="354000" />
+			<orientation>0,0,0</orientation>
+			<velocity>0,7591.071809,0</velocity>
+			<rates>0,0,0</rates>
+		</rbeom>
+		<aero id="ReentryAero" CdS="10." />
+		<mass id="MassBase" />
+	</vehicle>
+	<vehicle name="Guided_Bullet" id="Vehicle">
+		<rbeom id="FlatEarth" rollingAirframe="false" rpt="0.1">
+			<position>0,0,0</position>
+			<orientation>0,0.809396,0</orientation>
+			<velocity>500,0,0</velocity>
+			<rates>2573.15,0,0</rates>
+		</rbeom>
+		<aero id="MissileAero" filename="6dofTables.dat" area="0.039" />
+		<mass id="Mass">
+			<mass>1.495</mass>
+			<area>0.039</area>
+			<MOI>0.000311,0,0,0,0.00488,0,0,0,0.00488</MOI>
+		</mass>
+		<guidance id="SimpleGuidance" rpt="0.1" />
+		<vehicle name="Mortar" id="ScriptedTarget" filename="config/6dofMortar3.dat" error="false" rpt="0.1" />
+	</vehicle>
+	<vehicle name="ISS" id="Vehicle">
+		<rbeom id="OblateEarth">
+			<position lambda_d="0.901385" l_i="0" h="354000" />
+			<orientation>0,0,0</orientation>
+			<velocity>0,7691.071809,0</velocity>
+			<rates>0,0,0</rates>
+		</rbeom>
+		<aero id="AeroBase" />
+		<mass id="ConstMass" />
+	</vehicle>
+	<vehicle name="Guided_Bullet" id="Vehicle">
+		<rbeom id="FlatEarth">
+			<position>0,0,0</position>
+			<orientation>0,0.809396,0</orientation>
+			<velocity>500,0,0</velocity>
+			<rates>2573.15,0,0</rates>
+		</rbeom>
+		<aero id="MissileAero" filename="6dofTables.dat" area="0.039" />
+		<mass id="Mass">
+			<mass>1.495</mass>
+			<area>0.039</area>
+			<MOI>0.000311,0,0,0,0.00488,0,0,0,0.00488</MOI>
+		</mass>
+		<guidance id="SimpleGuidance" />
+		<vehicle name="Mortar" id="ScriptedTarget" filename="config/6dofMortar3.dat" error="false"/>
+	</vehicle>
+		<guidance id="SimpleGuidance" />
+		<vehicle name="Mortar" id="ScriptedTarget" filename="config/6dofMortar3.dat" error="false"/>
+	<earth id="WGS84" />
+	<vehicle name="Satellite" id="Vehicle">
+		<rbeom id="OblateEarth">
+			<position lambda_d="0" l_i="0" h="35786000" />
+			<orientation>0,0,0</orientation>
+			<velocity>0,3074.60,0</velocity>
+			<rates>0,0,0</rates>
+		</rbeom>
+		<aero id="AeroBase" />
+		<mass id="MassBase" />
+	</vehicle>
+</dummy>
+<visualization>
+	<actor name="Guided_Bullet" model="bullet.osg">
+		<data>
+			<file>visualize40s.csv</file>
+			<position>1,2,3</position>
+			<orientation>4,5,6</orientation>
+		</data>
+	</actor>
+	<actor name="WGS84" model="wgs84sphere.osg" >
+		<static>
+			<position>0,0,0</position>
+			<orientation>0,0,0</orientation>
+		</static>
+	</actor>
+	<cameras>
+		<camera type="static" name="Ground" target="Guided_Bullet" position="6378140,-5,0" />
+		<camera type="orbit" name="Orbit" target="Guided_Bullet" />
+	</cameras>
+</visualization>

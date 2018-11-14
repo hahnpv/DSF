@@ -1,0 +1,173 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Source Files\Models">
+      <UniqueIdentifier>{57108615-fc23-4747-ac48-8a9b45f9f4c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Header Files\XML Input">
+      <UniqueIdentifier>{a067178d-8203-4072-b9b5-5227754a6a87}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Models">
+      <UniqueIdentifier>{47b37fe9-ef95-473b-94b4-8b3c66d44f71}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Models\Base Models">
+      <UniqueIdentifier>{1250bad9-ee1c-40a7-a567-473f1eeadfaf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Models\Base Models">
+      <UniqueIdentifier>{6e4aa662-6a25-498a-8033-b4bf06d3c35a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Models\Thesis GN&amp;C">
+      <UniqueIdentifier>{c17b3f51-b203-4eb3-a47a-e70ffb54b692}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Models\Thesis GN&amp;C">
+      <UniqueIdentifier>{1645e255-02b9-4472-ad6e-29f3a2c7c58d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="atmosphere.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="mass.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="stage_mass.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="wgs84.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="OblateEarth.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="vehicle.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="FlatEarth.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="scriptedtarget.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="squib.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AeroBase.cpp">
+      <Filter>Source Files\Models\Base Models</Filter>
+    </ClCompile>
+    <ClCompile Include="AtmosBase.cpp">
+      <Filter>Source Files\Models\Base Models</Filter>
+    </ClCompile>
+    <ClCompile Include="EarthBase.cpp">
+      <Filter>Source Files\Models\Base Models</Filter>
+    </ClCompile>
+    <ClCompile Include="MassBase.cpp">
+      <Filter>Source Files\Models\Base Models</Filter>
+    </ClCompile>
+    <ClCompile Include="MissileAero.cpp">
+      <Filter>Source Files\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="ReentryAero.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RocketProp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PropBase.cpp">
+      <Filter>Source Files\Models\Base Models</Filter>
+    </ClCompile>
+    <ClCompile Include="linear.cpp">
+      <Filter>Source Files\Models\Thesis GN&amp;C</Filter>
+    </ClCompile>
+    <ClCompile Include="simpleguidance.cpp">
+      <Filter>Source Files\Models\Thesis GN&amp;C</Filter>
+    </ClCompile>
+    <ClCompile Include="MissileFin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="MassInput.h">
+      <Filter>Header Files\XML Input</Filter>
+    </ClInclude>
+    <ClInclude Include="SimInput.h">
+      <Filter>Header Files\XML Input</Filter>
+    </ClInclude>
+    <ClInclude Include="atmosphere.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="component.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="mass.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="stage_mass.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="wgs84.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="OblateEarth.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="vehicle.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="FlatEarth.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="scriptedtarget.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="squib.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="AeroBase.h">
+      <Filter>Header Files\Models\Base Models</Filter>
+    </ClInclude>
+    <ClInclude Include="AtmosBase.h">
+      <Filter>Header Files\Models\Base Models</Filter>
+    </ClInclude>
+    <ClInclude Include="EarthBase.h">
+      <Filter>Header Files\Models\Base Models</Filter>
+    </ClInclude>
+    <ClInclude Include="MassBase.h">
+      <Filter>Header Files\Models\Base Models</Filter>
+    </ClInclude>
+    <ClInclude Include="MissileAero.h">
+      <Filter>Header Files\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="ReentryAero.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RocketProp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="linear.h">
+      <Filter>Header Files\Models\Thesis GN&amp;C</Filter>
+    </ClInclude>
+    <ClInclude Include="simpleguidance.h">
+      <Filter>Header Files\Models\Thesis GN&amp;C</Filter>
+    </ClInclude>
+    <ClInclude Include="PropBase.h">
+      <Filter>Header Files\Models\Base Models</Filter>
+    </ClInclude>
+    <ClInclude Include="MissileFin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Interfaces.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

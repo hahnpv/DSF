@@ -3,28 +3,33 @@ project (DSF)
 
 FIND_PACKAGE( Boost 1.50 )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
-
+INCLUDE_DIRECTORIES(DSF)
 
 # TODO need to make Net platform agnostic
-# add_subdirectory(net)
-add_subdirectory(sim)
-#add_subdirectory(vis)
-add_subdirectory(util)
+# add_subdirectory(DSV/net)
+add_subdirectory(DSF/sim)
+#add_subdirectory(DSF/vis)
+add_subdirectory(DSF/util)
+add_subdirectory(examples/sixdof)
 
 ADD_LIBRARY( DSF STATIC
-  sim/integratorRK4.cpp
-  sim/sim.cpp
-  util/math/mat3.cpp
-  util/math/vec3.cpp
-  util/tbl/tbl.cpp
-  util/tbl/tbl2d.cpp
-  util/xml/xml.cpp
-#  vis/MainWindow.cpp
-#  vis/render.cpp
+  DSF/sim/integratorRK4.cpp
+  DSF/sim/sim.cpp
+  DSF/util/math/mat3.cpp
+  DSF/util/math/vec3.cpp
+  DSF/util/tbl/tbl.cpp
+  DSF/util/tbl/tbl2d.cpp
+  DSF/util/xml/xml.cpp
+#  DSF/vis/MainWindow.cpp
+#  DSF/vis/render.cpp
 )
+
+
+ADD_EXECUTABLE(sixdof examples/sixdof/main.cpp)
 
 #TARGET_LINK_LIBRARIES(DSF sim vis util)
 TARGET_LINK_LIBRARIES(DSF sim util ${Boost_LIBRARIES} )
+TARGET_LINK_LIBRARIES(sixdof DSF  ${Boost_LIBRARIES} )
 
 SET(CMAKE_C++_CREATE_STATIC_LIBRARY 1)
 SET_TARGET_PROPERTIES(DSF PROPERTIES LINKER_LANGUAGE C)

@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{D40A5ABE-D4BD-44F9-AF35-2B49B166FFFF}</ProjectGuid>
+    <RootNamespace>simulation</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../dsf/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>dsftoolkit.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../Debug/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>..\dsf;D:\Documents and Settings\hahnpv\My Documents\Visual Studio 2008\Projects\DSFToolkit\dsf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="AeroBase.cpp" />
+    <ClCompile Include="AtmosBase.cpp" />
+    <ClCompile Include="EarthBase.cpp" />
+    <ClCompile Include="FlatEarth.cpp" />
+    <ClCompile Include="linear.cpp" />
+    <ClCompile Include="MassBase.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="MissileFin.cpp" />
+    <ClCompile Include="PropBase.cpp" />
+    <ClCompile Include="ReentryAero.cpp" />
+    <ClCompile Include="RocketProp.cpp" />
+    <ClCompile Include="scriptedtarget.cpp" />
+    <ClCompile Include="simpleguidance.cpp" />
+    <ClCompile Include="squib.cpp" />
+    <ClCompile Include="vehicle.cpp" />
+    <ClCompile Include="MissileAero.cpp" />
+    <ClCompile Include="atmosphere.cpp" />
+    <ClCompile Include="mass.cpp" />
+    <ClCompile Include="OblateEarth.cpp" />
+    <ClCompile Include="stage_mass.cpp" />
+    <ClCompile Include="wgs84.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AeroBase.h" />
+    <ClInclude Include="AtmosBase.h" />
+    <ClInclude Include="EarthBase.h" />
+    <ClInclude Include="FlatEarth.h" />
+    <ClInclude Include="Interfaces.h" />
+    <ClInclude Include="linear.h" />
+    <ClInclude Include="MassBase.h" />
+    <ClInclude Include="MissileFin.h" />
+    <ClInclude Include="PropBase.h" />
+    <ClInclude Include="ReentryAero.h" />
+    <ClInclude Include="RocketProp.h" />
+    <ClInclude Include="scriptedtarget.h" />
+    <ClInclude Include="simpleguidance.h" />
+    <ClInclude Include="squib.h" />
+    <ClInclude Include="vehicle.h" />
+    <ClInclude Include="MassInput.h" />
+    <ClInclude Include="SimInput.h" />
+    <ClInclude Include="MissileAero.h" />
+    <ClInclude Include="atmosphere.h" />
+    <ClInclude Include="component.h" />
+    <ClInclude Include="mass.h" />
+    <ClInclude Include="OblateEarth.h" />
+    <ClInclude Include="stage_mass.h" />
+    <ClInclude Include="wgs84.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DSFToolkit.vcxproj">
+      <Project>{612fbdc6-a628-4e55-8bed-93896e5f8f64}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
