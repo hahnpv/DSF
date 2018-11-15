@@ -1,5 +1,0 @@
-<map id="dsf::sim::Block" name="dsf::sim::Block">
-<area shape="rect" id="node2" href="$classdsf_1_1sim_1_1Output.html" title="dsf::sim::Output" alt="" coords="5,80,121,107"/>
-<area shape="rect" id="node3" href="$classdsf_1_1vis_1_1VisMonitor.html" title="dsf::vis::VisMonitor" alt="" coords="145,80,280,107"/>
-<area shape="rect" id="node4" href="$classnetmon.html" title="netmon" alt="" coords="304,80,369,107"/>
-</map>

@@ -1,4 +1,4 @@
-<sim dt="0.0001" tmax="3.5" file="0.01">
+<sim dt="0.0001" tmax="3.5" file="0.01" library="./examples/sixdof/libsixdofsrc.so">
 	<vehicle name="Guided_Bullet" id="Vehicle">
 		<rbeom id="OblateEarth" rollingAirframe="false" rpt="0.1" frame="earth">
 			<position lambda_d="0" l_i="0" h="0" />

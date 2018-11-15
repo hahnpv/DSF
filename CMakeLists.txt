@@ -27,13 +27,12 @@ ADD_LIBRARY( DSF SHARED
 #  DSF/vis/render.cpp
 )
 
-ADD_EXECUTABLE(sixdof examples/sixdof/main.cpp)
+ADD_EXECUTABLE(sixdof       examples/dynamic/main.cpp)
+ADD_EXECUTABLE(staticsixdof examples/static/main.cpp)
 
 TARGET_LINK_LIBRARIES(DSF sim util ${Boost_LIBRARIES} )
-
-SET(MY_TEST_LINK -Wl, --whole-archive sixdofsrc -Wl, --no-whole-archive)
-#TARGET_LINK_LIBRARIES(sixdof DSF  ${Boost_LIBRARIES} ${MY_TEST_LINK})
 TARGET_LINK_LIBRARIES(sixdof DSF dl ${Boost_LIBRARIES})
+TARGET_LINK_LIBRARIES(staticsixdof DSF dl ${Boost_LIBRARIES})
 
 SET(CMAKE_C++_CREATE_STATIC_LIBRARY 1)
 SET_TARGET_PROPERTIES(DSF PROPERTIES LINKER_LANGUAGE C)

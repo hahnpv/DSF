@@ -5,7 +5,6 @@ set(sixdof_source_files
  EarthBase.cpp
  FlatEarth.cpp
  linear.cpp
- main.cpp
  MassBase.cpp
  mass.cpp
  MissileAero.cpp

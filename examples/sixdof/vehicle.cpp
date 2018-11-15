@@ -42,5 +42,4 @@ void Vehicle::configure(dsf::xml::xmlnode n)
 			mass_interface.push_back( m);
 		}
 	}
-	cin.get();
 }

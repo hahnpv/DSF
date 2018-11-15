@@ -3,6 +3,7 @@
 #include "sim/block.h"
 #include "Interfaces.h"
 
+	// FIXME
 	template <class TClass, class RType> 
 	RType aggregate(std::vector<TClass*> &objvec, RType(TClass::*fpt)(void))
 	{
@@ -28,20 +29,20 @@ public:
 	//			dsf::util::TFunctor<Block>(simulation, &Block::init);
 
 
-	dsf::util::Vec3 force()  
-	{/*
+	dsf::util::Vec3 force()
+	{
+		std::cout << "number of forces and moments: " << force_moment.size() << std::endl;
 		Vec3 force(0,0,0);
 		for (int i = 0; i < force_moment.size(); i++)
 		{
 			force += force_moment[i]->force();
 		}
 		return force;
-		*/
-		Vec3 force = aggregate<ForceAndMoment, Vec3>(force_moment, &ForceAndMoment::force);
-		return force;
+//		Vec3 force = aggregate<ForceAndMoment, Vec3>(force_moment, &ForceAndMoment::force);
+//		return force;
 	}
 
-	dsf::util::Vec3 moment() 
+	dsf::util::Vec3 moment()
 	{
 		Vec3 moment(0,0,0);
 		for (int i = 0; i < force_moment.size(); i++)
@@ -51,8 +52,8 @@ public:
 		return moment;
 	};
 
-	dsf::util::Mat3 MOI() 
-	{ 
+	dsf::util::Mat3 MOI()
+	{
 		Mat3 I;
 		for (int i = 0; i < mass_interface.size(); i++)
 		{
@@ -60,14 +61,14 @@ public:
 		}
 		return I;
 	};
-	double m()			 
+	double m()
 	{
 		double _m = 0.;
 		for (int i = 0; i < mass_interface.size(); i++)
 		{
 			_m += mass_interface[i]->m();
 		}
-		return _m; 
+		return _m;
 	};
 
 	std::vector< ForceAndMoment*> force_moment;

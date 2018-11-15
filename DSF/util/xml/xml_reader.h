@@ -40,7 +40,7 @@ namespace dsf
 					// tab node
 					for (int k=0; k<=j; k++)
 						cout << " ";
-					
+
 					// print node
 					cout << "node: " << n->child[i]->name << endl;
 
@@ -64,6 +64,6 @@ namespace dsf
 		private:
 			int j;			///< tab space counter.
 			xml *XML;		///< XML Hierarchy.
-		};		
+		};
 	}
 }
