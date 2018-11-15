@@ -1,1 +1,7 @@
-TODO: Static linking example. Build a simulation model in code without XML.
+STATIC
+
+Static linking example, using XML.
+
+TODO
+
+Static linking example, manually crafted in code w/o XML.

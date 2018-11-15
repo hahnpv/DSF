@@ -13,8 +13,13 @@ add_subdirectory(DSF/sim)
 #add_subdirectory(DSV/net)
 #add_subdirectory(DSF/vis)
 add_subdirectory(DSF/util)
-add_subdirectory(examples/sixdof)
 
+# Add examples
+add_subdirectory(examples/sixdof)		# 6DOF Library (shared object)
+add_subdirectory(examples/static)		# Staticly compiled 6DOF executable
+add_subdirectory(examples/dynamic)		# Dynamic DSF executable (loads any shared object library)
+
+# Create DSF library
 ADD_LIBRARY( DSF SHARED
   DSF/sim/integratorRK4.cpp
   DSF/sim/sim.cpp
@@ -27,13 +32,8 @@ ADD_LIBRARY( DSF SHARED
 #  DSF/vis/render.cpp
 )
 
-ADD_EXECUTABLE(sixdof       examples/dynamic/main.cpp)
-ADD_EXECUTABLE(staticsixdof examples/static/main.cpp)
 
 TARGET_LINK_LIBRARIES(DSF sim util ${Boost_LIBRARIES} )
-TARGET_LINK_LIBRARIES(sixdof DSF dl ${Boost_LIBRARIES})
-TARGET_LINK_LIBRARIES(staticsixdof DSF dl ${Boost_LIBRARIES})
-
 SET(CMAKE_C++_CREATE_STATIC_LIBRARY 1)
 SET_TARGET_PROPERTIES(DSF PROPERTIES LINKER_LANGUAGE C)
 
@@ -44,6 +44,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
 #SET_TARGET_PROPERTIES(DSF PROPERTIES LINKER_LANGUAGE C)
 
 
+# Generate documentation
 FIND_PACKAGE(Doxygen)
 IF (DOXYGEN_FOUND)
 SET(DOXYGEN_INPUT Doxyfile.in)

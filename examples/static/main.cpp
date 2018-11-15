@@ -1,65 +1,75 @@
 #include <time.h>
 
+#include "SimInput.h"
 #include "sim/sim.h"
+#include "sim/TRefDict.h"
+#include "util/xml/xml.h"
 
-#include "../sixdof/vehicle.h"
-#include "../sixdof/AeroBase.h"
-#include "../sixdof/OblateEarth.h"
-#include "../sixdof/MassBase.h"
-#include "../sixdof/wgs84.h"
+#include "boost/program_options.hpp"
+namespace po = boost::program_options;
+
 using namespace dsf::sim;
+using namespace dsf::xml;
+
+// FIXME relocate to DSF with SimInput
+
+po::variables_map add_program_options(int argc, char * argv[])
+{
+        // program option variable map
+        po::options_description desc("Command Line Parameters:");
+        desc.add_options()
+                ("fname", po::value<std::string>(),  "XML configuration file")
+                ;
+
+        po::positional_options_description p;
+        p.add("fname", 1);
+
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+        po::notify(vm);
+
+        if (argc <= 1)
+        {
+                cout << desc << endl;
+                cout << "This program parses an XML file to build a simulation" << endl
+                        << "(future versions will allow command-line overrides)" << endl
+                        << endl
+                        << "hahnpv@gmail.com" << endl;
+        }
+
+        return vm;
+}
 
 int main(int argc, char *argv[])
 {
-	// FIXME: staticly created simulation
-	// FIXME: you can't currently do this!
+        po::variables_map vm = add_program_options(argc, argv);
+        if (argc <= 1)
+                return 0;
 
-		// Create simulation
-	double dt = 0.1;		// seconds
-	double tmax = 86400;		// seconds
-	double rateConsole = 100;	// seconds
-	double rateFile    =  10;	// seconds
-	Block * root = new Block;
+        xml xmlinput(vm["fname"].as<std::string>().c_str());
+	xmlinput.parse();
+	xmlnode n = xmlnode(*xmlinput.xmlRoot).search("sim");
+        SimInput input( n);
+
+		// Instantiate classes
+        Block * root = new Block;
+	int nx = n.numchild();
+	for ( int i = 0; i < nx; i++)
+	{
+		root->addChild( TRefUnique<Block>( n.child( i).attrAsString("id")));
+		n.parent();
+	}
+	for ( int i = 0; i < nx; i++)
+	{
+		n.child( i).attrAsString("id");
+		root->getChild(i)->configure( n);
+		n.parent();
+	}
 
 		// Instantiate simulation
 	Sim *sim = new Sim();
-	sim->load(root, dt, tmax, rateConsole, rateFile);
+	sim->load(root, input.dt(), input.tmax(), input.rateConsole(), input.rateFile());
 	sim->run();
 
 	return 0;
 }
-
-/*
-Root node: xmlRoot
- node: sim
-  dt 0.1
-  tmax 86400
-  file 10.0
-  library ./examples/sixdof/libsixdofsrc.so
-  node: vehicle
-   name Satellite
-   id Vehicle
-   node: rbeom
-    id OblateEarth
-    rollingAirframe false
-    rpt 10.0
-    frame earth
-    orientation 0.,0.,0. orientation
-    velocity 0.,7905.141346,0. velocity
-    rates 0.,0.,0. rates
-    node: position
-     lambda_d 0
-     l_i 0
-     h 6378500
-   node: aero
-    id AeroBase
-   node: mass
-    id Mass
-    mass 50000 mass
-    area 1.0 area
-    MOI 1,0,0,0,1,0,0,0,1 MOI
-  node: atmosphere
-   id Atmosphere
-  node: earth
-   id WGS84
-*/
