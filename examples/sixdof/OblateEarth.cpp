@@ -44,8 +44,8 @@ void OblateEarth::configure(dsf::xml::xmlnode n)
 	std::string frame = (n = vehiclen).search("rbeom").attrAsString("frame");
 
 	aero  = TRefSim<Block,  AeroBase>(parent, aeroblock);
-	atmos = TRefSim<Block, AtmosBase>(parent, atmosblock);
-	e     = TRefSim<Block,     WGS84>(parent, earthblock);
+	atmos = TRefSim<Block, AtmosBase>(parent->getParent(), atmosblock);
+	e     = TRefSim<Block,     WGS84>(parent->getParent(), earthblock);
 
 	(n = vehiclen).search("rbeom");
 	uvw   = n.attrAsVec3("velocity");
@@ -81,6 +81,8 @@ void OblateEarth::configure(dsf::xml::xmlnode n)
 		cin.get();
 	}
 
+        cout << "lla: " << p.lambda_d << " " << p.l_i << " " << p.h << endl;
+        cout << "euler: " << euler << endl;
 	cout << "xyz: " << xyz << endl;
 	cout << "uvw: " << uvw << endl;
 	cout << "pqr: " << pqr << endl;

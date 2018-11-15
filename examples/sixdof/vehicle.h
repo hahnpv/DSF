@@ -31,7 +31,6 @@ public:
 
 	dsf::util::Vec3 force()
 	{
-		std::cout << "number of forces and moments: " << force_moment.size() << std::endl;
 		Vec3 force(0,0,0);
 		for (int i = 0; i < force_moment.size(); i++)
 		{

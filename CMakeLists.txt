@@ -6,7 +6,8 @@ FIND_PACKAGE( Boost 1.50 COMPONENTS program_options REQUIRED)
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 INCLUDE_DIRECTORIES(DSF)
 
-SET(CMAKE_BUILD_TYPE RelWithDebInfo) # release build with debug symbols
+#SET(CMAKE_BUILD_TYPE RelWithDebInfo) # release build with debug symbols
+SET(CMAKE_BUILD_TYPE Debug)
 
 # TODO need to make Net platform agnostic
 add_subdirectory(DSF/sim)

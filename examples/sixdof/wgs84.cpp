@@ -27,13 +27,13 @@ Block* WGS84::block = TClass<WGS84,Block>::Instance()->getStatic();
 
 WGS84::WGS84()
 {
-	a = 6378137.0;					///< Semi-major Axis
+	a = 6378137.0;				///< Semi-major Axis
 	f = (a - 6356752.31) / a;		///< Flattening Parameter
 
 	GM    =  3.986005E14;			///< Gravitational Parameter, earth.
 	C_2_0 = -4.841668E-4;			///< Gravitational Parameter, WGS84, earth.
 
-	w_earth  = (2*PI)/86164.09054;	///< Sidereal rotation rate of the earth; rad/second
+	w_earth  = (2*PI)/86164.09054;		///< Sidereal rotation rate of the earth; rad/second
 	w_e_i(0, 0, w_earth);			///< Sidereal rotation rate of the earth; wrt [I] frame, rad/second
 }
 
@@ -72,7 +72,7 @@ Mat3 WGS84::T_d_i(Position p)
 }
 
 	/// Geographic to Geodetic Transformation Matrix
-Mat3 WGS84::T_d_g(Position p) 
+Mat3 WGS84::T_d_g(Position p)
 {
 	double delta = p.delta;
 	return Mat3( cos(delta), 0, sin(delta),
@@ -168,7 +168,7 @@ Vec3 WGS84::gravity(Vec3 xyz, Position p)
 	Vec3 g = Vec3( -3*sqrt(5.0)*C_2_0*pow(a/xyz.mag(),2)*sin(p.lambda_c)*cos(p.lambda_c),	
 			0,
 	        1 + (3/2)*sqrt(5.0)*C_2_0*pow(a/xyz.mag(),2)*(3*pow(sin(p.lambda_c),2)-1));
-	
+
 	g *= GM/pow(xyz.mag(),2);
 
 	return g;
@@ -177,7 +177,7 @@ Vec3 WGS84::gravity(Vec3 xyz, Position p)
 	/// Bulds the Inertial positon vector as a function of latitude, longitude and altitude.
 Vec3 WGS84::InitXYZ(Position p) 
 {
-    p.R_0   = a * ( 1 - (f/2) * (1 - cos( 2 * p.lambda_d ) + (( 5*pow(f,2) )/16)*(1-cos(4*p.lambda_d)))); 
+	p.R_0   = a * ( 1 - (f/2) * (1 - cos( 2 * p.lambda_d ) + (( 5*pow(f,2) )/16)*(1-cos(4*p.lambda_d)))); 
 	p.delta = f * sin(2 * p.lambda_d) * ( 1 - (f/2) - (p.h/p.R_0));
 	Mat3 T_i_g = T_d_i(p).inv() * T_d_g(p);
 	return T_i_g * Vec3(0, 0, -(p.h + p.R_0));
