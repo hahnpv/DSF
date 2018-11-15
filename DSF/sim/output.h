@@ -46,7 +46,7 @@ namespace dsf
 				{
 					*out << ", " << (*vectors[i]).x << ", " << (*vectors[i]).y << ", " << (*vectors[i]).z;
 				}
-				
+
 				// matrices
 				for (unsigned int i=0; i < matrices.size(); i++)
 				{
@@ -110,7 +110,7 @@ namespace dsf
 
 			void finalize()
 			{
-				out->close(); 
+				out->close();
 			};
 
 			// accessors with title and units

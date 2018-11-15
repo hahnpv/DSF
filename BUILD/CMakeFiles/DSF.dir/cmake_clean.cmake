@@ -7,7 +7,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/DSF.dir/DSF/util/tbl/tbl2d.cpp.o"
   "CMakeFiles/DSF.dir/DSF/util/xml/xml.cpp.o"
   "libDSF.pdb"
-  "libDSF.a"
+  "libDSF.so"
 )
 
 # Per-language clean rules from dependency scanning.

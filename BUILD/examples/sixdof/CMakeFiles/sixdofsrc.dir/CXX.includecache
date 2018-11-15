@@ -393,6 +393,8 @@ util/xml/xml.h
 /home/hahnpv/git/DSF/examples/sixdof/util/xml/xml.h
 util/xml/xmlnode.h
 /home/hahnpv/git/DSF/examples/sixdof/util/xml/xmlnode.h
+string
+-
 
 /home/hahnpv/git/DSF/examples/sixdof/atmosphere.cpp
 atmosphere.h
@@ -443,6 +445,8 @@ complex
 /home/hahnpv/git/DSF/examples/sixdof/main.cpp
 time.h
 -
+dlfcn.h
+-
 SimInput.h
 /home/hahnpv/git/DSF/examples/sixdof/SimInput.h
 sim/sim.h
@@ -451,6 +455,8 @@ sim/TRefDict.h
 /home/hahnpv/git/DSF/examples/sixdof/sim/TRefDict.h
 util/xml/xml.h
 /home/hahnpv/git/DSF/examples/sixdof/util/xml/xml.h
+boost/program_options.hpp
+/home/hahnpv/git/DSF/examples/sixdof/boost/program_options.hpp
 
 /home/hahnpv/git/DSF/examples/sixdof/mass.cpp
 mass.h

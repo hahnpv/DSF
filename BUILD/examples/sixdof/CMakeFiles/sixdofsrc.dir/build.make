@@ -588,35 +588,38 @@ sixdofsrc_OBJECTS = \
 # External object files for target sixdofsrc
 sixdofsrc_EXTERNAL_OBJECTS =
 
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/AeroBase.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/AtmosBase.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/atmosphere.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/EarthBase.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/FlatEarth.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/linear.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/main.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/MassBase.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/mass.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/MissileAero.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/MissileFin.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/OblateEarth.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/PropBase.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/ReentryAero.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/RocketProp.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/scriptedtarget.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/simpleguidance.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/squib.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/stage_mass.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/vehicle.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/wgs84.cpp.o
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/build.make
-examples/sixdof/libsixdofsrc.a: examples/sixdof/CMakeFiles/sixdofsrc.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/hahnpv/git/DSF/BUILD/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Linking C static library libsixdofsrc.a"
-	cd /home/hahnpv/git/DSF/BUILD/examples/sixdof && $(CMAKE_COMMAND) -P CMakeFiles/sixdofsrc.dir/cmake_clean_target.cmake
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/AeroBase.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/AtmosBase.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/atmosphere.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/EarthBase.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/FlatEarth.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/linear.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/main.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/MassBase.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/mass.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/MissileAero.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/MissileFin.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/OblateEarth.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/PropBase.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/ReentryAero.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/RocketProp.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/scriptedtarget.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/simpleguidance.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/squib.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/stage_mass.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/vehicle.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/wgs84.cpp.o
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/build.make
+examples/sixdof/libsixdofsrc.so: libDSF.so
+examples/sixdof/libsixdofsrc.so: DSF/sim/libsim.a
+examples/sixdof/libsixdofsrc.so: DSF/util/libutil.a
+examples/sixdof/libsixdofsrc.so: /usr/lib/x86_64-linux-gnu/libboost_program_options.so
+examples/sixdof/libsixdofsrc.so: examples/sixdof/CMakeFiles/sixdofsrc.dir/link.txt
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/hahnpv/git/DSF/BUILD/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Linking C shared library libsixdofsrc.so"
 	cd /home/hahnpv/git/DSF/BUILD/examples/sixdof && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/sixdofsrc.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
-examples/sixdof/CMakeFiles/sixdofsrc.dir/build: examples/sixdof/libsixdofsrc.a
+examples/sixdof/CMakeFiles/sixdofsrc.dir/build: examples/sixdof/libsixdofsrc.so
 
 .PHONY : examples/sixdof/CMakeFiles/sixdofsrc.dir/build
 

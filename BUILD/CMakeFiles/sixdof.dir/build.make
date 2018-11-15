@@ -90,7 +90,8 @@ sixdof_EXTERNAL_OBJECTS =
 
 sixdof: CMakeFiles/sixdof.dir/examples/sixdof/main.cpp.o
 sixdof: CMakeFiles/sixdof.dir/build.make
-sixdof: libDSF.a
+sixdof: libDSF.so
+sixdof: /usr/lib/x86_64-linux-gnu/libboost_program_options.so
 sixdof: DSF/sim/libsim.a
 sixdof: DSF/util/libutil.a
 sixdof: CMakeFiles/sixdof.dir/link.txt

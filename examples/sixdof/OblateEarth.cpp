@@ -117,14 +117,14 @@ void OblateEarth::init(void)
 	// i/o resolution
 	// need to group by some reference # or have a dict that points to unique class instantiation
 	// so that the data is grouped by vehicle. Right now spits out by type ...
-	o->add(p.h,			"Altitude",			"m");
+	o->add(p.h,		"Altitude",		"m");
 	o->add(xyz_e,		"Earth XYZ",		"m");
 //	o->add(xyz_d,		"XYZ (geodetic)",	"m");
 //	o->add(uvw,			"Velocity",			"m/s");
 	o->add(uvw_b,		"Velocity; Body",	"m/s");
 	o->add(p.l_i,		"Longitude",		"rad");
 	o->add(p.l_i_earth,	"Earth Longitude",	"rad");
-	o->add(p.lambda_d,	"Latitude",			"rad");
+	o->add(p.lambda_d,	"Latitude",		"rad");
 //	o->add(dudvdw,      "Acceleration",     "m/s^2");
 }
 

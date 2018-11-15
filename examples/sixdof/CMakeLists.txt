@@ -5,8 +5,8 @@ set(sixdof_source_files
  EarthBase.cpp
  FlatEarth.cpp
  linear.cpp
- main.cpp 
- MassBase.cpp 
+ main.cpp
+ MassBase.cpp
  mass.cpp
  MissileAero.cpp
  MissileFin.cpp
@@ -21,6 +21,8 @@ set(sixdof_source_files
  vehicle.cpp
  wgs84.cpp
 )
-add_library(sixdofsrc ${sixdof_source_files})
+#TARGET_LINK_LIBRARIES(SIXDOFSRC DSF)
+ADD_LIBRARY(sixdofsrc SHARED ${sixdof_source_files})
 SET_TARGET_PROPERTIES(sixdofsrc PROPERTIES LINKER_LANGUAGE C)
+TARGET_LINK_LIBRARIES(sixdofsrc DSF)
 set(CMAKE_CXX_FLAGS "-fpermissive")

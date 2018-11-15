@@ -1,1 +1,1 @@
-/usr/bin/c++   -fpermissive  -rdynamic CMakeFiles/sixdof.dir/examples/sixdof/main.cpp.o  -o sixdof libDSF.a DSF/sim/libsim.a DSF/util/libutil.a 
+/usr/bin/c++   -fpermissive -O2 -g -DNDEBUG  -rdynamic CMakeFiles/sixdof.dir/examples/sixdof/main.cpp.o  -o sixdof -Wl,-rpath,/home/hahnpv/git/DSF/BUILD libDSF.so -ldl -lboost_program_options DSF/sim/libsim.a DSF/util/libutil.a 

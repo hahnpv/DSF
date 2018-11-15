@@ -21,7 +21,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/sixdofsrc.dir/vehicle.cpp.o"
   "CMakeFiles/sixdofsrc.dir/wgs84.cpp.o"
   "libsixdofsrc.pdb"
-  "libsixdofsrc.a"
+  "libsixdofsrc.so"
 )
 
 # Per-language clean rules from dependency scanning.

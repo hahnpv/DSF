@@ -13,6 +13,5 @@ set(sim_source_files
   TRefDict.h
 )
 add_library(sim ${sim_source_files})
-
 SET_TARGET_PROPERTIES(sim PROPERTIES LINKER_LANGUAGE C)
 set(CMAKE_CXX_FLAGS "-fpermissive")

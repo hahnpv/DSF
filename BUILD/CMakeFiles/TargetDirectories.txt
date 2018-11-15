@@ -1,3 +1,4 @@
+/home/hahnpv/git/DSF/BUILD/CMakeFiles/doc.dir
 /home/hahnpv/git/DSF/BUILD/CMakeFiles/edit_cache.dir
 /home/hahnpv/git/DSF/BUILD/CMakeFiles/DSF.dir
 /home/hahnpv/git/DSF/BUILD/CMakeFiles/rebuild_cache.dir
