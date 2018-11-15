@@ -1,4 +1,4 @@
-<sim dt="0.1" tmax="86400" file="10.0" library="./examples/sixdof/libsixdofsrc.so">
+<sim dt="0.1" tmax="86400" file="10.0" library="../sixdof/libsixdofsrc.so">
 	<vehicle name="Satellite" id="Vehicle">
 		<rbeom id="OblateEarth" rollingAirframe="false" rpt="10.0" frame="earth">
 			<position lambda_d="0" l_i="0" h="6378500" />
