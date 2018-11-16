@@ -30,12 +30,11 @@ namespace dsf
 						cout << "error opening file " << fname << " looking for " << tabName << endl;
 						char xx; cin >> xx;
 					}
-					std::cout << "LOOKING FOR " << tabName << endl;
+
 					string strLine;
 					string line;
 					while (getline(myfile,line))	// seek to line matching tabName
 					{
-						cout << "comparing " << line << endl;
 						if (line.compare(tabName) == 0)
 						{
 							cout << "found: " << line << endl;

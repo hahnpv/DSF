@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 project (DSF)
 
-FIND_PACKAGE( Boost 1.50 COMPONENTS program_options REQUIRED)
+FIND_PACKAGE( Boost 1.56 COMPONENTS program_options REQUIRED)
 
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 INCLUDE_DIRECTORIES(DSF)

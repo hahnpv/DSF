@@ -12,10 +12,10 @@ namespace dsf
 		/// Parse calls a recursive function to traverse the input file.
 		void xml::parse()
 		{
-			cout << "in xml::parse()" << endl;
+//			cout << "in xml::parse()" << endl;
 			xmlRoot = new node;
 			// recursively parse a file
-			cout << "filename: " << filename << endl;
+//			cout << "filename: " << filename << endl;
 			file = new ifstream(filename.c_str(),ios::in);
 			if (file->is_open())
 			{
@@ -54,7 +54,7 @@ namespace dsf
 				// 2. </blah>
 				// 3. <blah attr="" attr2="" />
 				// 4. <blah attr="" attr2=""> </blah>
-				// 5. <blah>arg</blah> 
+				// 5. <blah>arg</blah>
 
 				// 1. parse tokens: leading < attaches to first key. Trailing > with Slash or alone.
 				// lone ">" is meaningless but should never occur		
@@ -64,7 +64,7 @@ namespace dsf
 
 				// Case Two: match a closing tag
 				string closingStatement = "</" + parentNode->name + ">";		// won't match right yet
-				cout << "name/closing statement check: " << tokens[0] << "\t" << closingStatement << endl;
+//				cout << "name/closing statement check: " << tokens[0] << "\t" << closingStatement << endl;
 				if ( tokens.size() == 1 && tokens[0] == closingStatement)
 				{
 //					cout << "CLOSING TOKEN MATCH" << endl;
@@ -85,13 +85,13 @@ namespace dsf
 
 						// set name (need to string leading '<')
 					string name = tokens[0].substr(1,tokens[0].size()-1);
-					cout << "giving parent node the name: " << name << endl;
+//					cout << "giving parent node the name: " << name << endl;
 					parentNode->child[parentNode->child.size()-1]->name = name;
 
 						// set attributes
 					for (unsigned int i=1; i < tokens.size()-1; i+=2)
 					{
-						cout << "adding pair of attributes: " << tokens[i] << "\t" << tokens[i+1] << endl;
+//						cout << "adding pair of attributes: " << tokens[i] << "\t" << tokens[i+1] << endl;
 						parentNode->child[parentNode->child.size()-1]->attributes.push_back( pair<string,string>(tokens[i],tokens[i+1]));
 					}
 					return true;
@@ -114,7 +114,7 @@ namespace dsf
 					// get through this filter
 					if (line.find("</") != string::npos)
 					{
-						cout << "special node: " << line << endl;
+//						cout << "special node: " << line << endl;
 						// find and push back the attribute
 						vector<string> arg = split< string>( line,"</>=\"\t");
 
@@ -158,7 +158,7 @@ namespace dsf
 
 						parentNode = parentNode->child[parentNode->child.size()-1];
 							// children
-						cout << "PARENT NODE changed to " << parentNode->name;
+//						cout << "PARENT NODE changed to " << parentNode->name;
 						while (state)
 						{
 							getline(*file, line);

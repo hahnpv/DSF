@@ -79,7 +79,7 @@ namespace dsf
 				{
 					for (unsigned int i=0; i<node->attributes.size(); i++)
 					{
-						cout << node->attributes[i].first << " " << str << endl;
+//						cout << node->attributes[i].first << " " << str << endl;
 						if (node->attributes[i].first.compare(str) == 0)
 						{
 							return node->attributes[i].second.c_str();
