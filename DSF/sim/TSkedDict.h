@@ -27,7 +27,6 @@ namespace dsf
 			/// If no instance is present, will istantiate one based on template data.
 			static TSkedDict<TClass> * Instance()
 			{
-				cout << "TClassDict::Instance" << endl;
 				if (SingletonInstance == NULL)
 				{
 					SingletonInstance = new TSkedDict<TClass>;

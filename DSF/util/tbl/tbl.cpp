@@ -18,23 +18,24 @@ namespace dsf
 		Table::Table(std::string fname,std::string tabName)
 				{
 					tableName = tabName;
-					cout << " looking for " << tabName << " in " << fname << endl;
+//					cout << " looking for " << tabName << " in " << fname << endl;
 					//StreamReader sr = new StreamReader(@fname);	// need exception handling
 					//String strLine;
-					
+
 					ifstream myfile (fname.c_str());
 					if (myfile.is_open())
 					{}
 					else
 					{
-						cout << "error opening file" << fname << " looking for " << tabName << endl;
+						cout << "error opening file " << fname << " looking for " << tabName << endl;
 						char xx; cin >> xx;
 					}
-
+					std::cout << "LOOKING FOR " << tabName << endl;
 					string strLine;
 					string line;
 					while (getline(myfile,line))	// seek to line matching tabName
 					{
+						cout << "comparing " << line << endl;
 						if (line.compare(tabName) == 0)
 						{
 							cout << "found: " << line << endl;
@@ -46,7 +47,7 @@ namespace dsf
 
 					// get the number of rows, instantiate table
 					int numberOfLines = atoi(line.c_str());
-					cout << "number of lines: " << numberOfLines << endl;
+//					cout << "number of lines: " << numberOfLines << endl;
 
 					//table = new double[numberOfLines,2];
 					// size table
@@ -55,7 +56,7 @@ namespace dsf
 					{
 						table[i] = new double[1];
 					}
-					
+
 					min = 0;
 					max = numberOfLines - 1;
 
@@ -66,11 +67,11 @@ namespace dsf
 					for ( int i=0; i < numberOfLines; i++ )
 					{
 						getline(myfile,line);
-						
+
 						//strLine = sr.ReadLine();
 						// you have one line, split it into each part and place into array
 						//string[] values = strLine.Split('\t');
-						
+
 						// assuming a well-formed table of "value <delimeter, tab> value"
 						string::size_type pos = line.find_first_of("\t", 0);
 				double result;
@@ -90,7 +91,7 @@ namespace dsf
 		double Table::interp(double x)
 		{
 			return binarySearch(x, min, max);
-		} 
+		}
 
 		/// Binary search function.
 		/// \param val Value to interpolate for.
@@ -98,7 +99,7 @@ namespace dsf
 		/// \param right maximum size of the array
 		/// left/right are redundant but the plan is to abstract binarySearch to a base class \n
 		/// and have all table classes use the same binarySearch for optimal code resule and  \n
-		/// less possibility for bugs / discrepancies. 
+		/// less possibility for bugs / discrepancies.
 		double Table::binarySearch(double val, int left, int right)
 		{
 			int mid;	// indexer
@@ -120,7 +121,7 @@ namespace dsf
 
 			if ( left == right && left == min )
 				return table[0][1];
-			else if ( left == right && right == max ) 
+			else if ( left == right && right == max )
 				return table[max-1][1];
 			else
 			{

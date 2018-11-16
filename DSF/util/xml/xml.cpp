@@ -19,7 +19,7 @@ namespace dsf
 			file = new ifstream(filename.c_str(),ios::in);
 			if (file->is_open())
 			{
-				cout << "file open " << filename << endl;
+//				cout << "file open " << filename << endl;
 			}
 			else
 			{
@@ -67,7 +67,7 @@ namespace dsf
 				cout << "name/closing statement check: " << tokens[0] << "\t" << closingStatement << endl;
 				if ( tokens.size() == 1 && tokens[0] == closingStatement)
 				{
-					cout << "CLOSING TOKEN MATCH" << endl;
+//					cout << "CLOSING TOKEN MATCH" << endl;
 					// break level of recursion (if necessary ... ) but I think just changing parent ref is enough
 
 					// need to move parent up one ... guess parentNode needs a ref to its parent?
@@ -79,7 +79,7 @@ namespace dsf
 				else if( tokens[tokens.size() - 1] == "/>")
 				{
 					parentNode->child.push_back( new node);
-					
+
 						// set parent node reference
 					parentNode->child[parentNode->child.size()-1]->parent = parentNode;
 
@@ -87,7 +87,7 @@ namespace dsf
 					string name = tokens[0].substr(1,tokens[0].size()-1);
 					cout << "giving parent node the name: " << name << endl;
 					parentNode->child[parentNode->child.size()-1]->name = name;
-					
+
 						// set attributes
 					for (unsigned int i=1; i < tokens.size()-1; i+=2)
 					{
@@ -120,7 +120,7 @@ namespace dsf
 
 						// write attributes to parentNode.
 						// all get the label they are encapsulated by
-				
+
 						// scratch that ... make it 1 line, that way vecs/mats can be space delimited
 						std::string attribute = arg[1];
 						for (unsigned int i=2; i<arg.size()-1; i++)
@@ -128,8 +128,7 @@ namespace dsf
 							attribute += " " + arg[i];
 						}
 							parentNode->attributes.push_back( pair<string,string>(arg[0],attribute));
-							cout << "adding pair: " << arg[0] << " " << attribute << endl;
-
+//							cout << "adding pair: " << arg[0] << " " << attribute << endl;
 					}
 					else
 					{
@@ -138,21 +137,21 @@ namespace dsf
 						// set parent node reference
 						parentNode->child[parentNode->child.size()-1]->parent = parentNode;
 						// set attributes, etc.
-			
+
 							// set name (need to string leading '<' and trailing '>')
 						string name;
 						if (tokens.size() == 1)
 							name = tokens[0].substr(1,tokens[0].size()-2);
 						else
 							name = tokens[0].substr(1,tokens[0].size()-1);
-						cout << "giving parent node the name: " << name << endl;
+//						cout << "giving parent node the name: " << name << endl;
 						parentNode->child[parentNode->child.size()-1]->name = name;
 
 							// set attributes (if any)
 						if (tokens.size() != 1)
 							for (unsigned int i=1; i < tokens.size()-1; i+=2)
 							{
-								cout << "adding pair of attributes: " << tokens[i] << "\t" << tokens[i+1] << endl;
+//								cout << "adding pair of attributes: " << tokens[i] << "\t" << tokens[i+1] << endl;
 								parentNode->child[parentNode->child.size()-1]->attributes.push_back( pair<string,string>(tokens[i],tokens[i+1]));
 							}
 
@@ -167,8 +166,7 @@ namespace dsf
 						}
 					}
 				}
-				
-					return true;
+				return true;
 		}
 	}
 }

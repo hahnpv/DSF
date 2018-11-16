@@ -14,9 +14,9 @@ namespace dsf
 		/// A filename can only contain a single 2D table.
 		Table2d::Table2d(std::string fname)
 		{
-			cout << "reading all tables out of " << fname << endl;
+//			cout << "reading all tables out of " << fname << endl;
 			// split by " " but make easy to change
-					
+
 			ifstream myfile (fname.c_str());
 			if (myfile.is_open())
 			{}
@@ -46,7 +46,7 @@ namespace dsf
 				if (result.size() == 0)
 				{}
 				else
-					table.push_back( result);				
+					table.push_back( result);
 			}
 			myfile.close();
 		}
@@ -72,7 +72,7 @@ namespace dsf
 				int left = 0;
 				int right = table.size()-2;
 				bool push_back = false;
-				
+
 				while ( left <= right)		// changed criteria from right - left > 1
 				{
 					mid = (int)floor( (double)((right-left)/2 + left));

@@ -86,7 +86,7 @@ namespace dsf
 						}
 					}
 				}
-				return "";	
+				return "";
 			}
 
 			/// Return an attribute as a boolean
@@ -158,7 +158,7 @@ namespace dsf
 				{
 					if (node->child[i]->name.compare(str) == 0)
 					{
-						cout << "returning " << node->child[i]->name << endl;
+//						cout << "returning " << node->child[i]->name << endl;
 						return *(node = node->child[i]);
 					}
 				}

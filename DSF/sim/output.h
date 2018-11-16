@@ -2,8 +2,8 @@
 
 // output
 // any class can register with output to output data to a common file
-// CSV for now 
-// 
+// CSV for now
+//
 #include <iostream>
 #include <fstream>
 #include <sstream> // stupid string stream
@@ -27,8 +27,6 @@ namespace dsf
 				rptRate = _rate;
 				title.resize(2);
 				units.resize(2);
-				cout << "rate: " << rate << endl;
-				cin.get();
 			}
 			void report()		// reporting function called by both init and rpt
 			{
@@ -56,11 +54,9 @@ namespace dsf
 			};
 			void open()
 			{
-				cout << "in output::open" << endl;
 				string filename = "output.csv";
 				std::string file = dsf::util::get_unique_file(filename).filename;
 				out = new ofstream(file.c_str(), ios::out);
-				cout << "done " << endl;
 				out->precision(10);		// places after the decimal
 				out->width(10);			// digits to write
 //THIS WORKS IN MSVC		out->setstate(ios::fixed);

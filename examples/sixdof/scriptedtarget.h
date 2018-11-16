@@ -23,7 +23,7 @@ public:
 
 protected:
 	EarthBase * rbeq;
-	
+
 	bool error;								// true = error corrution, false = no error corruption
 
 	dsf::util::Vec3 xyz;					// true position

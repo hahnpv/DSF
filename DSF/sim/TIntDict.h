@@ -35,7 +35,7 @@ namespace dsf
 			/// \param &dv Derivative vector.
 			void add(TClassBase<TClass > *in, dsf::util::Vec3 &v, dsf::util::Vec3 &dv)
 			{
-				cout << "TClassIntegrandDict::add (vector)" << endl;
+//				cout << "TClassIntegrandDict::add (vector)" << endl;
 				for (int i=0; i<3; i++)
 					addToIntegrator(in, v[i], dv[i]);
 			}
@@ -45,7 +45,7 @@ namespace dsf
 			/// \param &dm Derivative matrix.
 			void add(TClassBase<TClass > *in, dsf::util::Mat3 &m, dsf::util::Mat3 &dm)
 			{
-				cout << "TClassIntegrandDict::add (matrix)" << endl;
+//				cout << "TClassIntegrandDict::add (matrix)" << endl;
 				for (int i=0; i<3; i++)
 					for (int j=0; j<3; j++)
 						addToIntegrator(in, m[i][j], dm[i][j]);
@@ -57,7 +57,7 @@ namespace dsf
 			/// \param &dx Derivative.
 			void add(TClassBase<TClass > *in, double &x, double &dx)
 			{
-				cout << "TClassIntegrandDict::add (double)" << endl;
+//				cout << "TClassIntegrandDict::add (double)" << endl;
 				addToIntegrator(in, x, dx);
 			}
 
@@ -69,7 +69,7 @@ namespace dsf
 				double *x_ptr, *dx_ptr;
 				 x_ptr =  &x;
 				dx_ptr = &dx;
-				
+
 	 			this->x.push_back(  x_ptr );
 				this->xd.push_back( dx_ptr );
 
@@ -84,7 +84,6 @@ namespace dsf
 		private:
 			TClassIntegrandDict()
 			{
-				cout << "TClassIntegrandDict::constructor" << endl;
 				xdd.resize(4);
 			}
 		public:

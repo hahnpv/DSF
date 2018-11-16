@@ -9,7 +9,7 @@ void ReentryAero::configure(dsf::xml::xmlnode n)
 {
 	CdS = n.attrAsDouble("CdS");
 	cout << "CdS: " << CdS << endl;
-	cin.get();
+//	cin.get();
 }
 
 void ReentryAero::update(double M, double rho, dsf::util::Vec3 uvw_b, dsf::util::Vec3 pqr)

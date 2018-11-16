@@ -30,7 +30,7 @@ void ScriptedTarget::configure(dsf::xml::xmlnode n)
 	std::string target = n.attrAsString("id");
 
 	cout << "target: " << target << endl;
-	cin.get();
+//	cin.get();
 	rbeq = TRefSim<Block, EarthBase>( parent, target);
 	// changed target to GuidedBullet instead of 6DOF. Now find GuidedBullet, traverse down to rbeq,
 	// get id and cast that.
@@ -38,7 +38,7 @@ void ScriptedTarget::configure(dsf::xml::xmlnode n)
 	MortarXTab = Table(filename,"[MortarX]");
 	MortarYTab = Table(filename,"[MortarY]");
 	MortarZTab = Table(filename,"[MortarZ]");
-	cin.get();
+//	cin.get();
 
 	mortarTime = 0.;
 	xyz_err(0,0,0);
@@ -52,7 +52,7 @@ void ScriptedTarget::update(void)
 	if ( sample() )
 	{
 		xyz.x = MortarXTab( t() + mortarTime );
-		xyz.y = MortarYTab( t() + mortarTime );	
+		xyz.y = MortarYTab( t() + mortarTime );
 		xyz.z = MortarZTab( t() + mortarTime );
 
 		Vec3 nmd = xyz - rbeq->position();
@@ -75,7 +75,7 @@ void ScriptedTarget::update(void)
 	if ( (NMDold < NMD) && NMDold > 0.)// && sample() )
 	{
 		cout << "closest approach exceeded; time = " << t() << endl;
-		cin.get();
+//		cin.get();
 		end();
 	}
 
@@ -86,14 +86,14 @@ void ScriptedTarget::update(void)
 }
 
 Vec3 ScriptedTarget::Position(double t)				/// Accessor for guidance models. Uses static corruption for a given time
-{	
+{
 	Vec3 position;
-	
+
 	position.x = MortarXTab( t + mortarTime );
 	position.y = MortarYTab( t + mortarTime );
 	position.z = MortarZTab( t + mortarTime );
 
-	position += xyz_err;	
+	position += xyz_err;
 	return position;
 };
 
@@ -106,6 +106,6 @@ void ScriptedTarget::finalize(void)
 {
 	cout << "[target][time]: " << t() << endl;
 	cout << "[target][xyz]:  " << MortarXTab(t()) << ", " 
-							   << MortarYTab(t()) << ", "
-							   << MortarYTab(t()) << endl; 
+				   << MortarYTab(t()) << ", "
+				   << MortarYTab(t()) << endl; 
 }

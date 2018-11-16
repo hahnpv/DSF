@@ -13,7 +13,7 @@ namespace dsf
 		/// integration cycle. 
 		class Clock
 		{
-		public:			
+		public:
 			Clock() {};				///< This method is required for the function pointer instantiation.
 
 			/// Create a new clock with a specified integration rate.
@@ -42,11 +42,11 @@ namespace dsf
 			/// Only set while sample() returns true, IE, not mid integration cycle.
 			/// \param newdt new integration rate.
 			void set_dt(double newdt)						// EXPERIMENTAL & UNVALIDATED
-			{	
+			{
 				if (!Sample(0.))
 					return;
 
-				std::cout << "setting dt: " << newdt << " was: " << dt() << std::endl;
+//				std::cout << "setting dt: " << newdt << " was: " << dt() << std::endl;
 				double derror =0;							// need to avoid setting mid-integration
 				if ( (derror = (1/newdt)*2.0) == error)		// don't reset if it is the same
 					return;

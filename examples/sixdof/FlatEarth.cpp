@@ -69,7 +69,7 @@ void FlatEarth::configure(dsf::xml::xmlnode n)
 	cout << "uvw: " << uvw << endl;
 	cout << "pqr: " << pqr << endl;
 	cout << "eul: " << euler << endl;
-	cin.get();
+//	cin.get();
 
 	if (rollingAirframe)
 	{
@@ -157,7 +157,7 @@ void FlatEarth::update(void)
 }
 
 	// replace with the lambda normalization from Zipfel
-void FlatEarth::normalize(void) 
+void FlatEarth::normalize(void)
 {
 	double n;
 	n = sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3);
@@ -168,7 +168,7 @@ void FlatEarth::normalize(void)
 }
 
 void FlatEarth::rpt(void)
-{						
+{
 //	if (sample(0.1))
 //	{
 		cout << "time " << t() << endl;

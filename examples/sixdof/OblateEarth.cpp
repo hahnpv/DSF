@@ -89,7 +89,7 @@ void OblateEarth::configure(dsf::xml::xmlnode n)
 	cout << "eul: " << euler << endl;
 	cout << "rolling airframe?: " << rollingAirframe << endl;
 	cout << "frame: " << frame << endl;
-	cin.get();
+//	cin.get();
 
 	if (rollingAirframe)
 	{

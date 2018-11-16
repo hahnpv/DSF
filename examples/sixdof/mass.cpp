@@ -20,5 +20,5 @@ void Mass::configure(dsf::xml::xmlnode n)
 
 	cout << "I: " << endl << I << endl;
 	cout << "mass: " << M << " area: " << area << endl;
-	cin.get();
+//	cin.get();
 }

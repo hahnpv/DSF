@@ -41,10 +41,8 @@ namespace dsf
 
 			int search(std::string compareid)
 			{
-                                cout << "there are " << classDictPtr.size() << " members" << endl;
 				for (unsigned int i=0; i<classDictPtr.size(); i++)
 				{
-					cout << "member: " << classDictPtr[i]->name() << endl;
 					if ( classDictPtr[i]->name().compare( compareid) == 0)
 						return i;
 				}
@@ -58,10 +56,9 @@ namespace dsf
 				int ni = search( compareid);
 				if ( ni >= 0)
 				{
-					cout << "match " << boost::core::demangle( typeid(RClass).name() ) << "  " << classDictPtr[ni].name() << endl;
-					return (RClass *)classDictPtr[ni]->get();				
+					return (RClass *)classDictPtr[ni]->get();
 				}
-
+				 cout << " No match for id: " << compareid << " in dictionary " << boost::core::demangle( typeid(RClass).name() ) << endl;
 				return 0;											/// null pointer
 			}
 
@@ -72,10 +69,9 @@ namespace dsf
 				{
 					if ( _new)
 						return (classDictPtr[ni]->getnew());
-					else 
+					else
 						return classDictPtr[ni]->get();
 				}
-				
 				return 0;											/// null pointer
 			}
 

@@ -34,11 +34,11 @@ void MissileFin::configure(dsf::xml::xmlnode n)
 		cout << "sbf:   " << fin[i].sbf   << endl;
 		cout << "Tbf:   " << fin[i].Tbf   << endl;
 	}
-	
+
 	std::string earthblock = "OblateEarth";
 	earth = dsf::sim::TRefSim<dsf::sim::Block, EarthBase>(parent, earthblock);
 
-	cin.get();
+//	cin.get();
 }
 
 void MissileFin::update() 
