@@ -17,6 +17,8 @@ namespace dsf
 			 double, double, double,
 			 double, double, double );
 
+			Mat3( Vec3, Vec3, Vec3);
+
 			// Destructor
 			~Mat3() {};
 

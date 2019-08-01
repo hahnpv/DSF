@@ -32,7 +32,7 @@ namespace dsf
 			return mean + y1*stdev;	
 		};
 
-		
+
 		double getUniform(double min, double max) 
 		{
 			return min + (max-min) * ((double)rand()/RAND_MAX);

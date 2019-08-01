@@ -13,8 +13,8 @@ namespace dsf
 		public:
 			// Constructors
 			Vec3() { x=0; y=0; z=0;};
-			Vec3(double, double, double); 
-			
+			Vec3(double, double, double);
+
 			// Destructor
 			~Vec3() {};
 

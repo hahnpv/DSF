@@ -24,6 +24,14 @@ namespace dsf
 			a2[2] = a22;
 		}
 
+		Mat3::Mat3( Vec3 v0, Vec3 v1, Vec3 v2)
+		{
+			a0 = v0;
+			a1 = v1;
+			a2 = v2;
+		}
+
+
 		/// Calculates the determinant of the matrix.
 		double Mat3::det()
 		{

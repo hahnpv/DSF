@@ -26,10 +26,10 @@ namespace dsf
 
 					int offset = filename.find_last_of('.');
 					stringstream s;
-					string str;		
+					string str;
 					s << i;
 					s >> str;
-				
+
 					int lastsize = 1;
 					if (i - 1 >= 10)
 						lastsize = 2;
