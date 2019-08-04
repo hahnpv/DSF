@@ -15,7 +15,7 @@
 
 namespace dsf
 {
-	namespace sim 
+	namespace sim
 	{
 		class Output : public Block
 		{
@@ -27,6 +27,7 @@ namespace dsf
 				rptRate = _rate;
 				title.resize(2);
 				units.resize(2);
+				conversion.resize(2);
 			}
 			void report()		// reporting function called by both init and rpt
 			{
@@ -36,19 +37,19 @@ namespace dsf
 				// doubles
 				for (unsigned int i=0; i < doubles.size(); i++)
 				{
-					*out << ", " << *doubles[i];
+					*out << ", " << *doubles[i] * conversion[0][i];
 				}
 
 				// vectors
 				for (unsigned int i=0; i < vectors.size(); i++)
 				{
-					*out << ", " << (*vectors[i]).x << ", " << (*vectors[i]).y << ", " << (*vectors[i]).z;
+					*out << ", " << (*vectors[i]).x * conversion[1][i] << ", " << (*vectors[i]).y * conversion[1][i] << ", " << (*vectors[i]).z * conversion[1][i];
 				}
 
 				// matrices
 				for (unsigned int i=0; i < matrices.size(); i++)
 				{
-					*out << ", " << *matrices[i];
+					*out << ", " << *matrices[i] * conversion[2][i];
 				}
 				*out << endl;
 			};
@@ -110,13 +111,14 @@ namespace dsf
 			};
 
 			// accessors with title and units
-			void add(double &d, string title, string units)
+			void add(double &d, string title, string units, double conversion=1.0)
 			{
 				doubles.push_back(&d);
 				this->title[0].push_back(title);
 				this->units[0].push_back(units);
+				this->conversion[0].push_back(conversion);
 			}
-			void add(dsf::util::Vec3 &v, string title, string units)
+			void add(dsf::util::Vec3 &v, string title, string units, double conversion=1.0)
 			{
 				vectors.push_back(&v);
 
@@ -124,18 +126,21 @@ namespace dsf
 				{ }
 				this->title[1].push_back(title);
 				this->units[1].push_back(units);
+				this->conversion[1].push_back(conversion);
 			}
-			void add(dsf::util::Mat3 &m, std::string title, std::string units)
+			void add(dsf::util::Mat3 &m, std::string title, std::string units, double conversion=1.0)
 			{
 				matrices.push_back(&m);
 				this->title[2].push_back(title);
 				this->units[2].push_back(units);
+				this->conversion[2].push_back(conversion);
 			}
 
 		private:
 			double rate;
 			vector< vector< std::string> >title;
 			vector< vector< std::string> >units;
+			vector< vector<      double> >conversion;
 			vector< double *>doubles;
 			vector< dsf::util::Vec3 *>vectors;
 			vector< dsf::util::Mat3 *>matrices;
