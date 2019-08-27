@@ -29,7 +29,7 @@ namespace dsf
 		class xmlInput
 		{
 		public:
-			xmlInput(std::string filename, Net & net, RenderThread & render)
+			xmlInput(std::string filename, NetClient & net, RenderThread & render)
 			{
 				this->filename = filename;
 				this->net = &net;
@@ -267,7 +267,7 @@ namespace dsf
 			std::string filename;			// xml input filename
 			std::vector<cameraBase*>cameraVector;
 
-			Net * net;
+			NetClient * net;
 			RenderThread * render;
 		};
 	}

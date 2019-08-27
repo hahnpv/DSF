@@ -14,7 +14,21 @@ set(vis_source_files
   netCallback.h
   render.h
   tblCallback.h
+  main.cpp
 )
-add_library(vis ${vis_source_files})
 
+
+set(sixdof_dynamic_files
+ main.cpp
+)
+
+ADD_EXECUTABLE(vis ${vis_source_files})
 SET_TARGET_PROPERTIES(vis PROPERTIES LINKER_LANGUAGE C)
+TARGET_INCLUDE_DIRECTORIES(vis PRIVATE /usr/include/fox-1.6)
+TARGET_LINK_LIBRARIES(vis DSF dl ${Boost_LIBRARIES} ${OPENSCENEGRAPH_LIBRARIES} -L/usr/lib/x86_64-linux-gnu/ -lFOX-1.6)
+# set(RUNTIME_OUTPUT_DIRECTORY ../../)
+
+set(CMAKE_CXX_FLAGS "-fpermissive")
+
+#add_library(vis ${vis_source_files})
+#SET_TARGET_PROPERTIES(vis PROPERTIES LINKER_LANGUAGE C)

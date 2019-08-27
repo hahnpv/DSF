@@ -1,13 +1,13 @@
 set(net_source_files
   data.h
   msg.h
-  net.cpp
-  net.h
-  netmon.cpp
-  netmon.h
+  NetClient.cpp
+  NetClient.h
+  NetServer.cpp
+  NetServer.h
   to_string.h
-  WindowsSockets.h
 )
-add_library(net ${net_source_files})
 
+add_library(net ${net_source_files})
 SET_TARGET_PROPERTIES(net PROPERTIES LINKER_LANGUAGE C)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")

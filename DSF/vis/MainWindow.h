@@ -12,10 +12,9 @@
 
 
 	// networking
-#include "net/net.h"
+#include "net/NetClient.h"
 #include "net/msg.h"
 #include "net/data.h"
-#include "net/netmon.h"
 
 
 namespace dsf
@@ -86,7 +85,7 @@ namespace dsf
 			bool worldConfigured;
 
 			/// network access
-			Net * net;
+			NetClient * net;
 		};
 	}
 }

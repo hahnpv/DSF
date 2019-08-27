@@ -41,7 +41,7 @@ namespace dsf
 					// calculate and store numbers to update next call to operator()
 				theta   -= (dx)* 0.005;	// theta = hRotation
 				phi 	-= (dy)* 0.005;	// phi   = vRotation
-				double M_PI = 3.14159;
+			//	double M_PI = 3.14159;
 				if (theta >= M_PI * 2)	theta -= M_PI * 2;
 				if (theta < 0)			theta += M_PI * 2;
 				if (phi >= M_PI * 2)	phi -= M_PI * 2;
@@ -72,7 +72,7 @@ namespace dsf
 				camera[1] = z * cos(phi) * sin(theta);
 
 				osg::Vec3 up(1,0,0);			// up vector
-				double M_PI = 3.14159;
+			//	double M_PI = 3.14159;
 				if (phi > M_PI/2 && phi < M_PI / 2 * 3)
 					up = osg::Vec3(-1,0,0);
 

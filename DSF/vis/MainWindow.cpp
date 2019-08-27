@@ -191,7 +191,7 @@ namespace dsf
 
 					cout << "client" << endl;
 
-					net = new Net (port);
+					net = new NetClient();
 
 					net->connect("localhost",port);
 

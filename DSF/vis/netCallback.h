@@ -19,7 +19,7 @@ using namespace std;
 
 #include "../util/tbl/tbl2d.h"
 
-#include "../net/net.h"
+#include "../net/NetClient.h"
 #include "../net/data.h"
 
 namespace dsf
@@ -69,7 +69,7 @@ namespace dsf
 				traverse( node, nv );
 			}
 
-			void setNet(Net & net, RenderThread & render)
+			void setNet(NetClient & net, RenderThread & render)
 			{
 				this->net = &net;
 				this->render = &render;
@@ -80,7 +80,8 @@ namespace dsf
 			void get_data()
 			{
 				data d;
-				d = net->receive<data>();
+//				d = net->receive<data>();
+				cout << "FIXME: Not receiving data!!!!!" << endl;
 
 //				cout << "net callback" << endl;
 
@@ -99,7 +100,7 @@ namespace dsf
 			}
 
 			int frameCount;
-			Net * net;							// net access
+			NetClient * net;					// net access
 			RenderThread * render;				// to get status of rendering (net blocking)
 		};
 	}
