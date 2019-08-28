@@ -1,7 +1,7 @@
 
 #include "NetServer.h"
 #include "data.h"
-#include "../../examples/sixdof/EarthBase.h"
+#include "../../examples/sixdof/EOM/EOMBase.h"
 
 using namespace dsf::sim;
 using namespace dsf::util;
@@ -58,7 +58,7 @@ void NetServer::rpt()
 	// NOTE: may want to recast at another frequency, update?
 
 	data d;
-
+/*
 	d.x = rbeq->position().x;
 	d.y = rbeq->position().y;
 	d.z = rbeq->position().z;
@@ -66,7 +66,7 @@ void NetServer::rpt()
 	d.phi   = rbeq->Orientation().x;
 	d.theta = rbeq->Orientation().y;
 	d.psi   = rbeq->Orientation().z;
-
+*/
 	d.t = t();
 
 	send<data>(d);

@@ -11,7 +11,7 @@ using boost::asio::ip::tcp;
 #include "../util/math/vec3.h"
 #include "../util/math/mat3.h"
 
-class EarthBase;
+class EOMBase;
 class NetServer : public dsf::sim::Block
 {
 public:
@@ -19,7 +19,7 @@ public:
 
 	static Block *block;
 
-	void set(EarthBase & r) // FIXME XML config...
+	void set(EOMBase & r) // FIXME XML config...
 	{
 		this->rbeq = &r;
 	};
@@ -31,7 +31,7 @@ public:
 	void rpt();
 
 private:
-	EarthBase * rbeq;
+	EOMBase * rbeq;
     boost::asio::io_service io_service;
 	tcp::acceptor acceptor;
 };
