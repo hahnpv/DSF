@@ -252,7 +252,7 @@ namespace dsf
 				dsf::xml::xml xmlinput(filename);
 					xmlinput.parse();
 
-				parse(dsf::xml::xmlnode(*xmlinput.xmlRoot).search("sim"), root);
+				parse(dsf::xml::xmlnode(*xmlinput.xmlRoot).search("vis"), root);
 
 				// in the future we will set up a vector of camera options, instead of the 
 				// bulletcallback option
