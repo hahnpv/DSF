@@ -7,3 +7,20 @@
 		<uvw>0,0,0</uvw>
 	</BouncyBall>
 </sim>
+<vis>
+	<vehicle name="BouncyBall" id="Vehicle">
+		<visualization model="sphere.osg">
+			<data>
+				<file>output.csv</file>
+				<position>0,0,0</position>
+				<orientation>0,0,0</orientation>
+			</data>
+		</visualization>
+	</vehicle>
+	<visualization>
+		<cameras>
+			<camera type="static" name="Ground" target="Guided_Bullet" position="0,0,10" />
+			<camera type="orbit" name="Orbit" target="Guided_Bullet" />
+		</cameras>
+	</visualization>
+</vis>

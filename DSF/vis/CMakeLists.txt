@@ -29,6 +29,7 @@ TARGET_LINK_LIBRARIES(vis DSF dl ${Boost_LIBRARIES} ${OPENSCENEGRAPH_LIBRARIES} 
 
 set(CMAKE_CXX_FLAGS "-fpermissive")
 
+CONFIGURE_FILE(sphere.osg sphere.osg COPYONLY)
 CONFIGURE_FILE(bullet.osg bullet.osg COPYONLY)
 CONFIGURE_FILE(wgs84sphere.osg wgs84sphere.osg COPYONLY)
 CONFIGURE_FILE(visualize40s.csv visualize40s.csv COPYONLY)
