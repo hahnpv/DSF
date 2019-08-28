@@ -69,8 +69,11 @@ namespace dsf
 						{
 							cout << "model tag speficied " << n.attrAsString("model") << endl;
 							Bullet = osgDB::readNodeFile(n.attrAsString("model"));
+							cout << "node file read! " << n.attrAsString("model") << endl;
+						} else {
+							cout << "didn't find model tag!" << endl;
 						}
-				
+						cout << "name: " << name << endl;
 						Bullet->setName(name);
 
 						// static tag - statically placed node
@@ -183,6 +186,7 @@ namespace dsf
 									// 3. add to scene graph (manually now, dynamically later using name search)
 									root.getChild(0)->asGroup()->getChild(0)->setUpdateCallback( o);
 									// 4. add to vector
+									cout << "pushing back a camera " << endl;
 									cameraVector.push_back( o);
 								}
 								else if (n.attrAsString("type").compare("static") == 0)
@@ -193,16 +197,22 @@ namespace dsf
 									// 2. set PAT position
 									pat->setPosition( osg::Vec3(6378140,-5,0));
 									// 3. create static node
+									cout << "3" << endl;
 									staticCam *staticCamera = new staticCam; 
 									// 3.5. set name
+									cout << " Name: " <<n.attrAsString("name") << endl;
 									staticCamera->setName(n.attrAsString("name"));
 									// 4. add static node to PAT update callback (manually now, dynamically later using callback name search)
+									cout << "name set" << endl;
+									cout << "callback: " << root.getChild(0)->getUpdateCallback() << endl;
 									staticCamera->setNode( *dynamic_cast<baseCallback*>(root.getChild(0)->getUpdateCallback()) ); 
 									// 5. set node callback for PAT
+									cout << "5" << endl;
 									pat->setUpdateCallback( staticCamera);
 									// 6. add PAT to scene graph
 									root.addChild(pat);
 									// 7. add to vector
+									cout << "pushing back a camera " << endl;
 									cameraVector.push_back( staticCamera);
 								}
 								n.parent();
@@ -258,6 +268,7 @@ namespace dsf
 			// or a list of std::strings
 			std::vector<cameraBase*>getCameras()
 			{
+				cout << "cameraVector: " << cameraVector.size() << endl;
 				return cameraVector;
 			}
 

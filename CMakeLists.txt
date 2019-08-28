@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 project (DSF)
 
-FIND_PACKAGE( Boost 1.56 COMPONENTS program_options system REQUIRED)
+FIND_PACKAGE( Boost 1.56 COMPONENTS program_options system serialization REQUIRED)
 FIND_PACKAGE(OpenSceneGraph 2.0.0 REQUIRED osgDB osgUtil)
 
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )

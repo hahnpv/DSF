@@ -1,0 +1,17 @@
+Geode {
+  DataVariance UNSPECIFIED
+  nodeMask 0xffffffff
+  cullingActive TRUE
+  num_drawables 1
+  ShapeDrawable {
+    DataVariance UNSPECIFIED
+    Sphere {
+      DataVariance UNSPECIFIED
+      Center 0 0 0
+      Radius 6378137
+    }
+    useDisplayList TRUE
+    useVertexBufferObjects FALSE
+    color 1 1 1 1
+  }
+}

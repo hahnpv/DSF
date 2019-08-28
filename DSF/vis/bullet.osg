@@ -1,0 +1,19 @@
+Geode {
+  DataVariance UNSPECIFIED
+  nodeMask 0xffffffff
+  cullingActive TRUE
+  num_drawables 1
+  ShapeDrawable {
+    DataVariance UNSPECIFIED
+    Capsule {
+      DataVariance UNSPECIFIED
+      Center 0 0 0
+      Radius 0.039
+      Height 0.3
+      Rotation -0.707066 0 0 0.707148
+    }
+    useDisplayList TRUE
+    useVertexBufferObjects FALSE
+    color 1 1 1 1
+  }
+}

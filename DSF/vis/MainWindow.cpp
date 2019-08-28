@@ -76,6 +76,8 @@ namespace dsf
 			{
 				s->setViewport(glCanvas->getWidth(), glCanvas->getHeight());		// hackish, needs to be in a onResize() type fn
 
+				cout << "width, height: " << glCanvas->getWidth() << " " << glCanvas->getHeight() << endl;
+				cout << "perspective: " << perspective << endl;
 				s->draw(camera[perspective], render->frameStamp);
 
  	 			// Swap buffers if glCanvas is double-buffered

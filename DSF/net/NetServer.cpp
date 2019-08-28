@@ -9,7 +9,7 @@ using namespace dsf::util;
 Block* NetServer::block = TClass<NetServer,Block>::Instance()->getStatic();
 
 NetServer::NetServer()
-	: acceptor(io_service, tcp::endpoint(tcp::v4(), 13))
+	: acceptor(io_service, tcp::endpoint(tcp::v4(), 6969)) // FIXME if this is part of DSF library, opening a socket every time you load library into memory!
 {}
 
 void NetServer::server_init()					// initalize a socket connection

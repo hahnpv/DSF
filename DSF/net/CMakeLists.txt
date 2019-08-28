@@ -5,7 +5,6 @@ set(net_source_files
   NetClient.h
   NetServer.cpp
   NetServer.h
-  to_string.h
 )
 
 add_library(net ${net_source_files})

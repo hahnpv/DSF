@@ -5,9 +5,21 @@
 #include <fstream>			// file i/o test
 #include <string>
 
-#include "to_string.h"
-
 using namespace std;
+
+/* note 
+#pragma once
+#include <iostream>
+#include <sstream>
+template <class T>
+inline std::string to_string (const T& t)
+{
+	std::stringstream ss;
+	ss << t;
+	return ss.str();
+}
+*/
+
 
 NetClient::NetClient()
 {}
