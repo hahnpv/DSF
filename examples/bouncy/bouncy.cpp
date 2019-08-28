@@ -21,7 +21,10 @@ void Bouncy::init(void)
 	TClassIntegrandDict<Block>::Instance()->add(TClass<Bouncy,Block>::Instance(), xyz, dxdydz);
 	TClassIntegrandDict<Block>::Instance()->add(TClass<Bouncy,Block>::Instance(), uvw, dudvdw);
 
+	orient = Vec3(0,0,0);
+
 	o->add(xyz,		"Position",		"m");
+	o->add(orient,	"Orientation","m/s");		// vis requires a orientation, even if dummy
 	o->add(uvw,		"Velocity",		"m/s");
 }
 

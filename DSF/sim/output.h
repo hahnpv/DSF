@@ -97,10 +97,17 @@ namespace dsf
 				*out << endl;
 			};
 
-			void rpt()
+			void init()
 			{
 				if ( out == NULL)
 					open();
+
+				report();
+			}
+			void rpt()
+			{
+//				if ( out == NULL)
+//					open();
 
 				report();
 			};

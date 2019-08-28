@@ -12,11 +12,19 @@
 		<visualization model="sphere.osg">
 			<data>
 				<file>output.csv</file>
-				<position>0,0,0</position>
-				<orientation>0,0,0</orientation>
+				<position>1,2,3</position>
+				<orientation>4,5,6</orientation>
 			</data>
 		</visualization>
 	</vehicle>
+        <vehicle name="ReferencePoint" id="Vehicle">
+                <visualization model="sphere.osg">
+                        <static>
+				<position>0,0,0</position>
+				<orientation>0,0,0</orientation>
+			</static>
+                </visualization>
+        </vehicle>
 	<visualization>
 		<cameras>
 			<camera type="static" name="Ground" target="Guided_Bullet" position="0,0,10" />
