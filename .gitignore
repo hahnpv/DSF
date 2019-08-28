@@ -1,3 +1,4 @@
 BUILD/
 doc/
-examples/
+examples/sixdof
+examples/static
