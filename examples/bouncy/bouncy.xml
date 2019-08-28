@@ -1,3 +1,9 @@
 <sim dt="0.01" tmax="1000" file="0.1" library="../bouncy/libbouncy.so">
-	<Bouncy name="ball" id="Bouncy" />
+	<BouncyBall name="ball" id="Bouncy">
+		<mass>1.0</mass>
+		<e>0.8</e>
+		<g>0,0,-9.801</g>
+		<xyz>0,0,10</xyz>
+		<uvw>0,0,0</uvw>
+	</BouncyBall>
 </sim>

@@ -23,37 +23,16 @@ void Bouncy::init(void)
 
 	o->add(xyz,		"Position",		"m");
 	o->add(uvw,		"Velocity",		"m/s");
-
-	m = 1.0;
-	e = 0.8;
-	g (0, 0, -9.801);
 }
 
 void Bouncy::configure(dsf::xml::xmlnode n)
 {
-	/*
 	Block::configure( n);
-
-	cout << "Bouncy::configure" << endl;
-
-	dsf::xml::xmlnode vehiclen = n.parent();
-	std::string aeroblock  = (n = vehiclen).search("aero").attrAsString("id");
-	std::string atmosblock = (n = vehiclen).search("atmosphere").attrAsString("id");
-	rollingAirframe = (n = vehiclen).search("rbeom").attrAsBool("rollingAirframe");
-
-	atmos = TRefSim<Block,		AtmosBase>(parent, atmosblock);
-	aero  = TRefSim<Block,		 AeroBase>(parent, aeroblock);
-
-	(n = vehiclen).search("rbeom");
-	xyz   = n.attrAsVec3("position");
-	uvw   = n.attrAsVec3("velocity");
-
-	cout << "xyz: " << xyz << endl;
-	cout << "uvw: " << uvw << endl;
-	*/
-
-	xyz = Vec3(0,0,10);
-	uvw = Vec3(0,0, 0);
+	m   = n.attrAsDouble("mass");
+	e   = n.attrAsDouble("e");
+    g   = n.attrAsVec3("g");
+    xyz = n.attrAsVec3("xyz");
+    uvw = n.attrAsVec3("uvw");
 }
 
 void Bouncy::update(void) 
