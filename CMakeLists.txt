@@ -20,8 +20,7 @@ add_subdirectory(DSF/util)
 # Add examples
 add_subdirectory(examples/dynamic)              # Dynamic DSF executable (loads any shared object library)
 add_subdirectory(examples/bouncy)
-add_subdirectory(examples/sixdof)		# 6DOF Library (shared object)
-add_subdirectory(examples/static)		# Staticly compiled 6DOF executable
+add_subdirectory(examples/sixdof)		# 6DOF Library (shared object) (not include with DSF due to ITAR concerns)
 
 # Create DSF library
 ADD_LIBRARY( DSF SHARED

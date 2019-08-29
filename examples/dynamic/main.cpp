@@ -53,13 +53,13 @@ int main(int argc, char *argv[])
         SimInput input( n);
 
 		// Load shared library of models
-        dlopen(input.library().c_str(), RTLD_NOW);
-        char * result = dlerror();
-        if(result!=NULL)
-        {
-		cout << "FATAL ERROR: " << result << endl;
-		return 1;
-        }
+        dlopen(input.library().c_str(), RTLD_NOW);		// NOTE: you can omit this section
+        char * result = dlerror();				// and staticly compile your model files
+        if(result!=NULL)					// with this file to generate a static
+        {							// executable
+		cout << "FATAL ERROR: " << result << endl;	//
+		return 1;					// See CMakeLists for an example
+        }							//
 
 		// Instantiate classes
         Block * root = new Block;
