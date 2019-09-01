@@ -25,6 +25,7 @@ namespace dsf
 			virtual void configure(dsf::xml::xmlnode n)			///< XML model configuration
 			{
 				rptRate = n.attrAsDouble("rpt");
+				name = n.parent().attrAsString("name");
 			}
 			virtual void init()     {};							///< Initialization function
 			virtual void update()	{};							///< Update differential equations
@@ -66,6 +67,7 @@ namespace dsf
 			Output *o;							///< Output reference.
 			Clock *clock;						///< Clock reference.
 			double rptRate;						///< Report Rate
+			std::string name;					///< Model name
 		};
 	}
 }

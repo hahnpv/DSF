@@ -1,5 +1,9 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.1)
 project (DSF)
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 FIND_PACKAGE( Boost 1.56 COMPONENTS program_options system serialization REQUIRED)
 FIND_PACKAGE(OpenSceneGraph 2.0.0 REQUIRED osgDB osgUtil)

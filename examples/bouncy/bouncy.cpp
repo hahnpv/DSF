@@ -48,8 +48,9 @@ void Bouncy::update(void)
 	{
 		xyz.z = 0.;
 		uvw.z = -uvw.z * e;
+		dudvdw.z = -dudvdw.z * e;
+		if (uvw.z < 0.1) end();
 	}
-	if ( xyz.z == 0. && uvw.z < 0.2) end();
 }
 
 
