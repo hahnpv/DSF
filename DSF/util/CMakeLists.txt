@@ -3,9 +3,9 @@ set(util_source_files
   fptr.h
   gauss.h
   math/constants.h
+  math/number.h
   math/mat3.cpp
   math/mat3.h
-  math/sign.h
   math/vec3.cpp
   math/vec3.h
   parse.h
