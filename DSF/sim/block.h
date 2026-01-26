@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "../util/xml/xml.h"
-#include "../util/xml/xmlnode.h"
+#include "../util/xml/xml.h"
 
 #include "TClassDict.h"
 

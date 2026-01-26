@@ -1,10 +1,10 @@
 #pragma once
 
 #include "../util/xml/xml.h"
-#include "../util/xml/xmlnode.h"
+// #include "../util/xml/xmlnode.h"
 
 // debug printing
-#include "../util/xml/xml_reader.h"
+// #include "../util/xml/xml_reader.h"
 
 #include <osg/Node>
 #include <osgDB/ReadFile>
