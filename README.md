@@ -21,3 +21,11 @@ cd examples/dynamic
 
 to get vis to work under WSL:
 https://github.com/microsoft/WSL/issues/2855
+
+
+....
+IWYU is active, to use: 
+
+cd build
+cmake -DCMAKE_CXX_INCLUDE_WHAT_YOU_USE="include-what-you-use" ..
+make clean && make 2>&1 | grep "should remove"

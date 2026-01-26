@@ -21,6 +21,9 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+# Enable testing
+enable_testing()
+
 # Add Subdirectories
 # External sixdof library integration
 set(SIXDOF_SEARCH_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../sixdof")

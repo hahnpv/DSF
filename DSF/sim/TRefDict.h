@@ -5,7 +5,7 @@
 #include <exception>
 #include <iostream>
 #include <string>
-#include <boost/core/demangle.hpp>
+#include "../util/demangle.h"
 #include "TClassDict.h"
 
 using namespace std;
@@ -52,7 +52,7 @@ namespace dsf
 		{
 			for ( unsigned int i = 0; i < b->getChildren().size(); i++)
 			{
-				std::string classid   = boost::core::demangle( typeid(*(b->getChild(i))).name() );
+				std::string classid   = dsf::util::demangle( typeid(*(b->getChild(i))).name() );
 //MSVC TODO #define 		std::string compareid = "class " + id;
 				std::string compareid = id;
 				if ( classid.compare(compareid) == 0)
@@ -63,7 +63,7 @@ namespace dsf
 
 			if ( b->getParent() == 0)
 			{
-				cout << "TRefSim<" << boost::core::demangle( typeid(BClass).name() ) << ", " << boost::core::demangle( typeid(DClass).name() ) << ">( " << id << "):" << endl;
+				cout << "TRefSim<" << dsf::util::demangle( typeid(BClass).name() ) << ", " << dsf::util::demangle( typeid(DClass).name() ) << ">( " << id << "):" << endl;
 				cout << "\tNo match found in sim." << endl;
 				cin.get();
 				return 0;
