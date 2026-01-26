@@ -65,7 +65,7 @@ namespace dsf
 			{
 				cout << "TRefSim<" << dsf::util::demangle( typeid(BClass).name() ) << ", " << dsf::util::demangle( typeid(DClass).name() ) << ">( " << id << "):" << endl;
 				cout << "\tNo match found in sim." << endl;
-				cin.get();
+				// cin.get();  // Commented out to allow simulation to continue
 				return 0;
 			}
 

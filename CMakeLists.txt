@@ -56,7 +56,6 @@ add_library(DSF SHARED
     DSF/util/math/vec3.cpp
     DSF/util/tbl/tbl.cpp
     DSF/util/tbl/tbl2d.cpp
-    DSF/util/xml/xml.cpp
 )
 
 # Target Properties

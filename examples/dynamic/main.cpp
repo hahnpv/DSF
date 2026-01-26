@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
         SimInput input( n);
 
 		// Load shared library of models
-        dlopen(input.library().c_str(), RTLD_NOW);		// NOTE: you can omit this section
+        dlopen(input.library().c_str(), RTLD_NOW | RTLD_GLOBAL);		// NOTE: you can omit this section
         char * result = dlerror();				// and staticly compile your model files
         if(result!=NULL)					// with this file to generate a static
         {							// executable
@@ -66,14 +66,15 @@ int main(int argc, char *argv[])
 	int nx = n.numchild();
 	for ( int i = 0; i < nx; i++)
 	{
-		root->addChild( TRefUnique<Block>( n.child( i).attrAsString("id")));
-		n.parent();
+		xmlnode child_node = n;
+		child_node.child(i);
+		root->addChild( TRefUnique<Block>( child_node.attrAsString("id")));
 	}
 	for ( int i = 0; i < nx; i++)
 	{
-		n.child( i).attrAsString("id");
-		root->getChild(i)->configure( n);
-		n.parent();
+		xmlnode child_node = n;
+		child_node.child(i);
+		root->getChild(i)->configure( child_node);
 	}
 
 		// Instantiate simulation

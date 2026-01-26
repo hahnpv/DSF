@@ -15,11 +15,7 @@ set(util_source_files
   tbl/tbl2d.cpp
   tbl/tbl2d.h
   TFunctor.h
-  xml/node.h
-  xml/xml.cpp
-  xml/xml.h
-  xml/xmlnode.h
-  xml/xml_reader.h
+  xml/xmlnode_boost.h
 )
 add_library(util ${util_source_files})
 target_compile_options(util PRIVATE -fpermissive)

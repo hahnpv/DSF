@@ -48,5 +48,5 @@ namespace dsf
 	}
 }
 // << operator
-std::ostream &operator<<( std::ostream &stream, Mat4 mat);
+std::ostream &operator<<( std::ostream &stream, dsf::util::Mat4 mat);
 #endif
