@@ -22,7 +22,4 @@ set(util_source_files
   xml/xml_reader.h
 )
 add_library(util ${util_source_files})
-
-SET_TARGET_PROPERTIES(util PROPERTIES LINKER_LANGUAGE C)
-
-set(CMAKE_CXX_FLAGS "-fpermissive")
+target_compile_options(util PRIVATE -fpermissive)

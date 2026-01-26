@@ -1,75 +1,90 @@
-cmake_minimum_required (VERSION 3.1)
-project (DSF)
+cmake_minimum_required(VERSION 3.14)
+project(DSF)
 
-# set(CMAKE_CXX_STANDARD 14)
-# set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# set(CMAKE_CXX_EXTENSIONS OFF)
+# Enforce Out-of-Source Builds
+if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
+    message(FATAL_ERROR "In-source builds not allowed. Please make a new directory (called build) and run CMake from there.")
+endif()
 
-FIND_PACKAGE( Boost 1.56 COMPONENTS program_options system serialization REQUIRED)
-FIND_PACKAGE(OpenSceneGraph 2.0.0 REQUIRED osgDB osgUtil)
+# Set C++ Standard
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
-INCLUDE_DIRECTORIES(${OPENSCENEGRAPH_INCLUDE_DIRS})
-INCLUDE_DIRECTORIES(DSF)
+# Find Dependencies
+find_package(Boost 1.56 COMPONENTS program_options system serialization REQUIRED)
+find_package(OpenSceneGraph 2.0.0 REQUIRED osgDB osgUtil)
+find_package(Doxygen)
 
-#SET(CMAKE_BUILD_TYPE RelWithDebInfo) # release build with debug symbols
-SET(CMAKE_BUILD_TYPE Debug)
+# Default to Debug build if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif()
 
-# TODO need to make Net platform agnostic
+# Add Subdirectories
+# External sixdof library integration
+set(SIXDOF_SEARCH_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../sixdof")
+if(NOT DEFINED SIXDOF_DIR AND EXISTS "${SIXDOF_SEARCH_PATH}")
+    set(SIXDOF_DIR "${SIXDOF_SEARCH_PATH}")
+    message(STATUS "Found sixdof at default location: ${SIXDOF_DIR}")
+endif()
+
+if(DEFINED SIXDOF_DIR)
+    if(EXISTS "${SIXDOF_DIR}/sixdof/CMakeLists.txt")
+        add_subdirectory("${SIXDOF_DIR}/sixdof" "${CMAKE_BINARY_DIR}/sixdof_build")
+    else()
+        message(WARNING "SIXDOF_DIR is set to ${SIXDOF_DIR} but ${SIXDOF_DIR}/sixdof/CMakeLists.txt not found.")
+    endif()
+else()
+    message(STATUS "sixdof library not found (checked ../sixdof). Skipping.")
+endif()
+
 add_subdirectory(DSF/sim)
 add_subdirectory(DSF/net)
-add_subdirectory(DSF/vis)
 add_subdirectory(DSF/util)
 
-# Add examples
-add_subdirectory(examples/dynamic)              # Dynamic DSF executable (loads any shared object library)
-add_subdirectory(examples/bouncy)
-add_subdirectory(examples/sixdof)		# 6DOF Library (shared object) (not include with DSF due to ITAR concerns)
-
-# Create DSF library
-ADD_LIBRARY( DSF SHARED
-  DSF/sim/integratorRK4.cpp
-  DSF/sim/sim.cpp
-  DSF/net/NetClient.cpp
-  DSF/net/NetServer.cpp
-  DSF/util/math/mat3.cpp
-  DSF/util/math/vec3.cpp
-  DSF/util/tbl/tbl.cpp
-  DSF/util/tbl/tbl2d.cpp
-  DSF/util/xml/xml.cpp
-#  DSF/vis/MainWindow.cpp
-#  DSF/vis/render.cpp
+# Create Main Library
+add_library(DSF SHARED
+    DSF/sim/integratorRK4.cpp
+    DSF/sim/sim.cpp
+    DSF/net/NetClient.cpp
+    DSF/net/NetServer.cpp
+    DSF/util/math/mat3.cpp
+    DSF/util/math/vec3.cpp
+    DSF/util/tbl/tbl.cpp
+    DSF/util/tbl/tbl2d.cpp
+    DSF/util/xml/xml.cpp
 )
 
+# Target Properties
+target_include_directories(DSF PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
+    ${Boost_INCLUDE_DIRS}
+    ${OPENSCENEGRAPH_INCLUDE_DIRS}
+)
 
-TARGET_LINK_LIBRARIES(DSF sim util ${Boost_LIBRARIES} )
-SET(CMAKE_C++_CREATE_STATIC_LIBRARY 1)
-SET_TARGET_PROPERTIES(DSF PROPERTIES LINKER_LANGUAGE C)
+target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES})
+target_compile_options(DSF PRIVATE -fpermissive)
+set_target_properties(DSF PROPERTIES LINKER_LANGUAGE CXX)
 
-# TODO clean up code to compile without -fpermissive
-# note -std=gnu++11 isnt picking up (should get rid of the >> to > > errors)
-#set(CMAKE_CXX_FLAGS "-fpermissive") # -set=c+++11 or something
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
-#SET_TARGET_PROPERTIES(DSF PROPERTIES LINKER_LANGUAGE C)
+# Add Examples
+add_subdirectory(examples/dynamic)
+add_subdirectory(examples/bouncy)
 
-# TODO: once you make a Vis target,
-#add_executable(foo foo.cc)
-#target_link_libraries(foo ${OPENSCENEGRAPH_LIBRARIES})
 
-# Generate documentation
-FIND_PACKAGE(Doxygen)
-IF (DOXYGEN_FOUND)
-SET(DOXYGEN_INPUT Doxyfile.in)
-SET(DOXYGEN_OUTPUT Doxyfile)
 
-ADD_CUSTOM_COMMAND(
-  OUTPUT ${DOXYGEN_OUTPUT}
-  COMMAND ${CMAKE_COMMAND} -E echo_append "Building API Documentation..."
-  COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_INPUT}
-  COMMAND ${CMAKE_COMMAND} -E echo "Done."
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  DEPENDS ${DOXYGEN_INPUT}
-  )
-
-ADD_CUSTOM_TARGET(doc ALL DEPENDS ${DOXYGEN_OUTPUT})
-ENDIF (DOXYGEN_FOUND)
+# Documentation
+if(DOXYGEN_FOUND)
+    set(DOXYGEN_INPUT Doxyfile.in)
+    set(DOXYGEN_OUTPUT Doxyfile)
+    add_custom_command(
+        OUTPUT ${DOXYGEN_OUTPUT}
+        COMMAND ${CMAKE_COMMAND} -E echo_append "Building API Documentation..."
+        COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_INPUT}
+        COMMAND ${CMAKE_COMMAND} -E echo "Done."
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS ${DOXYGEN_INPUT}
+    )
+    add_custom_target(doc ALL DEPENDS ${DOXYGEN_OUTPUT})
+endif()

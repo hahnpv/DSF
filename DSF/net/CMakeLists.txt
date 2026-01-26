@@ -8,5 +8,8 @@ set(net_source_files
 )
 
 add_library(net ${net_source_files})
-SET_TARGET_PROPERTIES(net PROPERTIES LINKER_LANGUAGE C)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
+target_compile_options(net PRIVATE -fpermissive)
+if(DEFINED SIXDOF_DIR)
+    target_include_directories(net PUBLIC "${SIXDOF_DIR}")
+endif()
+target_include_directories(net PUBLIC "${CMAKE_SOURCE_DIR}/DSF")

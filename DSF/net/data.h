@@ -2,7 +2,7 @@
 
 // data struct - test pushing it over the network
 
-struct data
+struct ServerData
 {
 	double x;
 	double y;

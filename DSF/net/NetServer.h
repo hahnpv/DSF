@@ -24,6 +24,7 @@ public:
 		this->rbeq = &r;
 	};
 
+	virtual void init();				// Initialization function
 	void server_init();					// initalize and start an inbound socket connection
 	void listen();						// set up a conection for listening (bound to port)
 	void get_xml_file();						// receive incoming xml file

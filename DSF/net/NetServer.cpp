@@ -1,7 +1,7 @@
 
 #include "NetServer.h"
 #include "data.h"
-#include "../../examples/sixdof/EOM/EOMBase.h"
+#include "sixdof/EOM/EOMBase.h"
 
 using namespace dsf::sim;
 using namespace dsf::util;
@@ -9,13 +9,25 @@ using namespace dsf::util;
 Block* NetServer::block = TClass<NetServer,Block>::Instance()->getStatic();
 
 NetServer::NetServer()
-	: acceptor(io_service, tcp::endpoint(tcp::v4(), 6969)) // FIXME if this is part of DSF library, opening a socket every time you load library into memory!
+	: acceptor(io_service)
 {}
+
+void NetServer::init()
+{
+	server_init();
+}
 
 void NetServer::server_init()					// initalize a socket connection
 {
-	// TODO winsock initialized socket stream here
-	// FIXME likely not be needed with asio
+	try {
+        tcp::endpoint endpoint(tcp::v4(), 6969);
+        acceptor.open(endpoint.protocol());
+        acceptor.set_option(tcp::acceptor::reuse_address(true));
+        acceptor.bind(endpoint);
+        acceptor.listen();
+    } catch (std::exception& e) {
+        std::cerr << "NetServer Error: " << e.what() << std::endl;
+    }
 }
 
 void NetServer::listen(/* int num_connections,*/)					// set up a conection for listening (bound to port)
@@ -57,7 +69,7 @@ void NetServer::rpt()
 	// On RPT call, update sim
 	// NOTE: may want to recast at another frequency, update?
 
-	data d;
+	ServerData d;
 /*
 	d.x = rbeq->position().x;
 	d.y = rbeq->position().y;
@@ -69,5 +81,5 @@ void NetServer::rpt()
 */
 	d.t = t();
 
-	send<data>(d);
+	send<ServerData>(d);
 }
