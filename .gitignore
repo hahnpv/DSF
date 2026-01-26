@@ -2,3 +2,28 @@ build/
 doc/
 examples/sixdof
 examples/static
+CMakeDoxyfile.in
+
+# CMake Artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+Makefile
+*.a
+*.so
+*.lib
+*.dll
+*.dylib
+
+# Generated Build Dirs
+*_build/
+
+# Doxygen artifacts
+Doxyfile
+doxygen_sqlite3.db
+doc/html/
+doc/latex/
+doc/rtf/
+doc/man/
+doc/xml/
