@@ -97,6 +97,25 @@ namespace dsf
                 b->parent = this;
                 children.push_back( b);
             }
+            /**
+             * @brief Remove a child block from this block.
+             * @param b Pointer to child block to remove.
+             */
+            virtual void removeChild(Block *b)
+            {
+                for (std::vector<Block*>::iterator it = children.begin(); it != children.end(); )
+                {
+                    if (*it == b)
+                    {
+                        (*it)->parent = NULL;
+                        it = children.erase(it);
+                    }
+                    else
+                    {
+                        ++it;
+                    }
+                }
+            }
             
             /**
              * @brief Check if block has children.
@@ -113,6 +132,8 @@ namespace dsf
             Block * getParent() { return parent; };                     ///< Get parent block.
             Block * getChild(int i) { return children[i]; };            ///< Get child by index.
             std::vector< Block *> getChildren() { return children; };   ///< Get all children.
+            std::string getName() { return name; };                     ///< Get block instance name.
+            void setName(std::string _name) { name = _name; };          ///< Set block instance name.
             /// @}
 
         protected:

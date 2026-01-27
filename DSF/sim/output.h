@@ -45,9 +45,9 @@ namespace dsf
                 out = NULL;
                 rate = _rate;
                 rptRate = _rate;
-                title.resize(2);
-                units.resize(2);
-                conversion.resize(2);
+                title.resize(3);
+                units.resize(3);
+                conversion.resize(3);
             }
 
             /** @brief Write all registered values to file. */
