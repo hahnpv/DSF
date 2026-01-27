@@ -69,8 +69,7 @@ namespace dsf
 				return 0;
 			}
 
-			TRefSim<BClass, DClass>(b->getParent(), id);
-			// Ignore warning. Placing a dummy retval causes the retval from TRefSim to get overwritten as it recurses back.
+			return TRefSim<BClass, DClass>(b->getParent(), id);
 		}
 	}
 }

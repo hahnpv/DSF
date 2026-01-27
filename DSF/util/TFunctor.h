@@ -44,7 +44,8 @@ namespace dsf
 		/// Store value returned 
 		/// NONRECURSIVE UNTIL NEEDED!!!
 		/// \param TClass Class type of the graph.
-/*		/// \param fpt Pointer to member function
+		/// \param fpt Pointer to member function
+		/*
 		template <class TClass, class RType> 
 		RType TFunctor(std::vector<TClass*> &objvec, void(TClass::*fpt)(void))
 		{
