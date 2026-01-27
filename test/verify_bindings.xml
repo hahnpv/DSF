@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<!-- Load libsixdof.so globally -->
+<sim name="Verify" dt="0.05" tmax="0.5" file="0.1" library="libsixdof.so">
+     <!-- PythonModel as root block -->
+    <python_model id="PythonModel" script="verify_bindings.py" class="VerifyBlock" rpt="0.05" />
+</sim>

@@ -14,6 +14,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Find Dependencies
 find_package(Boost 1.56 COMPONENTS program_options system serialization REQUIRED)
 find_package(OpenSceneGraph 2.0.0 REQUIRED osgDB osgUtil)
+# find_package(pybind11 CONFIG REQUIRED)
+include(FetchContent)
+FetchContent_Declare(
+  pybind11
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG        v2.11.1
+)
+FetchContent_MakeAvailable(pybind11)
+
 find_package(Doxygen)
 
 # Default to Debug build if not specified
@@ -53,9 +62,15 @@ add_library(DSF SHARED
     DSF/net/NetClient.cpp
     DSF/net/NetServer.cpp
     DSF/util/math/mat3.cpp
+    DSF/util/math/mat4.cpp
+    DSF/util/math/quat.cpp
     DSF/util/math/vec3.cpp
     DSF/util/tbl/tbl.cpp
     DSF/util/tbl/tbl2d.cpp
+    python/bindings_main.cpp
+    python/bindings_util.cpp
+    python/bindings_sim.cpp
+    python/bindings_net.cpp
 )
 
 # Target Properties
@@ -66,7 +81,7 @@ target_include_directories(DSF PUBLIC
     ${OPENSCENEGRAPH_INCLUDE_DIRS}
 )
 
-target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES})
+target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES} pybind11::embed)
 target_compile_options(DSF PRIVATE -fpermissive)
 set_target_properties(DSF PROPERTIES LINKER_LANGUAGE CXX)
 

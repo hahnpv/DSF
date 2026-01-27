@@ -50,7 +50,7 @@ namespace dsf
 
 					//table = new double[numberOfLines,2];
 					// size table
-					table = new double*[numberOfLines - 1];
+					table = new double*[numberOfLines];
 					for (int i=0; i <=numberOfLines-1; i++)
 					{
 						table[i] = new double[1];

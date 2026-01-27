@@ -41,13 +41,14 @@ public:
     xmlnode& child(int i) {
         int count = 0;
         for (auto it = current_->begin(); it != current_->end(); ++it) {
-            // Skip the <xmlattr> node which Boost uses for attributes
-            if (it->first == "<xmlattr>") {
+            // Skip special Boost XML nodes
+            if (it->first == "<xmlattr>" || it->first == "<xmlcomment>" || it->first == "<xmltext>") {
                 continue;
             }
             if (count == i) {
                 parent_stack_.push_back(current_);  // Push current to parent stack
                 current_ = &(it->second);
+                it->first == "<xmlattr>" ? name_ = "" : name_ = it->first; // Should not happen due to continue, but safe
                 name_ = it->first;
                 return *this;
             }
@@ -60,7 +61,7 @@ public:
     unsigned int numchild() {
         unsigned int count = 0;
         for (auto it = current_->begin(); it != current_->end(); ++it) {
-            if (it->first != "<xmlattr>") {
+            if (it->first != "<xmlattr>" && it->first != "<xmlcomment>" && it->first != "<xmltext>") {
                 count++;
             }
         }
@@ -161,7 +162,7 @@ public:
         std::vector<const ptree*> new_stack = parent_stack_;
         new_stack.push_back(current_);
         for (const auto& child : *current_) {
-            if (child.first != "<xmlattr>") {
+            if (child.first != "<xmlattr>" && child.first != "<xmlcomment>" && child.first != "<xmltext>") {
                 // Pass child name
                 result.push_back(xmlnode(*tree_, child.second, new_stack, child.first));
             }
