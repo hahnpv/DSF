@@ -84,7 +84,7 @@ namespace dsf
                 conversions.push_back(conversion);
                 
                 // Create Dataset
-                createDataset(title, H5::PredType::NATIVE_DOUBLE);
+                createDataset(title, H5::PredType::NATIVE_DOUBLE, units);
             }
 
             void add(dsf::util::Vec3 &v, std::string title, std::string units, double conversion=1.0)
@@ -93,9 +93,9 @@ namespace dsf
                 vec_titles.push_back(title);
                 vec_conversions.push_back(conversion);
                 
-                createDataset(title + "_x", H5::PredType::NATIVE_DOUBLE);
-                createDataset(title + "_y", H5::PredType::NATIVE_DOUBLE);
-                createDataset(title + "_z", H5::PredType::NATIVE_DOUBLE);
+                createDataset(title + "_x", H5::PredType::NATIVE_DOUBLE, units);
+                createDataset(title + "_y", H5::PredType::NATIVE_DOUBLE, units);
+                createDataset(title + "_z", H5::PredType::NATIVE_DOUBLE, units);
             }
             
             // Matrices omitted for brevity unless needed (can add later)
@@ -109,7 +109,7 @@ namespace dsf
                 // Could be 9 datasets or 1 dataset of array[9].
                 // For simplicity: 9 datasets.
                 for(int i=0; i<3; i++) for(int j=0; j<3; j++) {
-                     createDataset(title + "_" + std::to_string(i) + std::to_string(j), H5::PredType::NATIVE_DOUBLE);
+                     createDataset(title + "_" + std::to_string(i) + std::to_string(j), H5::PredType::NATIVE_DOUBLE, units);
                 }
             }
 
@@ -161,7 +161,7 @@ namespace dsf
             std::vector<std::string> mat_titles;
             std::vector<double> mat_conversions;
 
-            void createDataset(std::string name, const H5::DataType& type)
+            void createDataset(std::string name, const H5::DataType& type, std::string units = "")
             {
                 if (!file) return;
                 try {
@@ -173,7 +173,14 @@ namespace dsf
                     hsize_t chunk_dims[1] = {1000}; // Chunk size
                     prop.setChunk(1, chunk_dims);
                     
-                    file->createDataSet(name, type, dataspace, prop);
+                    H5::DataSet dataset = file->createDataSet(name, type, dataspace, prop);
+                    
+//                    if (!units.empty()) {
+//                        H5::StrType stype(H5::PredType::C_S1, units.length()+1);
+//                        H5::DataSpace attr_dataspace(H5S_SCALAR);
+//                        H5::Attribute attr = dataset.createAttribute("units", stype, attr_dataspace);
+//                        attr.write(stype, units.c_str());
+//                    }
                 } catch(...) {}
             }
             
