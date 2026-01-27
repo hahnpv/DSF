@@ -1,5 +1,12 @@
+/**
+ * @file TRefDict.h
+ * @brief Template reference functions for retrieving block instances.
+ * 
+ * Provides convenience functions for looking up blocks by ID string,
+ * supporting both factory singletons and runtime simulation graph traversal.
+ */
 #pragma once
-	// find something more descriptive to name it ... 
+
 #include <vector>
 #include <typeinfo>
 #include <exception>
@@ -10,66 +17,93 @@
 
 using namespace std;
 
-	// note to self: use of TClass as template param in TClassDict and 
-	// as name of template class is confusing, pick one and rename the other
 namespace dsf
 {
-	namespace sim 
-	{
-		/// Version for use with XML : returns calling class as a template argument
-		/// Useless at the moment as it requires RClass to be specified and we'd rather grab child classes of unknown RClass
-		/// \param BClass base class of TClass (ie: dictionary type)
-		/// \param RClass reference type
-/*		template<class BClass, class RClass> RClass * TRef ()
-		{
-			return TClassDict<BClass>::Instance()->Get<RClass>();					// if we add int param to get, can implement it here
-		}																			// with a default of =0;
-*/	
-		/// Returns a pointer to class obj held by TClassDict by searching ID
-		template<class BClass> BClass * TRef(std::string id)
-		{
-// TODO: #define linux v. msvc
-// MSVC uses this	return TClassDict<BClass>::Instance()->Get("class " + id, false);
-			return TClassDict<BClass>::Instance()->Get( id, false);
-		}
+    namespace sim 
+    {
+        /**
+         * @brief Get singleton instance from TClassDict by ID.
+         * 
+         * Looks up a class factory by name and returns the singleton instance.
+         * 
+         * @tparam BClass Base class type of the dictionary.
+         * @param id Class name to look up.
+         * @return Pointer to singleton instance, or nullptr if not found.
+         * 
+         * ## Usage
+         * @code{.cpp}
+         * EOMBase* eom = TRef<EOMBase>("OblateEarth");
+         * @endcode
+         */
+        template<class BClass> BClass * TRef(std::string id)
+        {
+            return TClassDict<BClass>::Instance()->Get( id, false);
+        }
 
-		/// Returns a pointer to class obj held by TClassDict by searching ID, typecast to RClass
-		template<class BClass, class DClass> DClass* TRefCast(std::string id)
-		{
-			return static_cast<DClass*>( TRef<BClass>( id) );				// cast as derived class
-		}
+        /**
+         * @brief Get singleton instance with static cast to derived type.
+         * 
+         * @tparam BClass Base class type of the dictionary.
+         * @tparam DClass Derived class type to cast to.
+         * @param id Class name to look up.
+         * @return Pointer cast to DClass type.
+         */
+        template<class BClass, class DClass> DClass* TRefCast(std::string id)
+        {
+            return static_cast<DClass*>( TRef<BClass>( id) );
+        }
 
-		/// Returns a pointer to a unique object by searching ID
-		template<class BClass> BClass* TRefUnique(std::string id)
-		{
-// TODO: #define linux v. msvc
-// MSVC uses this	return TClassDict<BClass>::Instance()->Get("class " + id, true);
-			return TClassDict<BClass>::Instance()->Get( id, true);
-		}
+        /**
+         * @brief Create a new instance from TClassDict by ID.
+         * 
+         * Unlike TRef, this creates a unique new instance each time called.
+         * 
+         * @tparam BClass Base class type of the dictionary.
+         * @param id Class name to look up.
+         * @return Pointer to new instance.
+         */
+        template<class BClass> BClass* TRefUnique(std::string id)
+        {
+            return TClassDict<BClass>::Instance()->Get( id, true);
+        }
 
-		/// Recursively traverses block tree, starting at leaf node, going up until it finds BClass by ID
-		template<class BClass, class DClass> DClass * TRefSim(BClass * b, std::string id)
-		{
-			for ( unsigned int i = 0; i < b->getChildren().size(); i++)
-			{
-				std::string classid   = dsf::util::demangle( typeid(*(b->getChild(i))).name() );
-//MSVC TODO #define 		std::string compareid = "class " + id;
-				std::string compareid = id;
-				if ( classid.compare(compareid) == 0)
-				{
-					return dynamic_cast<DClass*>( b->getChild(i));
-				}
-			}
+        /**
+         * @brief Recursively search simulation graph for a block by class ID.
+         * 
+         * Starting from block b, searches children then traverses up the parent
+         * chain until a matching block is found.
+         * 
+         * @tparam BClass Base class type (typically Block).
+         * @tparam DClass Derived class type to find and return.
+         * @param b Starting block for search.
+         * @param id Class name to search for.
+         * @return Pointer to found block cast to DClass, or nullptr.
+         * 
+         * ## Usage
+         * @code{.cpp}
+         * RocketProp* prop = TRefSim<Block, RocketProp>(this, "RocketProp");
+         * @endcode
+         */
+        template<class BClass, class DClass> DClass * TRefSim(BClass * b, std::string id)
+        {
+            for ( unsigned int i = 0; i < b->getChildren().size(); i++)
+            {
+                std::string classid   = dsf::util::demangle( typeid(*(b->getChild(i))).name() );
+                std::string compareid = id;
+                if ( classid.compare(compareid) == 0)
+                {
+                    return dynamic_cast<DClass*>( b->getChild(i));
+                }
+            }
 
-			if ( b->getParent() == 0)
-			{
-				cout << "TRefSim<" << dsf::util::demangle( typeid(BClass).name() ) << ", " << dsf::util::demangle( typeid(DClass).name() ) << ">( " << id << "):" << endl;
-				cout << "\tNo match found in sim." << endl;
-				// cin.get();  // Commented out to allow simulation to continue
-				return 0;
-			}
+            if ( b->getParent() == 0)
+            {
+                cout << "TRefSim<" << dsf::util::demangle( typeid(BClass).name() ) << ", " << dsf::util::demangle( typeid(DClass).name() ) << ">( " << id << "):" << endl;
+                cout << "\tNo match found in sim." << endl;
+                return 0;
+            }
 
-			return TRefSim<BClass, DClass>(b->getParent(), id);
-		}
-	}
+            return TRefSim<BClass, DClass>(b->getParent(), id);
+        }
+    }
 }

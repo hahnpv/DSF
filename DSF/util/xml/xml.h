@@ -1,3 +1,11 @@
+/**
+ * @file xml.h
+ * @brief XML parsing and navigation using Boost Property Tree.
+ * 
+ * Provides a wrapper around Boost Property Tree for XML configuration
+ * parsing. The xmlnode class enables stateful navigation with parent
+ * stack support for multi-level traversal.
+ */
 #pragma once
 
 #include <boost/property_tree/ptree.hpp>
@@ -14,41 +22,64 @@ namespace xml {
 
 using boost::property_tree::ptree;
 
-/// xmlnode provides a Boost Property Tree wrapper that mimics the original xmlnode API
-/// Uses a stack of parent pointers to enable multi-level parent navigation
+/**
+ * @brief Stateful XML node navigator.
+ * 
+ * Wraps Boost Property Tree to provide an intuitive API for XML navigation.
+ * Maintains a parent stack for multi-level parent() traversal.
+ * 
+ * ## Usage
+ * @code{.cpp}
+ * xml doc("config.xml");
+ * doc.parse();
+ * xmlnode& root = *doc.xmlRoot;
+ * for (auto child : root.children()) {
+ *     std::string id = child.attrAsString("id");
+ *     Vec3 pos = child.attrAsVec3("position");
+ * }
+ * @endcode
+ */
 class xmlnode {
 public:
-    /// Constructor from ptree (root node, no parent)
+    /**
+     * @brief Construct from ptree (root node).
+     * @param tree Root property tree.
+     */
     xmlnode(const ptree& tree) : tree_(&tree), current_(&tree), parent_stack_(), name_("") {}
     
-    /// Internal constructor for navigation with parent stack
+    /**
+     * @brief Internal constructor for navigation.
+     */
     xmlnode(const ptree& tree, const ptree& current, std::vector<const ptree*> parent_stack, const std::string& name) 
         : tree_(&tree), current_(&current), parent_stack_(parent_stack), name_(name) {}
 
-    /// Move to parent node (stateful - modifies this xmlnode)
+    /**
+     * @brief Move to parent node.
+     * @return Reference to this (modified).
+     */
     xmlnode& parent() {
         if (!parent_stack_.empty()) {
             current_ = parent_stack_.back();
             parent_stack_.pop_back();
-            // FIXME: We don't track parent names on stack, so name is lost on parent()
-            // Using empty name is safe as standard attribute lookups still work
             name_ = ""; 
         }
         return *this;
     }
 
-    /// Move to child by index (stateful - modifies this xmlnode, skips <xmlattr> node)
+    /**
+     * @brief Move to child by index.
+     * @param i Child index (0-based, skips special nodes).
+     * @return Reference to this (modified).
+     */
     xmlnode& child(int i) {
         int count = 0;
         for (auto it = current_->begin(); it != current_->end(); ++it) {
-            // Skip special Boost XML nodes
             if (it->first == "<xmlattr>" || it->first == "<xmlcomment>" || it->first == "<xmltext>") {
                 continue;
             }
             if (count == i) {
-                parent_stack_.push_back(current_);  // Push current to parent stack
+                parent_stack_.push_back(current_);
                 current_ = &(it->second);
-                it->first == "<xmlattr>" ? name_ = "" : name_ = it->first; // Should not happen due to continue, but safe
                 name_ = it->first;
                 return *this;
             }
@@ -57,7 +88,10 @@ public:
         return *this;
     }
 
-    /// Return number of children (excludes <xmlattr>)
+    /**
+     * @brief Get number of children.
+     * @return Child count (excludes special nodes).
+     */
     unsigned int numchild() {
         unsigned int count = 0;
         for (auto it = current_->begin(); it != current_->end(); ++it) {
@@ -68,131 +102,159 @@ public:
         return count;
     }
 
-    /// Check if attribute exists
+    /**
+     * @brief Check if attribute exists.
+     * @param str Attribute name.
+     * @return True if attribute exists.
+     */
     bool findAttr(const std::string& str) {
         return current_->get_optional<std::string>("<xmlattr>." + str).is_initialized();
     }
 
-    /// Get attribute as string (tries attribute first, then child element text)
+    /**
+     * @brief Get attribute as string.
+     * @param str Attribute name (or child element name).
+     * @return Attribute value, or empty string if not found.
+     */
     std::string attrAsString(const std::string& str) {
-        // Try as attribute first
         auto attr = current_->get_optional<std::string>("<xmlattr>." + str);
-        if (attr) {
-            return attr.get();
-        }
-        // Fall back to child element text content
+        if (attr) return attr.get();
         auto child = current_->get_optional<std::string>(str);
-        if (child) {
-            return child.get();
-        }
-        // Fallback: if str matches current node name, return node value
-        if (str == name_) {
-             return current_->get_value<std::string>();
-        }
+        if (child) return child.get();
+        if (str == name_) return current_->get_value<std::string>();
         return "";
     }
 
-    /// Get attribute as bool
+    /**
+     * @brief Get attribute as boolean.
+     * @param str Attribute name.
+     * @return True if value is "true" or "1".
+     */
     bool attrAsBool(const std::string& str) {
         std::string value = attrAsString(str);
         return (value == "true" || value == "1");
     }
 
-    /// Get attribute as Vec3
+    /**
+     * @brief Get attribute as Vec3.
+     * @param str Attribute name (comma-separated x,y,z).
+     * @return Vec3 value.
+     */
     dsf::util::Vec3 attrAsVec3(const std::string& str) {
         std::string source = attrAsString(str);
         std::vector<double> v = dsf::util::split<double>(source, ",");
-        if (v.size() >= 3) {
-            return dsf::util::Vec3(v[0], v[1], v[2]);
-        }
+        if (v.size() >= 3) return dsf::util::Vec3(v[0], v[1], v[2]);
         return dsf::util::Vec3(0, 0, 0);
     }
 
-    /// Get attribute as Mat3
+    /**
+     * @brief Get attribute as Mat3.
+     * @param str Attribute name (9 comma-separated values, row-major).
+     * @return Mat3 value.
+     */
     dsf::util::Mat3 attrAsMat3(const std::string& str) {
         std::string source = attrAsString(str);
         std::vector<double> m = dsf::util::split<double>(source, ",");
-        if (m.size() >= 9) {
-            return dsf::util::Mat3(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
-        }
+        if (m.size() >= 9) return dsf::util::Mat3(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
         return dsf::util::Mat3();
     }
 
-    /// Get attribute as double (tries attribute first, then child element text)
+    /**
+     * @brief Get attribute as double.
+     * @param str Attribute name (or child element name).
+     * @return Double value, or 0.0 if not found.
+     */
     double attrAsDouble(const std::string& str) {
-        // Try as attribute first
         auto attr = current_->get_optional<double>("<xmlattr>." + str);
-        if (attr) {
-            return attr.get();
-        }
-        // Fall back to child element text content
+        if (attr) return attr.get();
         auto child = current_->get_optional<double>(str);
-        if (child) {
-            return child.get();
-        }
-        // Fallback: if str matches current node name, return node value
-        if (str == name_) {
-             return current_->get_value<double>();
-        }
+        if (child) return child.get();
+        if (str == name_) return current_->get_value<double>();
         return 0.0;
     }
 
-    /// Check if child exists
+    /**
+     * @brief Check if child element exists.
+     * @param str Child element name.
+     * @return True if child exists.
+     */
     bool findChild(const std::string& str) {
         return current_->get_child_optional(str).is_initialized();
     }
 
-    /// Search for child by name (returns *this modified to point to child, with parent stack updated)
+    /**
+     * @brief Navigate to named child.
+     * @param str Child element name.
+     * @return Reference to this (modified to point to child).
+     */
     xmlnode& search(const std::string& str) {
         auto child_opt = current_->get_child_optional(str);
         if (child_opt) {
-            // When searching for a child, add current to parent stack
             parent_stack_.push_back(current_);
             current_ = &child_opt.get();
             name_ = str;
-            return *this;
         }
-        // If not found, return *this (unchanged)
         return *this;
     }
 
-    /// Get all children
+    /**
+     * @brief Get all children as vector.
+     * @return Vector of child xmlnode objects.
+     */
     std::vector<xmlnode> children() {
         std::vector<xmlnode> result;
         std::vector<const ptree*> new_stack = parent_stack_;
         new_stack.push_back(current_);
         for (const auto& child : *current_) {
             if (child.first != "<xmlattr>" && child.first != "<xmlcomment>" && child.first != "<xmltext>") {
-                // Pass child name
                 result.push_back(xmlnode(*tree_, child.second, new_stack, child.first));
             }
         }
         return result;
     }
 
-    /// Get node name
-    std::string name() {
-        return name_;
-    }
+    /**
+     * @brief Get current node name.
+     * @return Node name string.
+     */
+    std::string name() { return name_; }
 
 private:
-    const ptree* tree_;                     // Root tree
-    const ptree* current_;                  // Current node
-    std::vector<const ptree*> parent_stack_; // Stack of parent nodes for multi-level navigation
-    std::string name_;                      // Current node name
+    const ptree* tree_;                     ///< Root tree reference.
+    const ptree* current_;                  ///< Current node pointer.
+    std::vector<const ptree*> parent_stack_;///< Parent navigation stack.
+    std::string name_;                      ///< Current node name.
 };
 
-/// Simple XML loader
+/**
+ * @brief XML document loader.
+ * 
+ * Loads and parses XML files, providing access to the root xmlnode.
+ * 
+ * ## Usage
+ * @code{.cpp}
+ * xml doc("simulation.xml");
+ * doc.parse();
+ * xmlnode& root = *doc.xmlRoot;
+ * @endcode
+ */
 class xml {
 public:
+    /**
+     * @brief Construct with filename.
+     * @param filename Path to XML file.
+     */
     xml(const std::string& filename) : filename_(filename) {
         xmlRoot = nullptr;
     }
 
-    ~xml() {
-        delete xmlRoot;
-    }
+    ~xml() { delete xmlRoot; }
 
+    /**
+     * @brief Parse the XML file.
+     * 
+     * Creates xmlRoot on success.
+     */
     void parse() {
         try {
             boost::property_tree::read_xml(filename_, tree_);
@@ -202,11 +264,11 @@ public:
         }
     }
 
-    xmlnode* xmlRoot;
+    xmlnode* xmlRoot;   ///< Root node (valid after parse()).
 
 private:
-    std::string filename_;
-    ptree tree_;
+    std::string filename_;  ///< Source filename.
+    ptree tree_;            ///< Underlying Boost property tree.
 };
 
 } // namespace xml

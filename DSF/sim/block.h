@@ -1,3 +1,10 @@
+/**
+ * @file block.h
+ * @brief Base class for all simulation components in the DSF framework.
+ * 
+ * The Block class provides the fundamental lifecycle methods (init, update,
+ * rpt, finalize) and graph topology support for hierarchical simulations.
+ */
 #pragma once
 
 #include "clock.h"
@@ -5,69 +12,116 @@
 #include <vector>
 
 #include "../util/xml/xml.h"
-#include "../util/xml/xml.h"
 
 #include "TClassDict.h"
 
 namespace dsf
 {
-	namespace sim 
-	{
-		class Output;
-		class Clock;
+    namespace sim 
+    {
+        class Output;
+        class Clock;
 
-		/// The block class is the base class on which all simulation members are derived.
-		class Block 
-		{
-		public:
-			Block()					{ parent = 0; };			///< Default constructor; null parent pointer.
-			virtual ~Block()        {};							///< Destructor.
-			virtual void configure(dsf::xml::xmlnode n)			///< XML model configuration
-			{
-				rptRate = n.attrAsDouble("rpt");
-				name = n.parent().attrAsString("name");
-			}
-			virtual void init()     {};							///< Initialization function
-			virtual void update()	{};							///< Update differential equations
-			virtual void rpt()      {};							///< Reporting function called once per integration cycle
-			virtual void rptSim() { if( sample(rptRate) ) rpt(); };
-			virtual void finalize() {};							///< Finalize function
-	
-			/// Time Functions
-			double  t()				{ return clock->t();  };	///< Return the simulation time from Clock
-			double dt()				{ return clock->dt(); };	///< Return the simulation rate from Clock
-			void set_dt(double dt)	{ clock->set_dt( dt); };	///< Modify the simulation rate from Clock
-			void end(void)			{ clock->end(); };			///< End simulation by setting state in Clock
-			bool sample(double t=0) { return clock->Sample(t); };	///< Returns false if integrating (t=0), false if not an even increment of (t!=)
+        /**
+         * @brief Base class for all simulation model blocks.
+         * 
+         * Block is the fundamental building block of DSF simulations. All model
+         * components inherit from Block and implement its lifecycle methods.
+         * Blocks can form a tree hierarchy via parent/child relationships.
+         * 
+         * ## Lifecycle Methods
+         * - `configure()`: Parse XML configuration
+         * - `init()`: Initialize state variables
+         * - `update()`: Propagate dynamics (called by integrator)
+         * - `rpt()`: Output telemetry
+         * - `finalize()`: Cleanup at simulation end
+         * 
+         * ## Usage
+         * @code{.cpp}
+         * class MyModel : public dsf::sim::Block {
+         * public:
+         *     static Block *block;  // For factory registration
+         *     virtual void configure(dsf::xml::xmlnode n);
+         *     virtual void update();
+         * };
+         * // Register with factory:
+         * Block* MyModel::block = TClass<MyModel, Block>::Instance();
+         * @endcode
+         */
+        class Block 
+        {
+        public:
+            Block()                 { parent = 0; };            ///< Default constructor; null parent pointer.
+            virtual ~Block()        {};                         ///< Destructor.
+            
+            /**
+             * @brief Configure block from XML.
+             * @param n XML node containing block configuration.
+             */
+            virtual void configure(dsf::xml::xmlnode n)
+            {
+                rptRate = n.attrAsDouble("rpt");
+                name = n.parent().attrAsString("name");
+            }
+            
+            virtual void init()     {};     ///< Initialize state variables and integrators.
+            virtual void update()   {};     ///< Update dynamics (called each integration step).
+            virtual void rpt()      {};     ///< Output telemetry/reports.
+            virtual void rptSim() { if( sample(rptRate) ) rpt(); }; ///< Conditional reporting based on sample rate.
+            virtual void finalize() {};     ///< Cleanup at simulation end.
+    
+            /// @name Time Functions
+            /// @{
+            double  t()             { return clock->t();  };    ///< Get current simulation time [s].
+            double dt()             { return clock->dt(); };    ///< Get integration timestep [s].
+            void set_dt(double dt)  { clock->set_dt( dt); };    ///< Modify timestep dynamically.
+            void end(void)          { clock->end(); };          ///< Signal simulation termination.
+            bool sample(double t=0) { return clock->Sample(t); };///< Check if current time is a reporting sample.
+            /// @}
 
-			/// Reference Functions
-			void ClockRef(Clock *_clock) { clock = _clock; };	///< Function used by Sim to set the clock reference using TFunctor
-			void OutputRef(Output *_o) { o = _o; };				///< Function used by Sim to set the output reference using TFunctor
+            /// @name Reference Functions
+            /// @{
+            void ClockRef(Clock *_clock) { clock = _clock; };   ///< Set clock reference (called by Sim).
+            void OutputRef(Output *_o) { o = _o; };             ///< Set output reference (called by Sim).
+            /// @}
 
-			/// Graph Functions
-			void addChild( Block *b)				///< Add Block as child to current Block. Allows for graph topology
-			{
-				b->parent = this;
-				children.push_back( b);
-			}
-			bool has_children()						///< Return true if children exist; false if there are no children
-			{										///  Could eliminate if children stays public.
-				if (children.size() != 0)
-					return true;
-				else
-					return false;
-			}
-			Block * getParent()	{ return parent; };						///< Return the parent class
-			Block * getChild(int i) { return children[i]; };			///< Return a given child
-			std::vector< Block *> getChildren() { return children; };	///< Returns the child vector
+            /// @name Graph Topology Functions
+            /// @{
+            
+            /**
+             * @brief Add a child block to this block.
+             * @param b Pointer to child block.
+             */
+            void addChild( Block *b)
+            {
+                b->parent = this;
+                children.push_back( b);
+            }
+            
+            /**
+             * @brief Check if block has children.
+             * @return True if children exist.
+             */
+            bool has_children()
+            {
+                if (children.size() != 0)
+                    return true;
+                else
+                    return false;
+            }
+            
+            Block * getParent() { return parent; };                     ///< Get parent block.
+            Block * getChild(int i) { return children[i]; };            ///< Get child by index.
+            std::vector< Block *> getChildren() { return children; };   ///< Get all children.
+            /// @}
 
-		protected:
-			std::vector< Block *>children;		///< Children Block models. Can we protect and provide adequate accessors?
-			Block * parent;						///< Parent Block model.
-			Output *o;							///< Output reference.
-			Clock *clock;						///< Clock reference.
-			double rptRate;						///< Report Rate
-			std::string name;					///< Model name
-		};
-	}
+        protected:
+            std::vector< Block *>children;  ///< Child blocks vector.
+            Block * parent;                 ///< Parent block pointer.
+            Output *o;                      ///< Output handler reference.
+            Clock *clock;                   ///< Simulation clock reference.
+            double rptRate;                 ///< Report sample rate [s].
+            std::string name;               ///< Block instance name.
+        };
+    }
 }
