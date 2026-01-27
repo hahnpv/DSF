@@ -77,9 +77,26 @@ int main(int argc, char *argv[])
 		root->getChild(i)->configure( child_node);
 	}
 
+    // Map XML LogLevel
+    auto mapLevel = [](int l) {
+        if (l == 0) return dsf::sim::LOG_CRITICAL;
+        if (l == 2) return dsf::sim::LOG_VERBOSE;
+        return dsf::sim::LOG_NORMAL;
+    };
+
+    dsf::sim::LogLevel csv_lvl = mapLevel(input.getCSVLogLevel());
+    dsf::sim::LogLevel h5_lvl = mapLevel(input.getHDF5LogLevel());
+
+    // Set Global Defaults (Ensures all blocks created by load() inherit config)
+    dsf::sim::Output::defaultCSV() = input.isCSV();
+    dsf::sim::Output::defaultHDF5() = input.isHDF5();
+    dsf::sim::Output::defaultCSVLevel() = csv_lvl;
+    dsf::sim::Output::defaultHDF5Level() = h5_lvl;
+
 		// Instantiate simulation
 	Sim *sim = new Sim();
 	sim->load(root, input.dt(), input.tmax(), input.rateConsole(), input.rateFile());
+    
 	sim->run();
 
 	return 0;

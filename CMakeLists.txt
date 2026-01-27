@@ -23,6 +23,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11)
 
+find_package(HDF5 COMPONENTS C CXX REQUIRED)
+include_directories(${HDF5_INCLUDE_DIRS})
+
 find_package(Doxygen)
 
 # Default to Debug build if not specified
@@ -81,7 +84,7 @@ target_include_directories(DSF PUBLIC
     ${OPENSCENEGRAPH_INCLUDE_DIRS}
 )
 
-target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES} pybind11::embed)
+target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES} pybind11::embed ${HDF5_LIBRARIES})
 target_compile_options(DSF PRIVATE -fpermissive)
 set_target_properties(DSF PROPERTIES LINKER_LANGUAGE CXX)
 

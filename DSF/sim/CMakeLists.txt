@@ -8,6 +8,9 @@ set(sim_source_files
   clock.h
   integratorRK4.cpp
   output.h
+  hdf5output.h
+  log_level.h
+  output.cpp
   sim.cpp
   TClassDict.h
   TRefDict.h
