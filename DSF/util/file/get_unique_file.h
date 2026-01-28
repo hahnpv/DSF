@@ -30,14 +30,13 @@ namespace dsf
 					s << i;
 					s >> str;
 
-					int lastsize = 1;
-					if (i - 1 >= 10)
-						lastsize = 2;
-
 					if ( i == 0)
 						filename.insert(offset,str);
 					else
 					{
+						stringstream s_prev;
+						s_prev << (i - 1);
+						int lastsize = s_prev.str().length();
 						filename.erase(offset-lastsize,lastsize);
 						filename.insert(offset-lastsize,str);
 					}
