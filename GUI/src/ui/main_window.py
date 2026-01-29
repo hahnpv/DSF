@@ -236,16 +236,47 @@ class MainWindow(QMainWindow):
             # Identify library name for grouping
             lib_name = os.path.basename(path)
             
+            from core.model_registry import PropertyDefinition, PortDefinition
+            
             for name in registered_names:
-                if not self.registry.get_block(name):
-                    # Create generic definition
-                    # Group by Library Name as "Inheritance/Grouping" is not available in C++ factory
+                # Always overwrite or create. If we have metadata, it's better than defaults.
+                if True: 
+                    # Fetch metadata from C++
+                    try:
+                        cpp_props, cpp_ports = dsf.get_block_metadata(name)
+                    except Exception:
+                        cpp_props, cpp_ports = ([], [])
+
+                    # Map properties
+                    py_props = []
+                    for p in cpp_props:
+                        # Map C++ types to GUI types
+                        ptype = "string"
+                        val = p.defaultValue
+                        if p.type in ("double", "float", "int"):
+                            ptype = "float"
+                            try:
+                                val = float(val)
+                            except:
+                                val = 0.0
+                        elif p.type == "bool":
+                            ptype = "bool"
+                            val = (val.lower() == "true")
+                        
+                        py_props.append(PropertyDefinition(p.name, ptype, val, p.description))
+                    
+                    # Map ports
+                    py_ports = []
+                    for p in cpp_ports:
+                        py_ports.append(PortDefinition(p.name, p.type, p.direction))
+
+                    # Create definition
                     new_block = BlockDefinition(
                         type_id=name,
-                        category=lib_name, # Group by SO name
+                        category=lib_name,
                         description=f"From {lib_name}",
-                        properties=[], 
-                        ports=[]
+                        properties=py_props, 
+                        ports=py_ports
                     )
                     self.registry.add_block(new_block)
                     count += 1
@@ -284,6 +315,10 @@ class MainWindow(QMainWindow):
                     self.view.centerOn(rect.center())
                     self.view.fitInView(rect.adjusted(-100, -100, 100, 100), Qt.AspectRatioMode.KeepAspectRatio)
                 
+                # Auto-wire implicit connections for legacy DSF files
+                created_blocks = {item.instance_id: item for item in self.scene.items() if isinstance(item, BlockItem)}
+                self._auto_wire_implicit_connections(created_blocks)
+
                 self.status_bar.showMessage(f"Loaded {path}")
                 return True
         except Exception as e:
@@ -507,6 +542,7 @@ class MainWindow(QMainWindow):
             
             # Reconstruct connections
             self._reconstruct_connections(blocks_data, created_blocks)
+            self._auto_wire_implicit_connections(created_blocks)
 
 
             self.undo_stack.endMacro()
@@ -569,9 +605,15 @@ class MainWindow(QMainWindow):
                                         if "flow" in p.port_type.lower() or "tank" in p.name.lower():
                                             start_port = p
                                             break
-                                elif "nav" in name_lower or "guid" in name_lower or "ctrl" in name_lower:
-                                    # Link avionics layers together
-                                    if target_item.outputs:
+                                elif any(x in name_lower for x in ("nav", "guid", "ctrl", "fsw", "plan")):
+                                    # Link avionics layers together. 
+                                    # Target is likely a Navigation or Guidance block.
+                                    # Use the first output that looks like a state or signal output.
+                                    for p in target_item.outputs:
+                                        if any(y in p.name.lower() for y in ("out", "state", "nav", "pos", "vel", "att", "cmd")):
+                                            start_port = p
+                                            break
+                                    if not start_port and target_item.outputs:
                                         start_port = target_item.outputs[0]
                             
                             # 3. Fallback: If only one output, or no type match, use the first one
@@ -581,7 +623,11 @@ class MainWindow(QMainWindow):
                         if not start_port:
                             # 4. Create dynamic output if none exist
                             start_type = end_port.port_type if end_port.port_type != "signal" else "signal"
-                            start_port = target_item.add_output_port("out", start_type)
+                            prefix = "out"
+                            # Try to name the output same as connection if it's specialized
+                            if end_port.name in ("nav", "control", "guidance"):
+                                prefix = end_port.name
+                            start_port = target_item.add_output_port(prefix, start_type)
                         
                         if start_port and end_port:
                             # Prevent duplicate connections
@@ -599,6 +645,78 @@ class MainWindow(QMainWindow):
             
             if "sub_blocks" in b_data:
                 self._reconstruct_connections(b_data["sub_blocks"], created_blocks)
+
+            # Post-pass: Auto-wire implicit connections (e.g. StageManager finding sibling Nav/Control)
+            # Only run this at the top level call to avoid recursion redundancy
+            if len(created_blocks) > 0 and "sub_blocks" not in b_data: 
+                # This condition is tricky inside recursion. 
+                # Better to call it explicitly in import_xml_file after reconstruction.
+                pass
+
+    def _auto_wire_implicit_connections(self, created_blocks):
+        from ui.canvas import ConnectionItem
+        
+        # Identify Potential Sources (Output Ports)
+        # Store by type for quick lookup:  "NavigationBase" -> [port_item, ...]
+        available_outputs = {}
+        
+        for block in created_blocks.values():
+            for port in block.outputs:
+                if port.port_type not in available_outputs:
+                    available_outputs[port.port_type] = []
+                available_outputs[port.port_type].append(port)
+                
+        # Heuristic Matching
+        for block in created_blocks.values():
+            for in_port in block.inputs:
+                # Skip if already connected
+                if len(in_port.connections) > 0:
+                    continue
+                
+                # Check if we have candidates for this type
+                candidates = available_outputs.get(in_port.port_type, [])
+                if not candidates: continue
+                
+                # Strategy: 
+                # 1. Prefer Siblings (Same Parent)
+                # 2. Prefer Children (if block is a Manager)
+                # 3. Prefer Cousins (Same Grandparent)
+                
+                best_match = None
+                best_score = 0 # 3=Sibling, 2=Child, 1=Cousin/Any
+                
+                for out_port in candidates:
+                    source_block = out_port.parentItem()
+                    if source_block == block: continue # Don't connect to self
+                    
+                    score = 0
+                    
+                    # Check Sibling
+                    if source_block.parent_block == block.parent_block:
+                        score = 3
+                    # Check if Source is Child of Block
+                    elif source_block.parent_block == block:
+                        score = 2
+                    # Check Cousin (Parents are siblings)
+                    elif (block.parent_block and source_block.parent_block and 
+                          block.parent_block.parent_block == source_block.parent_block.parent_block):
+                        score = 1
+                    
+                    if score > best_score:
+                        best_score = score
+                        best_match = out_port
+                    
+                    # Tie-breaker: Name matching?
+                    # If we have multiple siblings (e.g. 2 props), which one?
+                    # Start with first found compliant with C++ 'find first' logic.
+                
+                if best_match:
+                    # Create Connection
+                    conn = ConnectionItem(best_match, in_port)
+                    self.scene.addItem(conn)
+                    best_match.connections.append(conn)
+                    in_port.connections.append(conn)
+                    print(f"Auto-Wired {block.instance_id}:{in_port.name} -> {best_match.parentItem().instance_id}:{best_match.name}")
 
 
 

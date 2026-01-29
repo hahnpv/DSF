@@ -69,10 +69,13 @@ class XMLParser:
             if key in ("class", "id"):
                 continue
             
-            # Check if it looks like a connection (ends with _id)
-            if key.endswith("_id"):
+            # Check if it looks like a connection (ends with _id or is a known pointer)
+            is_connection = key.endswith("_id") or key in ("nav", "control", "guidance", "prop", "parent", "target")
+            
+            if is_connection:
+                port_name = key[:-3] if key.endswith("_id") else key
                 data["connections"].append({
-                    "port": key[:-3], # e.g. "fuel_tank"
+                    "port": port_name,
                     "target": value
                 })
             

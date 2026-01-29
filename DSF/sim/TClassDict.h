@@ -23,6 +23,25 @@ namespace dsf
         template<class derived, class base> class TClass;
 
         /**
+         * @brief Metadata for a block property.
+         */
+        struct PropertyMetadata {
+            string name;
+            string type;
+            string defaultValue;
+            string description;
+        };
+
+        /**
+         * @brief Metadata for a block port.
+         */
+        struct PortMetadata {
+            string name;
+            string type;
+            string direction; // "input" or "output"
+        };
+
+        /**
          * @brief Singleton dictionary of class factories.
          * 
          * Stores TClassBase pointers for all registered classes deriving from
@@ -138,10 +157,23 @@ namespace dsf
             virtual BClass * get()    { return obj; };              ///< Get singleton instance.
             virtual BClass * getnew() { cout << "TClassBase" << endl; return new BClass; }; ///< Create new instance.
             static  BClass * getStatic() { return (new BClass); };  ///< Static factory method.
+
+            void AddProperty(string name, string type, string defaultValue, string description="") {
+                properties.push_back({name, type, defaultValue, description});
+            }
+            void AddPort(string name, string type, string direction) {
+                ports.push_back({name, type, direction});
+            }
+
+            const std::vector<PropertyMetadata>& getProperties() const { return properties; }
+            const std::vector<PortMetadata>& getPorts() const { return ports; }
+
         protected:
             std::string tBase;      ///< Base class type name.
             std::string tDerived;   ///< Derived class type name.
             BClass * obj;           ///< Singleton instance pointer.
+            std::vector<PropertyMetadata> properties;
+            std::vector<PortMetadata> ports;
         };
 
         /**

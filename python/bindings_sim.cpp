@@ -101,6 +101,27 @@ void init_sim(py::module_ &m) {
              return dsf::sim::TRefUnique<Block>(id);
          }, py::return_value_policy::take_ownership);
 
+    py::class_<PropertyMetadata>(m, "PropertyMetadata")
+        .def_readonly("name", &PropertyMetadata::name)
+        .def_readonly("type", &PropertyMetadata::type)
+        .def_readonly("defaultValue", &PropertyMetadata::defaultValue)
+        .def_readonly("description", &PropertyMetadata::description);
+
+    py::class_<PortMetadata>(m, "PortMetadata")
+        .def_readonly("name", &PortMetadata::name)
+        .def_readonly("type", &PortMetadata::type)
+        .def_readonly("direction", &PortMetadata::direction);
+
+    m.def("get_block_metadata", [](std::string name) {
+        auto* dict = dsf::sim::TClassDict<Block>::Instance();
+        int idx = dict->search(name);
+        if (idx >= 0) {
+            auto* factory = dict->classDictPtr[idx];
+            return py::make_tuple(factory->getProperties(), factory->getPorts());
+        }
+        throw std::runtime_error("Block not found: " + name);
+    });
+
     m.def("get_registered_blocks", []() {
         std::vector<std::string> names;
         auto* dict = dsf::sim::TClassDict<Block>::Instance();

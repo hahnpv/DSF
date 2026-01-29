@@ -101,6 +101,20 @@ class XMLGenerator:
                 conn = port.connections[0]
                 other = conn.start_port.parentItem() if conn.end_port == port else conn.end_port.parentItem()
                 if isinstance(other, BlockItem):
-                    node.set(f"{port.name}_id", other.instance_id)
+                    # Heuristic: use port name as-is if it exists in parameters or is a known pointer
+                    # Otherwise, use the portname_id convention
+                    attr_name = port.name
+                    known_pointers = ("nav", "control", "guidance", "prop", "parent", "target")
+                    if port.name not in params and port.name not in block.block_def.properties and port.name not in known_pointers:
+                         # Check if the _id version exists in parameters
+                         if f"{port.name}_id" in params or f"{port.name}_id" in [p.name for p in block.block_def.properties]:
+                             attr_name = f"{port.name}_id"
+                         elif port.name.endswith("_id"):
+                             attr_name = port.name # Already has it
+                         else:
+                             # Default fallback for dynamic ports that aren't known mission pointers
+                             attr_name = f"{port.name}_id"
+
+                    node.set(attr_name, other.instance_id)
 
         return node
