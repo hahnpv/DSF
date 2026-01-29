@@ -4,6 +4,11 @@ examples/sixdof
 examples/static
 CMakeDoxyfile.in
 *.txt
+*.csv
+*.h5
+*.log
+*.png
+__pycache__
 
 # CMake Artifacts
 CMakeFiles/

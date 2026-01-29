@@ -94,7 +94,8 @@ void init_sim(py::module_ &m) {
     py::class_<Sim>(m, "Sim")
         .def(py::init<>())
         .def("load", &Sim::load)
-        .def("run", &Sim::run);
+        .def("run", &Sim::run)
+        .def_readonly("clock", &Sim::clock, py::return_value_policy::reference);
 
     m.def("make_block", [](std::string id) {
              return dsf::sim::TRefUnique<Block>(id);

@@ -36,6 +36,16 @@ class MainWindow(QMainWindow):
         self.view = GraphView(self.scene, self.registry)
         self.serializer = GraphSerializer(self.registry)
         self.validator = ValidationEngine(self.scene)
+        
+        from PyQt6.QtWidgets import QStatusBar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+
+        self.sim_config = {
+            "dt": 0.1,
+            "tmax": 100.0,
+            "lib_path": ""
+        }
 
         # Connect scene changes to validation
         self.scene.changed.connect(self._run_validation)
@@ -54,24 +64,27 @@ class MainWindow(QMainWindow):
         self.inspector_dock = QDockWidget("Property Inspector", self)
         self.inspector_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         self.inspector_widget = InspectorWidget()
+        self.inspector_widget.sim_config = self.sim_config
         self.inspector_dock.setWidget(self.inspector_widget)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.inspector_dock)
         
-        # Signals
+        # Simulation Settings Labels (Permanent in Status Bar)
+        self.sim_info_label = QLabel(f"dt: {self.sim_config['dt']} | tmax: {self.sim_config['tmax']}")
+        self.sim_info_label.setStyleSheet("margin-right: 20px; color: #888;")
+        self.status_bar.addPermanentWidget(self.sim_info_label)
+
+        # Force initial inspector view
+        self.inspector_widget.set_selection([])
         self.scene.selectionChanged.connect(self._on_selection_changed)
 
         # Zoom Slider
-        from PyQt6.QtWidgets import QSlider, QHBoxLayout, QStatusBar
+        from PyQt6.QtWidgets import QSlider, QHBoxLayout
         self.zoom_slider = QSlider(Qt.Orientation.Horizontal)
         self.zoom_slider.setRange(10, 300)
         self.zoom_slider.setValue(100)
         self.zoom_slider.setFixedWidth(150)
         self.zoom_slider.valueChanged.connect(self.view.set_zoom)
         self.view.zoom_slider = self.zoom_slider # For bidirectional sync
-        
-        # Status Bar with Zoom & Progress
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
         
         self.progress_bar = QProgressBar()
         self.progress_bar.setMaximumHeight(15)
@@ -98,19 +111,9 @@ class MainWindow(QMainWindow):
         self.stop_action.setToolTip("Stop running simulation")
         self.stop_action.setEnabled(False)
         self.stop_action.triggered.connect(self._stop_simulation)
-        
-        sim_toolbar.addSeparator()
-        self.sim_settings_action = sim_toolbar.addAction("⚙ Settings")
-        self.sim_settings_action.setToolTip("Configure dt, tmax, and library path")
-        self.sim_settings_action.triggered.connect(self._show_simulation_settings)
 
         # Simulation State
         self.sim_worker = None
-        self.sim_config = {
-            "dt": 0.1,
-            "tmax": 100.0,
-            "lib_path": ""
-        }
 
         # Menu Bar
         menu = self.menuBar()
@@ -269,6 +272,7 @@ class MainWindow(QMainWindow):
             if data:
                 metadata = serializer.reconstruct(self.scene, data)
                 self.sim_config.update(metadata)
+                self._refresh_sim_info()
                 self.inspector_widget.set_selection([])
                 
                 # Center view on loaded items
@@ -395,6 +399,8 @@ class MainWindow(QMainWindow):
             if "dt" in sim_metadata: self.sim_config["dt"] = sim_metadata["dt"]
             if "tmax" in sim_metadata: self.sim_config["tmax"] = sim_metadata["tmax"]
             if "library" in sim_metadata: self.sim_config["lib_path"] = sim_metadata["library"]
+            
+            self._refresh_sim_info()
             
             self.undo_stack.beginMacro(f"Import {os.path.basename(path)}")
             self.scene.clear()
@@ -653,37 +659,12 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-    def _show_simulation_settings(self):
-        from PyQt6.QtWidgets import QDialog, QFormLayout, QDoubleSpinBox, QLineEdit, QDialogButtonBox
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Simulation Settings")
-        layout = QFormLayout(dialog)
-        
-        dt_spin = QDoubleSpinBox()
-        dt_spin.setRange(0.001, 10.0)
-        dt_spin.setValue(self.sim_config["dt"])
-        dt_spin.setDecimals(3)
-        
-        tmax_spin = QDoubleSpinBox()
-        tmax_spin.setRange(0.1, 10000.0)
-        tmax_spin.setValue(self.sim_config["tmax"])
-        
-        lib_edit = QLineEdit(self.sim_config["lib_path"])
-        
-        layout.addRow("Timestep (dt):", dt_spin)
-        layout.addRow("Max Time (tmax):", tmax_spin)
-        layout.addRow("Library Path:", lib_edit)
-        
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addRow(buttons)
-        
-        if dialog.exec():
-            self.sim_config["dt"] = dt_spin.value()
-            self.sim_config["tmax"] = tmax_spin.value()
-            self.sim_config["lib_path"] = lib_edit.text()
-            self.status_bar.showMessage(f"Sim settings updated: dt={self.sim_config['dt']}, tmax={self.sim_config['tmax']}")
+
+    def _refresh_sim_info(self):
+        """Update status bar label and inspector if showing sim settings."""
+        self.sim_info_label.setText(f"dt: {self.sim_config['dt']} | tmax: {self.sim_config['tmax']}")
+        if not self.scene.selectedItems():
+            self.inspector_widget.set_selection([], force=True)
 
     def _start_simulation(self):
         # 1. Validation
@@ -694,8 +675,8 @@ class MainWindow(QMainWindow):
             return
 
         if not self.sim_config["lib_path"]:
-            QMessageBox.warning(self, "Missing Library", "Please specify the simulation library path in Settings.")
-            self._show_simulation_settings()
+            QMessageBox.information(self, "Load Library", "Please select the simulation library (.so) to proceed.")
+            self._load_library()
             if not self.sim_config["lib_path"]: return
 
         # 2. Export tentative XML
