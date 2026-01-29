@@ -1,0 +1,274 @@
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem, QGraphicsPathItem
+from PyQt6.QtCore import Qt, QRectF, QPointF, pyqtSignal
+from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPainterPath, QFont
+
+class ConnectionItem(QGraphicsPathItem):
+    def __init__(self, start_port, end_port=None):
+        super().__init__()
+        self.start_port = start_port
+        self.end_port = end_port
+        self.setZValue(-1) # Behind blocks
+        self.pen = QPen(QColor("#E0E0E0"), 2)
+        self.setPen(self.pen)
+        self.update_path(start_port.scenePos(), end_port.scenePos() if end_port else start_port.scenePos())
+
+    def update_path(self, p1, p2):
+        path = QPainterPath()
+        path.moveTo(p1)
+        dx = p2.x() - p1.x()
+        dy = p2.y() - p1.y()
+        ctrl1 = QPointF(p1.x() + dx * 0.5, p1.y())
+        ctrl2 = QPointF(p2.x() - dx * 0.5, p2.y())
+        path.cubicTo(ctrl1, ctrl2, p2)
+        self.setPath(path)
+    
+    def update_geometry(self):
+        if self.start_port and self.end_port:
+            self.update_path(self.start_port.scenePos(), self.end_port.scenePos())
+
+class PortItem(QGraphicsItem):
+    def __init__(self, name, port_type, is_input, parent=None):
+        super().__init__(parent)
+        self.name = name
+        self.port_type = port_type
+        self.is_input = is_input
+        self.radius = 6
+        self.setAcceptHoverEvents(True)
+        self.brush = QBrush(QColor("#00A0E0")) # Blue lines style
+        self.connections = [] # Track connected items
+
+    def scenePos(self):
+        # Center of port in scene coords
+        return self.mapToScene(0, 0)
+    
+    def mousePressEvent(self, event):
+        # Start connection
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.scene().start_connection(self)
+            event.accept()
+
+    def boundingRect(self):
+        return QRectF(-self.radius, -self.radius, 2*self.radius, 2*self.radius)
+
+    def paint(self, painter, option, widget):
+        painter.setBrush(self.brush)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(-self.radius, -self.radius, 2*self.radius, 2*self.radius)
+
+class BlockItem(QGraphicsItem):
+    def __init__(self, block_def, instance_id, pos):
+        super().__init__()
+        self.block_def = block_def
+        self.instance_id = instance_id # Unique ID in graph (e.g. "Vehicle_1")
+        self.setPos(pos)
+        self.setFlags(QGraphicsItem.GraphicsItemFlag.ItemIsMovable | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        
+        self.width = 150
+        self.height = 80 # Dynamic?
+        self.header_height = 25
+        
+        # Instance Parameters (Copy defaults)
+        self.parameters = {p.name: p.default for p in block_def.properties}
+        
+        # Setup Ports
+        self.inputs = []
+        self.outputs = []
+        self._create_ports()
+
+    def _create_ports(self):
+        y_in = self.header_height + 15
+        y_out = self.header_height + 15
+        
+        for port in self.block_def.ports:
+            if port.direction == "input":
+                p = PortItem(port.name, port.type, True, self)
+                p.setPos(-self.radius_offset(), y_in) # Left side
+                self.inputs.append(p)
+                y_in += 20
+            else:
+                p = PortItem(port.name, port.type, False, self)
+                p.setPos(self.width + self.radius_offset(), y_out) # Right side
+                self.outputs.append(p)
+                y_out += 20
+        
+        self.height = max(self.height, max(y_in, y_out) + 10)
+        self.height += 5 # padding
+
+    def radius_offset(self):
+        return 0 
+
+    def boundingRect(self):
+        return QRectF(0, 0, self.width, self.height)
+
+    def paint(self, painter, option, widget):
+        # Body
+        r = 10
+        path = QPainterPath()
+        path.addRoundedRect(0, 0, self.width, self.height, r, r)
+        
+        # Selection highlight
+        if self.isSelected():
+            painter.setPen(QPen(QColor("#FFA500"), 2))
+        else:
+            painter.setPen(QPen(QColor("#101010"), 1))
+            
+        painter.setBrush(QBrush(QColor("#303030")))
+        painter.drawPath(path)
+        
+        # Header
+        header_path = QPainterPath()
+        header_path.moveTo(0, self.header_height)
+        header_path.lineTo(0, r)
+        header_path.arcTo(0, 0, 2*r, 2*r, 180, -90)
+        header_path.lineTo(self.width - r, 0)
+        header_path.arcTo(self.width - 2*r, 0, 2*r, 2*r, 90, -90)
+        header_path.lineTo(self.width, self.header_height)
+        header_path.closeSubpath()
+        painter.setBrush(QBrush(QColor("#404040")))
+        painter.drawPath(header_path)
+        
+        # Text
+        painter.setPen(QColor("#E0E0E0"))
+        font = QFont("Segoe UI", 10, QFont.Weight.Bold)
+        painter.setFont(font)
+        painter.drawText(QRectF(10, 0, self.width-20, self.header_height), Qt.AlignmentFlag.AlignVCenter, self.block_def.type_id)
+        
+        # ID
+        font2 = QFont("Segoe UI", 8)
+        painter.setFont(font2)
+        painter.setPen(QColor("#808080"))
+        painter.drawText(QRectF(10, 25, self.width-20, 15), Qt.AlignmentFlag.AlignRight, self.instance_id)
+
+
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            # Update connections
+            for p in self.inputs + self.outputs:
+                for c in p.connections:
+                    c.update_geometry()
+        return super().itemChange(change, value)
+
+class GraphScene(QGraphicsScene):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setSceneRect(0, 0, 5000, 5000)
+        self.setBackgroundBrush(QBrush(QColor("#181818")))
+        self.temp_connection = None
+        self.start_port = None
+
+    def start_connection(self, port):
+        self.start_port = port
+        self.temp_connection = ConnectionItem(port, None)
+        self.addItem(self.temp_connection)
+
+    def mouseMoveEvent(self, event):
+        if self.temp_connection:
+            self.temp_connection.update_path(self.start_port.scenePos(), event.scenePos())
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self.temp_connection:
+            # Check drop target
+            items = self.items(event.scenePos())
+            end_port = None
+            for item in items:
+                if isinstance(item, PortItem) and item != self.start_port:
+                    if item.is_input != self.start_port.is_input: # Basic validation
+                        end_port = item
+                        break
+            
+            if end_port:
+                # Create permanent connection
+                self.temp_connection.end_port = end_port
+                self.temp_connection.update_geometry()
+                self.start_port.connections.append(self.temp_connection)
+                end_port.connections.append(self.temp_connection)
+                self.temp_connection = None
+            else:
+                self.removeItem(self.temp_connection)
+                self.temp_connection = None
+                
+        super().mouseReleaseEvent(event)
+    
+    def drawBackground(self, painter, rect):
+        super().drawBackground(painter, rect)
+
+class GraphView(QGraphicsView):
+    def __init__(self, scene, registry):
+        super().__init__(scene)
+        self.registry = registry
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+        self.setAcceptDrops(True)
+        self.setSceneRect(0, 0, 5000, 5000)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasText():
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasText():
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        block_id = event.mimeData().text()
+        block_def = self.registry.get_block(block_id)
+        
+        if block_def:
+            pos = self.mapToScene(event.position().toPoint())
+            # Generate unique ID (simple counter for now or UUID)
+            count = len([i for i in self.scene().items() if isinstance(i, BlockItem)])
+            instance_id = f"{block_id}_{count+1}"
+            
+            block = BlockItem(block_def, instance_id, pos)
+            self.scene().addItem(block)
+            event.accept()
+        else:
+            event.ignore()
+
+    def wheelEvent(self, event):
+        zoom_in_factor = 1.15
+        zoom_out_factor = 1.0 / zoom_in_factor
+
+        # Save the scene pos
+        old_pos = self.mapToScene(event.position().toPoint())
+
+        # Zoom
+        if event.angleDelta().y() > 0:
+            zoom_factor = zoom_in_factor
+        else:
+            zoom_factor = zoom_out_factor
+        
+        self.scale(zoom_factor, zoom_factor)
+
+        # Get the new position
+        new_pos = self.mapToScene(event.position().toPoint())
+
+        # Move scene to old position
+        delta = new_pos - old_pos
+        self.translate(delta.x(), delta.y())
+        
+        # Update slider if connected (via parent main window usually, but we set it in main_window.py)
+        if hasattr(self, 'zoom_slider'):
+            # Convert current scale to percentage for slider
+            # Handle resetTransform carefully if we used it, but here we use relative scale
+            current_scale = self.transform().m11()
+            self.zoom_slider.blockSignals(True)
+            self.zoom_slider.setValue(int(current_scale * 100))
+            self.zoom_slider.blockSignals(False)
+
+    def set_zoom(self, value):
+        # Scale is 1.0 at value=100
+        s = value / 100.0
+        # resetTransform() clears translations too, which might jump the view.
+        # Better: calculate required scale factor to reach target 's'
+        current_s = self.transform().m11()
+        if current_s > 0:
+            factor = s / current_s
+            self.scale(factor, factor)
+
