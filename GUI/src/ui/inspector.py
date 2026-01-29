@@ -55,6 +55,7 @@ class InspectorWidget(QWidget):
             return
             
         self.current_block = blocks[0]
+        self._show_block_properties(self.current_block)
     def _show_block_properties(self, block):
         # Header
         header = QLabel(f"Block: {block.instance_id}")
@@ -108,6 +109,7 @@ class InspectorWidget(QWidget):
             editor.setText(str(self.sim_config[key]))
 
     def _show_block_properties(self, block):
+        print(f"DEBUG INSPECTOR: Showing properties for {block.instance_id} (Type: {block.block_def.type_id})")
         # Header
         header = QLabel(block.instance_id)
         header.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px; color: #00A0E0;")
@@ -118,8 +120,12 @@ class InspectorWidget(QWidget):
         self.form_layout.addRow(QLabel("")) # Spacer
         self.form_layout.addRow(QLabel("Properties:"))
         
-        for prop in block.block_def.properties:
+        props = block.block_def.properties
+        print(f"DEBUG INSPECTOR: Found {len(props)} properties definition.")
+        
+        for prop in props:
             value = block.parameters.get(prop.name, prop.default)
+            print(f"  - Prop: {prop.name}, Val: {value}")
             editor = self._create_editor(prop, value)
             self.form_layout.addRow(prop.name + ":", editor)
 

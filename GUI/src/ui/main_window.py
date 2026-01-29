@@ -151,43 +151,113 @@ class MainWindow(QMainWindow):
         view_menu.addAction("Auto Layout", self._trigger_auto_layout)
 
     def _trigger_auto_layout(self):
-        import math
+        self.undo_stack.beginMacro("Auto Layout (Nested)")
+        
+        # 1. Reset Hierarchy (flatten to safe state before re-parenting?)
+        # Actually QGraphicsItem reparenting handles scene removal/add automatically.
+        
+        # Find Roots (Blocks with no parent_block determined by data, OR defined by hierarchy)
+        # Note: 'parent_block' attribute is set during import.
+        # We need to trust it.
         
         blocks = [i for i in self.scene.items() if isinstance(i, BlockItem)]
-        if not blocks: return
+        roots = [b for b in blocks if b.parent_block is None]
         
-        self.undo_stack.beginMacro("Auto Layout")
+        # Helper to layout a node and its children
+        def layout_node_recursive(node):
+            # 1. Layout Children First (Bottom-Up)
+            if not node.child_blocks:
+                # Leaf node: Standard size
+                node.set_visual_size(150, node.height) # Reset to default-ish?
+                return 150, node.height
+                
+            # Has children. Layout them in a grid/flow.
+            # But wait, children might be containers too.
+            
+            child_bboxes = []
+            for child in node.child_blocks:
+                w, h = layout_node_recursive(child)
+                child_bboxes.append((child, w, h))
+                
+            # Grid Layout for children
+            import math
+            n = len(child_bboxes)
+            cols = max(1, round(math.sqrt(n * 1.5))) # slightly wider
+            rows = math.ceil(n / cols)
+            
+            padding = 40
+            header_h = node.header_height + 20
+            
+            current_x = padding
+            current_y = header_h
+            
+            row_heights = [0] * rows
+            col_widths = [0] * cols
+            
+            # First pass: calculate row/col sizes
+            for i, (child, w, h) in enumerate(child_bboxes):
+                r = i // cols
+                c = i % cols
+                row_heights[r] = max(row_heights[r], h)
+                col_widths[c] = max(col_widths[c], w)
+                
+            # Total Size
+            total_w = sum(col_widths) + (cols + 1) * padding
+            total_h = sum(row_heights) + (rows + 1) * padding + header_h
+            
+            # Position Children
+            start_y = header_h
+            for r in range(rows):
+                start_x = padding
+                for c in range(cols):
+                    idx = r * cols + c
+                    if idx >= n: break
+                    
+                    child, cw, ch = child_bboxes[idx]
+                    
+                    # Center in cell
+                    cell_w = col_widths[c]
+                    cell_h = row_heights[r]
+                    
+                    off_x = (cell_w - cw) / 2
+                    off_y = (cell_h - ch) / 2
+                    
+                    # Set Parent (Visual Nesting)
+                    child.setParentItem(node) 
+                    child.setPos(start_x + off_x, start_y + off_y)
+                    child.setZValue(node.zValue() + 1) # Ensure on top
+                    
+                    start_x += col_widths[c] + padding
+                start_y += row_heights[r] + padding
+                
+            # Resize Self
+            node.set_visual_size(total_w, total_h)
+            return total_w, total_h
+            
+        # Process Roots
+        x_cursor = 0
+        y_cursor = 0
+        max_h = 0
         
-        # Sort blocks to maintain some order (e.g., by ID)
-        blocks.sort(key=lambda x: x.instance_id)
+        spacing = 100
         
-        n = len(blocks)
-        view_rect = self.view.viewport().rect()
-        aspect = view_rect.width() / max(1, view_rect.height())
-        
-        cols = max(1, round(math.sqrt(aspect * n)))
-        rows = math.ceil(n / cols)
-        
-        spacing_x = 300
-        spacing_y = 250
-        
-        for i, block in enumerate(blocks):
-            r = i // cols
-            c = i % cols
-            # Check if block moved to record for undo
-            old_pos = block.pos()
-            new_pos = QPointF(c * spacing_x, r * spacing_y)
-            if old_pos != new_pos:
-                block.setPos(new_pos)
-                # Note: For full undo support, we should use MoveBlockCommand, 
-                # but for a mass layout, a macro with direct setPos is simpler for now 
-                # as long as we don't need to undo each individual move separately.
-        
+        for root in roots:
+            w, h = layout_node_recursive(root)
+            root.setPos(x_cursor, y_cursor)
+            x_cursor += w + spacing
+            max_h = max(max_h, h)
+            
+            # Generic Grid for roots if many
+            if x_cursor > 2000:
+                x_cursor = 0
+                y_cursor += max_h + spacing
+                max_h = 0
+                
         self.undo_stack.endMacro()
         
-        # Fit view
+        # Fit View
         rect = self.scene.itemsBoundingRect()
-        self.view.fitInView(rect.adjusted(-50, -50, 50, 50), Qt.AspectRatioMode.KeepAspectRatio)
+        self.view.fitInView(rect.adjusted(-100, -100, 100, 100), Qt.AspectRatioMode.KeepAspectRatio)
 
     def _on_selection_changed(self):
         # Prevent crash on shutdown if scene is already deleted
@@ -297,11 +367,34 @@ class MainWindow(QMainWindow):
     def load_dsf_file(self, path):
         """Helper to load a DSF project with full UI state restoration."""
         from utils.serializer import GraphSerializer
+        import os
         serializer = GraphSerializer(self.registry)
         try:
             data = serializer.load_from_file(path)
             if data:
+                # Preload Library if specified (CRITICAL for updating registry metadata)
+                meta = data.get("metadata", {})
+                lib_path = meta.get("lib_path", meta.get("library"))
+                
+                if lib_path and os.path.exists(lib_path):
+                     # Only preload if we haven't loaded a library yet (e.g. via CLI)
+                     # Or if we want to enforce the file's library?
+                     # CLI override is usually preferred.
+                     current_lib = self.sim_config.get("lib_path", "")
+                     if not current_lib or not os.path.exists(current_lib):
+                         print(f"Preloading library from DSF: {lib_path}")
+                         self.load_library_file(lib_path)
+                     else:
+                         print(f"Using pre-loaded library (CLI override): {current_lib}")
+                elif lib_path:
+                     print(f"Warning: Library {lib_path} not found.")
+
                 metadata = serializer.reconstruct(self.scene, data)
+                # Don't overwrite lib_path if provided by CLI
+                if self.sim_config.get("lib_path"):
+                    metadata.pop("lib_path", None)
+                    metadata.pop("library", None)
+                    
                 self.sim_config.update(metadata)
                 self._refresh_sim_info()
                 self.inspector_widget.set_selection([])
@@ -409,6 +502,10 @@ class MainWindow(QMainWindow):
             msg += "OK"
         else:
             msg += f"{error_count} Errors, {warning_count} Warnings"
+            print(f"DEBUG: Validation Failed with {error_count} errors:")
+            for err in errors:
+                if err.level == "error":
+                    print(f"  - {err.block_id}: {err.message}")
         self.statusBar().showMessage(msg)
 
     def _import_xml(self):
@@ -689,6 +786,10 @@ class MainWindow(QMainWindow):
                     source_block = out_port.parentItem()
                     if source_block == block: continue # Don't connect to self
                     
+                    # RULE 1: Prevent Peer-to-Peer generic signal connections (e.g. Engine -> Engine)
+                    if in_port.port_type == "signal" and source_block.block_def.type_id == block.block_def.type_id:
+                        continue
+
                     score = 0
                     
                     # Check Sibling
@@ -702,6 +803,12 @@ class MainWindow(QMainWindow):
                           block.parent_block.parent_block == source_block.parent_block.parent_block):
                         score = 1
                     
+                    # Bonus: Prioritize Avionics for signals
+                    if in_port.port_type == "signal":
+                        name_lower = source_block.instance_id.lower()
+                        if any(x in name_lower for x in ["fsw", "control", "guidance", "nav"]):
+                            score += 0.5
+
                     if score > best_score:
                         best_score = score
                         best_match = out_port
@@ -790,13 +897,17 @@ class MainWindow(QMainWindow):
         if any(e.level == "error" for e in errors):
             # Show status bar warning? Already glowing.
             self.status_bar.showMessage("Fix errors before running!")
+            print(f"Validation Failed with {sum(1 for e in errors if e.level=='error')} errors:")
+            for err in errors:
+                if err.level == "error":
+                    print(f"  - {err.block_id}: {err.message}")
             return
 
         if not self.sim_config["lib_path"]:
             QMessageBox.information(self, "Load Library", "Please select the simulation library (.so) to proceed.")
             self._load_library()
             if not self.sim_config["lib_path"]: return
-
+        
         # 2. Export tentative XML
         import tempfile
         import os
@@ -816,6 +927,8 @@ class MainWindow(QMainWindow):
                 f.write(xml_content)
             print(f"Debug XML saved to {debug_xml}")
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(self, "Export Error", f"Failed to generate runtime XML: {e}")
             return
 

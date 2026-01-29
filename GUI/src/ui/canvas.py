@@ -24,11 +24,29 @@ class ConnectionItem(QGraphicsPathItem):
     def update_path(self, p1, p2):
         path = QPainterPath()
         path.moveTo(p1)
-        dx = p2.x() - p1.x()
-        dy = p2.y() - p1.y()
-        ctrl1 = QPointF(p1.x() + dx * 0.5, p1.y())
-        ctrl2 = QPointF(p2.x() - dx * 0.5, p2.y())
-        path.cubicTo(ctrl1, ctrl2, p2)
+        
+        standoff = 40
+        
+        # Adaptive Standoff:
+        # If there is a large vertical gap, push out further to clear the corner of the block.
+        # Cap it so it doesn't get too crazy.
+        dy = abs(p2.y() - p1.y())
+        standoff = max(40, min(120, dy * 0.4))
+        
+        # Determine direction based on start port
+        # If start_port is Input, it faces Left (-1). If Output, faces Right (+1).
+        dir1 = -1 if self.start_port.is_input else 1
+        
+        # Determine direction for end point
+        dir2 = -dir1 # Default opposition for dragging
+        
+        if self.end_port:
+             dir2 = -1 if self.end_port.is_input else 1
+             
+        c1 = QPointF(p1.x() + dir1 * standoff, p1.y())
+        c2 = QPointF(p2.x() + dir2 * standoff, p2.y())
+        
+        path.cubicTo(c1, c2, p2)
         self.setPath(path)
     
     def update_geometry(self):
@@ -57,7 +75,8 @@ class PortItem(QGraphicsItem):
             event.accept()
 
     def boundingRect(self):
-        return QRectF(-self.radius, -self.radius, 2*self.radius, 2*self.radius)
+        # Add padding for antialiasing/glow artifacts
+        return QRectF(-self.radius - 2, -self.radius - 2, 2*self.radius + 4, 2*self.radius + 4)
 
     def paint(self, painter, option, widget):
         painter.setBrush(self.brush)
@@ -119,6 +138,36 @@ class BlockItem(QGraphicsItem):
     def boundingRect(self):
         return QRectF(0, 0, self.width, self.height)
 
+    def set_visual_size(self, w, h):
+        self.width = w
+        self.height = h
+        self.prepareGeometryChange()
+        self._arrange_ports()
+        self.update()
+
+    def _arrange_ports(self):
+        # Re-distribute ports on sides
+        # For container blocks, we might want ports on the outer edge
+        h = self.height
+        
+        # Filter ports to only show exposed ones? 
+        # For now, keep all.
+        
+        # Inputs on Left, Outputs on Right
+        # Space them evenly using header height as offset
+        
+        available_h = h - self.header_height
+        
+        spacing_in = available_h / (len(self.inputs) + 1)
+        for i, port in enumerate(self.inputs):
+            y = self.header_height + spacing_in * (i + 1)
+            port.setPos(0, y)
+            
+        spacing_out = available_h / (len(self.outputs) + 1)
+        for i, port in enumerate(self.outputs):
+            y = self.header_height + spacing_out * (i + 1)
+            port.setPos(self.width, y)
+
     def add_input_port(self, name, port_type="signal"):
         # Check if already exists
         for p in self.inputs:
@@ -138,16 +187,6 @@ class BlockItem(QGraphicsItem):
         self.outputs.append(port)
         self._arrange_ports()
         return port
-
-    def _arrange_ports(self):
-        # Re-distribute ports on sides
-        h = self.height
-        for i, port in enumerate(self.inputs):
-            y = (h / (len(self.inputs) + 1)) * (i + 1)
-            port.setPos(0, y)
-        for i, port in enumerate(self.outputs):
-            y = (h / (len(self.outputs) + 1)) * (i + 1)
-            port.setPos(self.width, y)
 
     def paint(self, painter, option, widget):
         # Body
@@ -215,6 +254,9 @@ class BlockItem(QGraphicsItem):
                 # but simple move is fine for now. 
                 # Better: verify if others moved?
                 undo_stack.push(MoveBlockCommand(self, self._old_pos, self.pos()))
+            
+            # Force full scene update to clear artifacts
+            self.scene().update()
 
 
 
