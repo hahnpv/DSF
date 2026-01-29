@@ -6,6 +6,7 @@ from ui.canvas import BlockItem
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        print("DEBUG: [MainWindow] Initializing new instance...", file=sys.stderr)
         self.setWindowTitle("DSF Configuration Editor")
         self.resize(1200, 800)
         
@@ -13,6 +14,13 @@ class MainWindow(QMainWindow):
         self.undo_stack = QUndoStack(self)
         
         self._setup_ui()
+
+    def closeEvent(self, event):
+        if hasattr(self, 'plot_window'):
+            # Stop the window from ignoring close events during shutdown
+            self.plot_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+            self.plot_window.close()
+        super().closeEvent(event)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -52,10 +60,14 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.view)
 
+        # Disable dock animations which can cause issues on some Linux systems/WSL
+        from PyQt6.QtWidgets import QMainWindow
+        self.setDockOptions(QMainWindow.DockOption.AllowTabbedDocks)
+
         # Palette Dock (Left)
         self.palette_dock = QDockWidget("Block Palette", self)
         self.palette_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        self.palette_widget = PaletteWidget(self.registry)
+        self.palette_widget = PaletteWidget(self.registry, parent=self.palette_dock) # Explicit parent
         self.palette_dock.setWidget(self.palette_widget)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.palette_dock)
 
@@ -63,24 +75,37 @@ class MainWindow(QMainWindow):
         from ui.inspector import InspectorWidget
         self.inspector_dock = QDockWidget("Property Inspector", self)
         self.inspector_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        self.inspector_widget = InspectorWidget()
+        self.inspector_widget = InspectorWidget(parent=self.inspector_dock) # Explicit parent
         self.inspector_widget.sim_config = self.sim_config
-        self.inspector_dock.setWidget(self.inspector_widget)
         self.inspector_dock.setWidget(self.inspector_widget)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.inspector_dock)
         
-        # Plot Dock (Bottom)
+        # Plot Window (Separate)
+        from ui.plot_window import PlotWindow
         from ui.plot_widget import PlotWidget
-        self.plot_dock = QDockWidget("Real-Time Plotting", self)
-        self.plot_dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
-        self.plot_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable | 
-                                   QDockWidget.DockWidgetFeature.DockWidgetMovable | 
-                                   QDockWidget.DockWidgetFeature.DockWidgetFloatable)
-        self.plot_widget = PlotWidget()
-        self.plot_dock.setWidget(self.plot_widget)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.plot_dock)
-        self.plot_dock.hide() # Start hidden
+        self.plot_window = PlotWindow() # No parent for clean top-level behavior
+        self.plot_widget = PlotWidget() # No parent here either
+        self.plot_window.set_plot_widget(self.plot_widget)
+        self.plot_window.visibilityChanged.connect(self._on_plot_window_visibility_changed)
         
+        self._finish_init()
+        
+
+    def _on_plot_window_visibility_changed(self, visible):
+        # Sync the menu action and toolbar button states
+        for action in [self.plot_toggle_action, self.plot_toolbar_action]:
+            if action:
+                action.blockSignals(True)
+                action.setChecked(visible)
+                action.blockSignals(False)
+
+    def _toggle_plot_window(self, checked):
+        if checked:
+            self.plot_window.show()
+        else:
+            self.plot_window.hide()
+
+    def _finish_init(self):
         # Simulation Settings Labels (Permanent in Status Bar)
         self.sim_info_label = QLabel(f"dt: {self.sim_config['dt']} | tmax: {self.sim_config['tmax']}")
         self.sim_info_label.setStyleSheet("margin-right: 20px; color: #888;")
@@ -125,6 +150,12 @@ class MainWindow(QMainWindow):
         self.stop_action.setEnabled(False)
         self.stop_action.triggered.connect(self._stop_simulation)
 
+        sim_toolbar.addSeparator()
+        self.plot_toolbar_action = sim_toolbar.addAction("📈 Plot")
+        self.plot_toolbar_action.setToolTip("Toggle real-time plotting window")
+        self.plot_toolbar_action.setCheckable(True)
+        self.plot_toolbar_action.toggled.connect(self._toggle_plot_window)
+
         # Simulation State
         self.sim_worker = None
 
@@ -160,7 +191,13 @@ class MainWindow(QMainWindow):
         view_menu = menu.addMenu("&View")
         view_menu.addAction(self.palette_dock.toggleViewAction())
         view_menu.addAction(self.inspector_dock.toggleViewAction())
-        view_menu.addAction(self.plot_dock.toggleViewAction())
+        
+        # Custom toggle for separate Plot Window
+        from PyQt6.QtGui import QAction
+        self.plot_toggle_action = QAction("Real-Time Plotting", self)
+        self.plot_toggle_action.setCheckable(True)
+        self.plot_toggle_action.toggled.connect(self._toggle_plot_window)
+        view_menu.addAction(self.plot_toggle_action)
         view_menu.addSeparator()
         view_menu.addAction("Auto Layout", self._trigger_auto_layout)
 
@@ -425,6 +462,9 @@ class MainWindow(QMainWindow):
                 # Auto-wire implicit connections for legacy DSF files
                 created_blocks = {item.instance_id: item for item in self.scene.items() if isinstance(item, BlockItem)}
                 self._auto_wire_implicit_connections(created_blocks)
+                
+                # Fetch available variables for plotting
+                self._probe_headers()
 
                 self.status_bar.showMessage(f"Loaded {path}")
                 return True
@@ -911,6 +951,44 @@ class MainWindow(QMainWindow):
         self.sim_info_label.setText(f"dt: {self.sim_config['dt']} | tmax: {self.sim_config['tmax']}")
         if not self.scene.selectedItems():
             self.inspector_widget.set_selection([], force=True)
+
+    def _probe_headers(self):
+        """Run a short-lived simulation worker just to fetch headers."""
+        if not self.sim_config["lib_path"]:
+            return
+            
+        # 1. Export tentative XML
+        import tempfile
+        import os
+        temp_xml = os.path.join(tempfile.gettempdir(), "dsf_probe.xml")
+        from utils.xml_generator import XMLGenerator
+        generator = XMLGenerator(self.scene)
+        try:
+            xml_content = generator.generate(
+                dt=self.sim_config["dt"], 
+                tmax=self.sim_config["tmax"],
+                library=self.sim_config["lib_path"]
+            )
+            with open(temp_xml, 'w') as f:
+                f.write(xml_content)
+        except Exception as e:
+            print(f"Probe Error: Failed to generate XML: {e}")
+            return
+
+        # 2. Start Worker in Init-Only Mode
+        from execution.simulation_worker import SimulationWorker
+        # We don't save this to self.sim_worker because we don't want to interfere with 'Stop' actions
+        # But we need to keep a reference so it doesn't get GC'd immediately?
+        self.probe_worker = SimulationWorker(
+            temp_xml, 
+            self.sim_config["lib_path"], 
+            self.sim_config["dt"], 
+            self.sim_config["tmax"],
+            init_only=True
+        )
+        
+        self.probe_worker.headers_ready.connect(self.plot_widget.set_headers)
+        self.probe_worker.start()
 
     def _start_simulation(self):
         # 1. Validation

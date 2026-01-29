@@ -11,12 +11,13 @@ class SimulationWorker(QThread):
     headers_ready = pyqtSignal(list) # Emits list of variable names
     data_ready = pyqtSignal(list)    # Emits list of float values
     
-    def __init__(self, xml_path, lib_path, dt, tmax):
+    def __init__(self, xml_path, lib_path, dt, tmax, init_only=False):
         super().__init__()
         self.xml_path = xml_path
         self.lib_path = lib_path
         self.dt = dt
         self.tmax = tmax
+        self.init_only = init_only
         self._is_running = True
 
     def stop(self):
@@ -96,6 +97,13 @@ class SimulationWorker(QThread):
                         # Give main thread a brief moment to process headers before slamming CPU
                         pytime.sleep(0.1) 
                 
+                if self.init_only:
+                    print("SimulationWorker: init_only is True. Exiting after fetching headers.")
+                    # Explicitly cleanup to avoid double-free during GC of sim/root
+                    del sim
+                    del sim_root
+                    return
+
                 # 5. Progress Poller (Now safe to start)
                 import threading
                 
@@ -144,6 +152,9 @@ class SimulationWorker(QThread):
             else:
                 # Legacy path (should not happen after re-compile)
                 print("Using legacy run API")
+                if self.init_only:
+                     print("SimulationWorker: init_only not supported on legacy API. Returning.")
+                     return
                 # ... would need original logic ...
                 sim.run()
             

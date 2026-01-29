@@ -5,8 +5,8 @@ from PyQt6.QtGui import QDrag
 from core.model_registry import ModelRegistry
 
 class PaletteWidget(QTreeWidget):
-    def __init__(self, registry: ModelRegistry):
-        super().__init__()
+    def __init__(self, registry: ModelRegistry, parent=None):
+        super().__init__(parent)
         self.registry = registry
         self.setHeaderHidden(True)
         self.setIndentation(20)

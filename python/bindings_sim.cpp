@@ -106,6 +106,12 @@ void init_sim(py::module_ &m) {
              return dsf::sim::TRefUnique<Block>(id);
          }, py::return_value_policy::take_ownership);
 
+    py::class_<PropertyMetadata>(m, "PropertyMetadata")
+        .def_readonly("name", &PropertyMetadata::name)
+        .def_readonly("type", &PropertyMetadata::type)
+        .def_readonly("defaultValue", &PropertyMetadata::defaultValue)
+        .def_readonly("description", &PropertyMetadata::description);
+
     py::class_<PortMetadata>(m, "PortMetadata")
         .def_readonly("name", &PortMetadata::name)
         .def_readonly("type", &PortMetadata::type)

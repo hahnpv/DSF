@@ -4,8 +4,8 @@ from PyQt6.QtCore import Qt
 from ui.canvas import BlockItem
 
 class InspectorWidget(QWidget):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.current_block = None
         self.sim_config = None # Reference to MainWindow.sim_config
         self.current_selection = set()

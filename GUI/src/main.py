@@ -9,6 +9,20 @@ def main():
         print(f"Error: DSF GUI requires Python 3.12 or higher. Found {sys.version.split()[0]}", file=sys.stderr)
         sys.exit(1)
 
+    # Force software rendering on Linux to prevent crashes with floating docks on WSL
+    if sys.platform == "linux":
+        os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
+        os.environ["QT_X11_NO_MITSHM"] = "1"
+        os.environ["QT_QUICK_BACKEND"] = "software"
+        os.environ["QT_XCB_GL_INTEGRATION"] = "none"
+        # Additional WSL/X11 safety flags
+        os.environ["GALLIUM_DRIVER"] = "softpipe"
+        os.environ["DRAW_USE_LLVM"] = "0"
+
+    # Ensure pyqtgraph OpenGL is disabled BEFORE any other imports that might use it
+    import pyqtgraph as pg
+    pg.setConfigOption('useOpenGL', False)
+
     # Ensure current dir is in path for imports if needed, 
     # though usually running as python -m or setting PYTHONPATH is better.
     # Here we assume running from GUI/src or root.

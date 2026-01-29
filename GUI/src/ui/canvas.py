@@ -22,32 +22,35 @@ class ConnectionItem(QGraphicsPathItem):
         super().hoverLeaveEvent(event)
 
     def update_path(self, p1, p2):
-        path = QPainterPath()
-        path.moveTo(p1)
-        
-        standoff = 40
-        
-        # Adaptive Standoff:
-        # If there is a large vertical gap, push out further to clear the corner of the block.
-        # Cap it so it doesn't get too crazy.
-        dy = abs(p2.y() - p1.y())
-        standoff = max(40, min(120, dy * 0.4))
-        
-        # Determine direction based on start port
-        # If start_port is Input, it faces Left (-1). If Output, faces Right (+1).
-        dir1 = -1 if self.start_port.is_input else 1
-        
-        # Determine direction for end point
-        dir2 = -dir1 # Default opposition for dragging
-        
-        if self.end_port:
-             dir2 = -1 if self.end_port.is_input else 1
-             
-        c1 = QPointF(p1.x() + dir1 * standoff, p1.y())
-        c2 = QPointF(p2.x() + dir2 * standoff, p2.y())
-        
-        path.cubicTo(c1, c2, p2)
-        self.setPath(path)
+        try:
+            path = QPainterPath()
+            path.moveTo(p1)
+            
+            standoff = 40
+            
+            # Adaptive Standoff:
+            # If there is a large vertical gap, push out further to clear the corner of the block.
+            # Cap it so it doesn't get too crazy.
+            dy = abs(p2.y() - p1.y())
+            standoff = max(40, min(120, dy * 0.4))
+            
+            # Determine direction based on start port
+            # If start_port is Input, it faces Left (-1). If Output, faces Right (+1).
+            dir1 = -1 if self.start_port.is_input else 1
+            
+            # Determine direction for end point
+            dir2 = -dir1 # Default opposition for dragging
+            
+            if self.end_port:
+                 dir2 = -1 if self.end_port.is_input else 1
+                 
+            c1 = QPointF(p1.x() + dir1 * standoff, p1.y())
+            c2 = QPointF(p2.x() + dir2 * standoff, p2.y())
+            
+            path.cubicTo(c1, c2, p2)
+            self.setPath(path)
+        except RuntimeError:
+            pass # Object might be being deleted during dock drag
     
     def update_geometry(self):
         if self.start_port and self.end_port:
@@ -293,12 +296,15 @@ class BlockItem(QGraphicsItem):
 
 
     def itemChange(self, change, value):
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            # Update connections
-            for p in self.inputs + self.outputs:
-                for c in p.connections:
-                    c.update_geometry()
-        return super().itemChange(change, value)
+        try:
+            if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+                # Update connections
+                for p in self.inputs + self.outputs:
+                    for c in p.connections:
+                        c.update_geometry()
+            return super().itemChange(change, value)
+        except RuntimeError:
+            return value
 
 class GraphScene(QGraphicsScene):
     def __init__(self, parent=None):

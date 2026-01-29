@@ -1,14 +1,14 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QCheckBox, QListWidget, QListWidgetItem, QSplitter
 from PyQt6.QtCore import Qt, pyqtSlot
 import pyqtgraph as pg
-pg.setConfigOption('useOpenGL', False) # Fix for WSL/Linux crashes
+# pg.setConfigOption('useOpenGL', False) # Moved to main.py
 import numpy as np
 from collections import deque
 
 class PlotWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+        self.setAcceptDrops(False) # Prevent interference with dock dragging
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         
@@ -139,7 +139,10 @@ class PlotWidget(QWidget):
             if i < len(self.headers):
                  self.data_history[i].append(val)
         
-        # Update plotted curves
+        # Update plotted curves (only if visible)
+        if not self.isVisible():
+            return
+
         selected_items = self.var_list.selectedItems()
         for i, item in enumerate(selected_items):
             idx = item.data(Qt.ItemDataRole.UserRole)
