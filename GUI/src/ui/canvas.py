@@ -81,7 +81,38 @@ class PortItem(QGraphicsItem):
     def paint(self, painter, option, widget):
         painter.setBrush(self.brush)
         painter.setPen(Qt.PenStyle.NoPen)
+        # Port Circle
         painter.drawEllipse(-self.radius, -self.radius, 2*self.radius, 2*self.radius)
+        
+        # Draw Label (Type)
+        # Only draw if enough space or on hover? 
+        # User requested labels. Let's make them small and subtle.
+        # Position depends on input/output
+        
+        painter.setPen(QColor("#808080")) # Grey text
+        font = QFont("Segoe UI", 7)
+        painter.setFont(font)
+        
+        text = self.port_type
+        fm = painter.fontMetrics()
+        w = fm.horizontalAdvance(text)
+        h = fm.height()
+        
+        # If input, draw to left. If output, draw to right.
+        # But ports are inside blocks... wait.
+        # Inputs are on left edge. Labels should be INSIDE the block (to the right of the port).
+        # Outputs are on right edge. Labels should be INSIDE the block (to the left of the port).
+        
+        offset = self.radius + 4
+        
+        if self.is_input:
+            # Inputs: Draw text to the RIGHT of the circle
+            rect = QRectF(offset, -h/2, w+10, h)
+            painter.drawText(rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
+        else:
+            # Outputs: Draw text to the LEFT of the circle
+            rect = QRectF(-offset - w - 10, -h/2, w+10, h)
+            painter.drawText(rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, text)
 
 class BlockItem(QGraphicsItem):
     def __init__(self, block_def, instance_id, pos):

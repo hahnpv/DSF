@@ -5,6 +5,10 @@ from PyQt6.QtWidgets import QApplication
 from ui.main_window import MainWindow
 
 def main():
+    if sys.version_info < (3, 12):
+        print(f"Error: DSF GUI requires Python 3.12 or higher. Found {sys.version.split()[0]}", file=sys.stderr)
+        sys.exit(1)
+
     # Ensure current dir is in path for imports if needed, 
     # though usually running as python -m or setting PYTHONPATH is better.
     # Here we assume running from GUI/src or root.

@@ -187,6 +187,56 @@ namespace dsf
             }
             /// @}
 
+            /// @name Real-Time Accessors
+            /// @{
+            std::vector<std::string> get_header_names() {
+                std::vector<std::string> names;
+                // Doubles
+                for (const auto& t : title[0]) names.push_back(t);
+                // Vectors (x, y, z)
+                for (const auto& t : title[1]) {
+                    names.push_back(t + " (x)");
+                    names.push_back(t + " (y)");
+                    names.push_back(t + " (z)");
+                }
+                // Matrices (9 elements)
+                for (const auto& t : title[2]) {
+                    names.push_back(t + " (0,0)"); names.push_back(t + " (0,1)"); names.push_back(t + " (0,2)");
+                    names.push_back(t + " (1,0)"); names.push_back(t + " (1,1)"); names.push_back(t + " (1,2)");
+                    names.push_back(t + " (2,0)"); names.push_back(t + " (2,1)"); names.push_back(t + " (2,2)");
+                }
+                return names;
+            }
+
+            std::vector<double> get_current_values() {
+                std::vector<double> vals;
+                // Pre-allocate to avoid reallocs
+                vals.reserve(doubles.size() + vectors.size()*3 + matrices.size()*9);
+                
+                // Doubles
+                for (size_t i = 0; i < doubles.size(); ++i) {
+                    vals.push_back(*doubles[i] * conversion[0][i]);
+                }
+                // Vectors
+                for (size_t i = 0; i < vectors.size(); ++i) {
+                    double c = conversion[1][i];
+                    vals.push_back(vectors[i]->x * c);
+                    vals.push_back(vectors[i]->y * c);
+                    vals.push_back(vectors[i]->z * c);
+                }
+                // Matrices
+                for (size_t i = 0; i < matrices.size(); ++i) {
+                    double c = conversion[2][i];
+                    const auto& m = *matrices[i];
+                    // Correct access via row vectors (a0, a1, a2)
+                    vals.push_back(m.a0.x * c); vals.push_back(m.a0.y * c); vals.push_back(m.a0.z * c);
+                    vals.push_back(m.a1.x * c); vals.push_back(m.a1.y * c); vals.push_back(m.a1.z * c);
+                    vals.push_back(m.a2.x * c); vals.push_back(m.a2.y * c); vals.push_back(m.a2.z * c);
+                }
+                return vals;
+            }
+            /// @}
+
         private:
             void writeHeader() {
                 // Original header writing logic...

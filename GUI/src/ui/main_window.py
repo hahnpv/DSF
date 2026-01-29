@@ -66,7 +66,20 @@ class MainWindow(QMainWindow):
         self.inspector_widget = InspectorWidget()
         self.inspector_widget.sim_config = self.sim_config
         self.inspector_dock.setWidget(self.inspector_widget)
+        self.inspector_dock.setWidget(self.inspector_widget)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.inspector_dock)
+        
+        # Plot Dock (Bottom)
+        from ui.plot_widget import PlotWidget
+        self.plot_dock = QDockWidget("Real-Time Plotting", self)
+        self.plot_dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
+        self.plot_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable | 
+                                   QDockWidget.DockWidgetFeature.DockWidgetMovable | 
+                                   QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+        self.plot_widget = PlotWidget()
+        self.plot_dock.setWidget(self.plot_widget)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.plot_dock)
+        self.plot_dock.hide() # Start hidden
         
         # Simulation Settings Labels (Permanent in Status Bar)
         self.sim_info_label = QLabel(f"dt: {self.sim_config['dt']} | tmax: {self.sim_config['tmax']}")
@@ -147,6 +160,7 @@ class MainWindow(QMainWindow):
         view_menu = menu.addMenu("&View")
         view_menu.addAction(self.palette_dock.toggleViewAction())
         view_menu.addAction(self.inspector_dock.toggleViewAction())
+        view_menu.addAction(self.plot_dock.toggleViewAction())
         view_menu.addSeparator()
         view_menu.addAction("Auto Layout", self._trigger_auto_layout)
 
@@ -562,15 +576,28 @@ class MainWindow(QMainWindow):
                 grid_items = [] # list of (item, [child_blocks], subtree_w, subtree_h)
                 
                 for i, b_data in enumerate(data_list):
-                    b_def = self.registry.get_block(b_data["type"])
+                    raw_type = b_data["type"].strip()
+                    b_def = self.registry.get_block(raw_type)
+                    
                     if not b_def:
+                        # Aggressive Search
+                        # 1. Case-insensitive
+                        # 2. Namespace stripping (e.g. dsf::sim::Tank -> Tank)
+                        # 3. Combined
+                        
+                        target_slug = raw_type.split("::")[-1].lower()
+                        
                         for name in self.registry.get_all_block_names():
-                            if name.lower() == b_data["type"].lower():
+                            reg_slug = name.split("::")[-1].lower()
+                            if reg_slug == target_slug:
                                 b_def = self.registry.get_block(name)
+                                print(f"DEBUG: Smart-matched '{raw_type}' -> '{name}'")
                                 break
+                    
                     if not b_def:
+                        print(f"WARNING: Count not find definition for '{raw_type}'. Creating GENERIC block (No Ports).")
                         from core.model_registry import BlockDefinition
-                        b_def = BlockDefinition(type_id=b_data["type"], category="Imported", 
+                        b_def = BlockDefinition(type_id=raw_type, category="Imported", 
                                                description="Imported", properties=[], ports=[])
                         self.registry.add_block(b_def)
                     
@@ -580,16 +607,14 @@ class MainWindow(QMainWindow):
                     item.raw_params = b_data.get("raw_params", {}).copy()
                     
                     # Set Hierarchy
+                    created_blocks[b_data["id"]] = item
                     if parent_item:
                         item.parent_block = parent_item
                         parent_item.child_blocks.append(item)
+                    else:
+                        item.parent_block = None
                     
                     self.scene.addItem(item)
-                    created_blocks[b_data["id"]] = item
-                    if parent_item:
-                        print(f"DEBUG: Setting {item.instance_id} parent to {parent_item.instance_id}")
-                    else:
-                        print(f"DEBUG: {item.instance_id} is a ROOT")
                     
                     sub_blocks = b_data.get("sub_blocks", [])
                     grid_items.append({
@@ -693,38 +718,33 @@ class MainWindow(QMainWindow):
                                     start_port = p
                                     break
                             
-                            # 2. Specialized mappings for known mission blocks
-                            if not start_port:
-                                name_lower = end_port.name.lower()
-                                if "tank" in name_lower:
-                                    # Link engines to fuel/ox tanks
-                                    for p in target_item.outputs:
-                                        if "flow" in p.port_type.lower() or "tank" in p.name.lower():
-                                            start_port = p
-                                            break
-                                elif any(x in name_lower for x in ("nav", "guid", "ctrl", "fsw", "plan")):
-                                    # Link avionics layers together. 
-                                    # Target is likely a Navigation or Guidance block.
-                                    # Use the first output that looks like a state or signal output.
-                                    for p in target_item.outputs:
-                                        if any(y in p.name.lower() for y in ("out", "state", "nav", "pos", "vel", "att", "cmd")):
-                                            start_port = p
-                                            break
-                                    if not start_port and target_item.outputs:
-                                        start_port = target_item.outputs[0]
+                            # 2. strict fallback: if specific port name was requested but not found as explicit port,
+                            # checking if target has it as dynamic output?
+                            # Actually, if XML says "port='foo'", we expect a port named 'foo' or 'foo_id'.
+                            # If connection is implicit (no port spec in XML, but inferred), it usually goes via auto-wire.
+                            # But here we are processing explicit <... nav_id="S2_Nav" ...>
+                            # This means "connect my 'nav' input to 'S2_Nav'".
+                            # 'nav' input exists. 'S2_Nav' block exists.
+                            # We need to find the Best Output on S2_Nav.
                             
-                            # 3. Fallback: If only one output, or no type match, use the first one
+                            if not start_port:
+                                # Try to find an output that matches the input name?
+                                # e.g. input "nav" -> output "nav"?
+                                for p in target_item.outputs:
+                                    if p.name == end_port.name:
+                                        start_port = p
+                                        break
+
+                            # 3. Fallback: If only one output, use it (Generic)
                             if not start_port and len(target_item.outputs) == 1:
                                 start_port = target_item.outputs[0]
                             
                         if not start_port:
-                            # 4. Create dynamic output if none exist
-                            start_type = end_port.port_type if end_port.port_type != "signal" else "signal"
-                            prefix = "out"
-                            # Try to name the output same as connection if it's specialized
-                            if end_port.name in ("nav", "control", "guidance"):
-                                prefix = end_port.name
-                            start_port = target_item.add_output_port(prefix, start_type)
+                            # 4. Create dynamic output if none exist AND we are desperate?
+                            # Better to rely on auto-wire for "smart" connections.
+                            # But if XML *explicitly* requested a link, we should probably verify it exists.
+                            # If we fail here, the connection is dropped.
+                            pass
                         
                         if start_port and end_port:
                             # Prevent duplicate connections
@@ -772,7 +792,8 @@ class MainWindow(QMainWindow):
                 
                 # Check if we have candidates for this type
                 candidates = available_outputs.get(in_port.port_type, [])
-                if not candidates: continue
+                if not candidates: 
+                    continue
                 
                 # Strategy: 
                 # 1. Prefer Siblings (Same Parent)
@@ -793,14 +814,14 @@ class MainWindow(QMainWindow):
                     score = 0
                     
                     # Check Sibling
-                    if source_block.parent_block == block.parent_block:
+                    if getattr(source_block, 'parent_block', None) == getattr(block, 'parent_block', None) and getattr(block, 'parent_block', None) is not None:
                         score = 3
                     # Check if Source is Child of Block
-                    elif source_block.parent_block == block:
+                    elif getattr(source_block, 'parent_block', None) == block:
                         score = 2
                     # Check Cousin (Parents are siblings)
-                    elif (block.parent_block and source_block.parent_block and 
-                          block.parent_block.parent_block == source_block.parent_block.parent_block):
+                    elif (getattr(block, 'parent_block', None) and getattr(source_block, 'parent_block', None) and 
+                          getattr(block.parent_block, 'parent_block', None) == getattr(source_block.parent_block, 'parent_block', None)):
                         score = 1
                     
                     # Bonus: Prioritize Avionics for signals
@@ -808,7 +829,7 @@ class MainWindow(QMainWindow):
                         name_lower = source_block.instance_id.lower()
                         if any(x in name_lower for x in ["fsw", "control", "guidance", "nav"]):
                             score += 0.5
-
+                    
                     if score > best_score:
                         best_score = score
                         best_match = out_port
@@ -943,6 +964,8 @@ class MainWindow(QMainWindow):
         self.sim_worker.progress.connect(self._on_sim_progress)
         self.sim_worker.finished.connect(self._on_sim_finished)
         self.sim_worker.error.connect(self._on_sim_error)
+        self.sim_worker.headers_ready.connect(self.plot_widget.set_headers)
+        self.sim_worker.data_ready.connect(self.plot_widget.update_data)
         
         self.start_action.setEnabled(False)
         self.stop_action.setEnabled(True)

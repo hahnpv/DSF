@@ -75,6 +75,8 @@ void init_sim(py::module_ &m) {
         .def("rpt", &Output::rpt)
         .def("report", &Output::report)
         .def("finalize", &Output::finalize)
+        .def("get_header_names", &Output::get_header_names)
+        .def("get_current_values", &Output::get_current_values)
         // add() methods store pointers to variables, unsafe for Python types safely without wrapper
         //.def("add", ...) 
         .def_property_static("defaultCSV", 
@@ -94,18 +96,15 @@ void init_sim(py::module_ &m) {
     py::class_<Sim>(m, "Sim")
         .def(py::init<>())
         .def("load", &Sim::load)
-        .def("run", &Sim::run)
-        .def_readonly("clock", &Sim::clock, py::return_value_policy::reference);
+        .def("run", &Sim::run, py::call_guard<py::gil_scoped_release>()) // Release GIL!
+        .def("exec", &Sim::exec, py::call_guard<py::gil_scoped_release>()) // Release GIL!
+        .def("init", &Sim::init)
+        .def_readonly("clock", &Sim::clock, py::return_value_policy::reference)
+        .def_readonly("output", &Sim::output, py::return_value_policy::reference);
 
     m.def("make_block", [](std::string id) {
              return dsf::sim::TRefUnique<Block>(id);
          }, py::return_value_policy::take_ownership);
-
-    py::class_<PropertyMetadata>(m, "PropertyMetadata")
-        .def_readonly("name", &PropertyMetadata::name)
-        .def_readonly("type", &PropertyMetadata::type)
-        .def_readonly("defaultValue", &PropertyMetadata::defaultValue)
-        .def_readonly("description", &PropertyMetadata::description);
 
     py::class_<PortMetadata>(m, "PortMetadata")
         .def_readonly("name", &PortMetadata::name)

@@ -15,13 +15,20 @@ namespace dsf
 {
 	namespace sim 
 	{
-		/// Run a simulation.
-		/// This is the core simulation loop.
 		void Sim::run() 
 		{
-			time_t seconds = time(NULL);
+			init();
+			exec();
+		}
 
+		void Sim::init()
+		{
 			dsf::util::TFunctor<Block>(simulation, &Block::init);
+		}
+
+		void Sim::exec()
+		{
+			time_t seconds = time(NULL);
 
 			while ( (clock->t() < clock->tmax()) && clock->is_running() )
 			{
@@ -44,7 +51,7 @@ namespace dsf
 
 			// Instantiate clock, output and integrator
 			clock = new Clock( _dt, _tmax );
-			Output *output = new Output( _file);
+			output = new Output( _file);
 			i = new Integrator;
 			i->clock = clock;
 
