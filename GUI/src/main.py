@@ -11,13 +11,13 @@ def main():
 
     # Force software rendering on Linux to prevent crashes with floating docks on WSL
     if sys.platform == "linux":
-        os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
-        os.environ["QT_X11_NO_MITSHM"] = "1"
-        os.environ["QT_QUICK_BACKEND"] = "software"
-        os.environ["QT_XCB_GL_INTEGRATION"] = "none"
-        # Additional WSL/X11 safety flags
-        os.environ["GALLIUM_DRIVER"] = "softpipe"
-        os.environ["DRAW_USE_LLVM"] = "0"
+        pass
+        # os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
+        # os.environ["QT_X11_NO_MITSHM"] = "1"
+        # os.environ["QT_QUICK_BACKEND"] = "software"
+        # os.environ["QT_XCB_GL_INTEGRATION"] = "none" 
+        # os.environ["GALLIUM_DRIVER"] = "softpipe"
+        # os.environ["DRAW_USE_LLVM"] = "0"
 
     # Ensure pyqtgraph OpenGL is disabled BEFORE any other imports that might use it
     import pyqtgraph as pg

@@ -149,12 +149,18 @@ class MainWindow(QMainWindow):
         self.stop_action.setToolTip("Stop running simulation")
         self.stop_action.setEnabled(False)
         self.stop_action.triggered.connect(self._stop_simulation)
-
+        
         sim_toolbar.addSeparator()
+
+        # Plot Window Toggle
         self.plot_toolbar_action = sim_toolbar.addAction("📈 Plot")
-        self.plot_toolbar_action.setToolTip("Toggle real-time plotting window")
         self.plot_toolbar_action.setCheckable(True)
-        self.plot_toolbar_action.toggled.connect(self._toggle_plot_window)
+        self.plot_toolbar_action.triggered.connect(self._toggle_plot_window)
+        
+        # Globe Window Action (Direct Launch)
+        self.globe_action = sim_toolbar.addAction("🌎 Globe")
+        self.globe_action.setToolTip("Launch detached 3D Globe window")
+        self.globe_action.triggered.connect(self._launch_globe)
 
         # Simulation State
         self.sim_worker = None
@@ -1045,6 +1051,11 @@ class MainWindow(QMainWindow):
         self.sim_worker.headers_ready.connect(self.plot_widget.set_headers)
         self.sim_worker.data_ready.connect(self.plot_widget.update_data)
         
+        # Connect to custom 3D PlotWindow
+        self.sim_worker.headers_ready.connect(self.plot_window.set_headers)
+        if hasattr(self.plot_window, "update_3d_data"):
+             self.sim_worker.data_ready.connect(self.plot_window.update_3d_data)
+        
         self.start_action.setEnabled(False)
         self.stop_action.setEnabled(True)
         self.progress_bar.setVisible(True)
@@ -1075,4 +1086,12 @@ class MainWindow(QMainWindow):
         self.start_action.setEnabled(True)
         self.stop_action.setEnabled(False)
         QMessageBox.critical(self, "Simulation Error", err)
+
+    def _launch_globe(self):
+        if self.plot_window:
+            # We can launch the detached window directly
+            if hasattr(self.plot_window, "_launch_globe_window"):
+                self.plot_window._launch_globe_window()
+            else:
+                QMessageBox.warning(self, "Error", "Detached 3D Globe logic not found in PlotWindow")
 
