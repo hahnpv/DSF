@@ -14,7 +14,8 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="DSF Configuration Editor")
     parser.add_argument("--load-lib", action="append", help="Load shared library (e.g. libsixdof.so)", default=[])
-    parser.add_argument("file", nargs="?", help="Open .dsf file")
+    parser.add_argument("--import-xml", help="Import DSF XML configuration")
+    parser.add_argument("file", nargs="?", help="Open .dsf or .xml file")
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
@@ -29,13 +30,13 @@ def main():
         for lib in args.load_lib:
             window.load_library_file(lib)
             
-    if args.file:
-        from utils.serializer import GraphSerializer
-        serializer = GraphSerializer(window.registry)
-        try:
-            serializer.load(window.scene, args.file)
-        except Exception as e:
-            print(f"Error loading file {args.file}: {e}")
+    if args.import_xml:
+        window.import_xml_file(args.import_xml)
+    elif args.file:
+        if args.file.lower().endswith(".xml"):
+            window.import_xml_file(args.file)
+        else:
+            window.load_dsf_file(args.file)
 
     window.show()
 

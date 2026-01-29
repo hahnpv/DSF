@@ -13,6 +13,7 @@ class PropertyDefinition:
     type: str  # "float", "string", "vec3", "bool"
     default: Any
     description: str = ""
+    options: List[str] = field(default_factory=list) # For enums/dropdowns
 
 @dataclass
 class BlockDefinition:
@@ -32,6 +33,10 @@ class ModelRegistry:
 
     def add_block(self, block_def: BlockDefinition):
         self._blocks[block_def.type_id] = block_def
+
+    def get_all_block_names(self) -> List[str]:
+        return list(self._blocks.keys())
+
 
     def get_categories(self) -> List[str]:
         return sorted(list(set(b.category for b in self._blocks.values())))
@@ -63,7 +68,7 @@ class ModelRegistry:
             properties=[
                 PropertyDefinition("mass", "float", 1000.0),
                 PropertyDefinition("station", "float", 0.0),
-                PropertyDefinition("geometry", "string", "cylinder"),
+                PropertyDefinition("geometry", "string", "cylinder", options=["cylinder", "sphere", "point_mass"]),
                 PropertyDefinition("radius", "float", 1.0),
                 PropertyDefinition("length", "float", 5.0),
                 PropertyDefinition("density", "float", 1000.0),

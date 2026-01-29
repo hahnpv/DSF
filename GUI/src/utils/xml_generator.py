@@ -7,48 +7,45 @@ class XMLGenerator:
     def __init__(self, scene):
         self.scene = scene
 
-    def generate(self) -> str:
-        # Preamble
-        # In DSF, the root is usually <sim>.
-        # And it contains <vehicle>.
-        
+    def generate(self, dt=0.1, tmax=100.0, library="") -> str:
         sim_root = ET.Element("sim")
-        # Global sim attributes (hardcoded for MVP or extracted from Scene properties)
-        sim_root.set("dt", "0.1")
-        sim_root.set("tmax", "100.0")
+        sim_root.set("dt", str(dt))
+        sim_root.set("tmax", str(tmax))
+        if library:
+            sim_root.set("library", library)
         
-        # Find Vehicle blocks and others
+        # Identify top-level blocks (those without a parent)
         items = [i for i in self.scene.items() if isinstance(i, BlockItem)]
-        
-        # Hierarchy strategy for MVP:
-        # If "Vehicle" block exists, it is the parent of all other blocks.
-        # Otherwise, everything is flat under <sim> (DSF might accept this? block.configure reads children?)
-        # Actually in dynamic.py we create sim_root (a Block) and add children.
-        # The XML structure should mirror the desired Block hierarchy.
-        
-        vehicle_block = next((b for b in items if b.block_def.type_id == "Vehicle"), None)
-        other_blocks = [b for b in items if b != vehicle_block]
-        
-        # Process connections to update properties
-        # Map connections to properties: e.g. Port "fuel" connected to "Tank1" -> property "fuel_id" = "Tank1"
-        for block in items:
-            self._resolve_connections(block)
-
-        if vehicle_block:
-            vehicle_node = self._create_node(vehicle_block)
-            sim_root.append(vehicle_node)
-            parent_node = vehicle_node
-        else:
-            parent_node = sim_root # Fallback
+        for b in items:
+            p_id = b.parent_block.instance_id if b.parent_block else "NONE"
+            print(f"DEBUG XML GEN: Block {b.instance_id} parent is {p_id}")
             
-        for block in other_blocks:
-            node = self._create_node(block)
-            parent_node.append(node)
+        root_blocks = [b for b in items if b.parent_block is None]
+        print(f"XML Generation: Scaling {len(items)} items, finding {len(root_blocks)} roots.")
+        
+        # Recursively build XML starting from root blocks
+        for block in root_blocks:
+            print(f"  Root: {block.instance_id} ({len(block.child_blocks)} children)")
+            node = self._build_recursive_node(block)
+            sim_root.append(node)
 
         # Pretty print
-        rough_string = ET.tostring(sim_root, 'utf-8')
-        reparsed = minidom.parseString(rough_string)
+        rough_string = ET.tostring(sim_root, encoding='unicode')
+        if not rough_string:
+            return ""
+        reparsed = minidom.parseString(rough_string.encode('utf-8'))
         return reparsed.toprettyxml(indent="  ")
+
+    def _build_recursive_node(self, block: BlockItem) -> ET.Element:
+        # Create node for current block
+        node = self._create_node(block)
+        
+        # Recursively add children
+        for child in block.child_blocks:
+            child_node = self._build_recursive_node(child)
+            node.append(child_node)
+            
+        return node
 
     def _resolve_connections(self, block: BlockItem):
         # Scan input ports
@@ -75,55 +72,35 @@ class XMLGenerator:
                         pass # Done in BlockItem update below
 
     def _create_node(self, block: BlockItem) -> ET.Element:
-        # Create element name = type_id (or class name?)
-        # DSF XML: <type_id id="instance_id" attr="val">
-        # wait, <tank id="S2_Fuel" class="Tank">
-        # Tag name is usually arbitrary? Or matched to factory?
-        # dsf::xml checks `model = n.attrAsString("class")`.
-        # tag name doesn't matter for factory, but might matter for parent logic sometimes.
-        # But commonly used tag names are lowercase class names.
-        
-        tag_name = block.block_def.type_id.lower()
+        # Use stored xml_tag if available, else fallback to class name lowercase
+        tag_name = getattr(block, "xml_tag", block.block_def.type_id.lower())
         node = ET.Element(tag_name)
+        
         node.set("id", block.instance_id)
         node.set("class", block.block_def.type_id)
         
-        # Set properties
-        # Merge default defaults with instance values
-        # For now using defaults since BlockItem doesn't store edtis yet (Inspector was readonly)
-        # But connections should modify it.
-        
-        # We need to access the block's current properties.
-        # Let's assume BlockItem has a `parameters` dict. I need to add it.
+        # 1. Export all parameters from the parameters dict
         params = getattr(block, "parameters", {})
-        
-        # Also check connections mappings
-        for port in block.inputs:
-            if port.connections:
-                conn = port.connections[0]
-                other = conn.start_port.parentItem() if conn.end_port == port else conn.end_port.parentItem()
-                # Heuristic: port name "fuel_tank" -> param "fuel_tank_id"
-                # Check if param exists
-                tgt = f"{port.name}_id"
-                # Update params
-                params[tgt] = other.instance_id
-
-        # Write params from block definition
-        for prop in block.block_def.properties:
-            val = params.get(prop.name, prop.default)
+        for key, val in params.items():
             if isinstance(val, list):
                 s_val = ",".join(map(str, val))
             else:
                 s_val = str(val)
-            node.set(prop.name, s_val)
+            node.set(key, s_val)
             
-        # Write connection params (which might not be in definition)
+        # 1.1 Export raw_params as child nodes
+        raw_params = getattr(block, "raw_params", {})
+        for tag, text in raw_params.items():
+            child_node = ET.SubElement(node, tag)
+            child_node.text = text
+            
+        # 2. Export all connections as *_id attributes
+        # This overrides anything in parameters if there's a live connection
         for port in block.inputs:
             if port.connections:
-                conn = port.connections[0] # Single input support for now
+                conn = port.connections[0]
                 other = conn.start_port.parentItem() if conn.end_port == port else conn.end_port.parentItem()
-                prop_name = f"{port.name}_id"
-                if prop_name not in node.attrib: # Avoid duplicate if it was reachable via block_def
-                    node.set(prop_name, other.instance_id)
+                if isinstance(other, BlockItem):
+                    node.set(f"{port.name}_id", other.instance_id)
 
         return node

@@ -8,9 +8,18 @@ class ConnectionItem(QGraphicsPathItem):
         self.start_port = start_port
         self.end_port = end_port
         self.setZValue(-1) # Behind blocks
-        self.pen = QPen(QColor("#E0E0E0"), 2)
+        self.pen = QPen(QColor("#B0B0B0"), 2)
         self.setPen(self.pen)
+        self.setAcceptHoverEvents(True)
         self.update_path(start_port.scenePos(), end_port.scenePos() if end_port else start_port.scenePos())
+
+    def hoverEnterEvent(self, event):
+        self.setPen(QPen(QColor("#00A0E0"), 3))
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        self.setPen(QPen(QColor("#B0B0B0"), 2))
+        super().hoverLeaveEvent(event)
 
     def update_path(self, p1, p2):
         path = QPainterPath()
@@ -67,6 +76,16 @@ class BlockItem(QGraphicsItem):
         self.height = 80 # Dynamic?
         self.header_height = 25
         
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+        
+        # Hierarchy
+        self.parent_block = None
+        self.child_blocks = []
+        self.xml_tag = block_def.type_id.lower() # Default
+        self.raw_params = {} # Text-only child nodes
+        
         # Instance Parameters (Copy defaults)
         self.parameters = {p.name: p.default for p in block_def.properties}
         
@@ -100,6 +119,36 @@ class BlockItem(QGraphicsItem):
     def boundingRect(self):
         return QRectF(0, 0, self.width, self.height)
 
+    def add_input_port(self, name, port_type="signal"):
+        # Check if already exists
+        for p in self.inputs:
+            if p.name == name: return p
+        from ui.canvas import PortItem
+        port = PortItem(name, port_type, True, parent=self)
+        self.inputs.append(port)
+        self._arrange_ports()
+        return port
+
+    def add_output_port(self, name, port_type="signal"):
+        # Check if already exists
+        for p in self.outputs:
+            if p.name == name: return p
+        from ui.canvas import PortItem
+        port = PortItem(name, port_type, False, parent=self)
+        self.outputs.append(port)
+        self._arrange_ports()
+        return port
+
+    def _arrange_ports(self):
+        # Re-distribute ports on sides
+        h = self.height
+        for i, port in enumerate(self.inputs):
+            y = (h / (len(self.inputs) + 1)) * (i + 1)
+            port.setPos(0, y)
+        for i, port in enumerate(self.outputs):
+            y = (h / (len(self.outputs) + 1)) * (i + 1)
+            port.setPos(self.width, y)
+
     def paint(self, painter, option, widget):
         # Body
         r = 10
@@ -108,7 +157,7 @@ class BlockItem(QGraphicsItem):
         
         # Selection highlight
         if self.isSelected():
-            painter.setPen(QPen(QColor("#FFA500"), 2))
+            painter.setPen(QPen(QColor("#00D0FF"), 2))
         else:
             painter.setPen(QPen(QColor("#101010"), 1))
             
@@ -138,6 +187,35 @@ class BlockItem(QGraphicsItem):
         painter.setFont(font2)
         painter.setPen(QColor("#808080"))
         painter.drawText(QRectF(10, 25, self.width-20, 15), Qt.AlignmentFlag.AlignRight, self.instance_id)
+
+        # Error state visualization
+        if getattr(self, "error_state", None):
+            color = QColor("#FF0000") if self.error_state == "error" else QColor("#FFA500")
+            glow = QPen(color, 3)
+            painter.setPen(glow)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(self.boundingRect().adjusted(-2,-2,2,2), 10, 10)
+
+    def set_error(self, state):
+        self.error_state = state
+        self.update()
+
+    def mousePressEvent(self, event):
+        self._old_pos = self.pos()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        if self.pos() != self._old_pos:
+            from core.commands import MoveBlockCommand
+            main_win = self.scene().views()[0].window()
+            undo_stack = getattr(main_win, "undo_stack", None)
+            if undo_stack:
+                # If multi-selection, we should ideally use a macro, 
+                # but simple move is fine for now. 
+                # Better: verify if others moved?
+                undo_stack.push(MoveBlockCommand(self, self._old_pos, self.pos()))
+
 
 
 
@@ -175,8 +253,12 @@ class GraphScene(QGraphicsScene):
             for item in items:
                 if isinstance(item, PortItem) and item != self.start_port:
                     if item.is_input != self.start_port.is_input: # Basic validation
-                        end_port = item
-                        break
+                        # Type Safety Check (Phase 2.1)
+                        if item.port_type == self.start_port.port_type:
+                            end_port = item
+                            break
+                        else:
+                            print(f"Type mismatch: {self.start_port.port_type} vs {item.port_type}")
             
             if end_port:
                 # Create permanent connection
@@ -202,6 +284,22 @@ class GraphView(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         self.setAcceptDrops(True)
         self.setSceneRect(0, 0, 5000, 5000)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
+
+    def _show_context_menu(self, pos):
+        from PyQt6.QtWidgets import QMenu
+        menu = QMenu()
+        
+        main_win = self.window()
+        if hasattr(main_win, "_copy_selection"):
+            menu.addAction("Copy", main_win._copy_selection)
+            menu.addAction("Paste", main_win._paste_selection)
+            menu.addSeparator()
+            menu.addAction("Delete", main_win._delete_selection)
+            
+        menu.exec(self.viewport().mapToGlobal(pos))
+
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasText():
@@ -221,15 +319,47 @@ class GraphView(QGraphicsView):
         
         if block_def:
             pos = self.mapToScene(event.position().toPoint())
-            # Generate unique ID (simple counter for now or UUID)
             count = len([i for i in self.scene().items() if isinstance(i, BlockItem)])
             instance_id = f"{block_id}_{count+1}"
             
             block = BlockItem(block_def, instance_id, pos)
-            self.scene().addItem(block)
+            
+            # Wrap in Undo Command
+            from core.commands import AddBlockCommand
+            main_win = self.window()
+            if hasattr(main_win, "undo_stack"):
+                main_win.undo_stack.push(AddBlockCommand(self.scene(), block))
+            else:
+                self.scene().addItem(block)
+                
             event.accept()
         else:
             event.ignore()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Delete:
+            selected_items = self.scene().selectedItems()
+            if selected_items:
+                from core.commands import RemoveBlockCommand
+                main_win = self.window()
+                undo_stack = getattr(main_win, "undo_stack", None)
+                
+                # Use a macro for multiple items? Or just loop.
+                # Actually QUndoStack.beginMacro() is good.
+                if undo_stack:
+                    undo_stack.beginMacro("Delete Selection")
+                    for item in selected_items:
+                        if isinstance(item, BlockItem):
+                            undo_stack.push(RemoveBlockCommand(self.scene(), item))
+                    undo_stack.endMacro()
+                else:
+                    for item in selected_items:
+                        if isinstance(item, BlockItem):
+                            self.scene().removeItem(item)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
 
     def wheelEvent(self, event):
         zoom_in_factor = 1.15
