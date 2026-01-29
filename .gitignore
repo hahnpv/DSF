@@ -3,6 +3,7 @@ doc/
 examples/sixdof
 examples/static
 CMakeDoxyfile.in
+*.txt
 
 # CMake Artifacts
 CMakeFiles/

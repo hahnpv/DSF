@@ -3,7 +3,11 @@
 #include "sim.h"
 #include "integratorRK4.h"
 #include "block.h"
+#include "TClassDict.h"
 #include "../util/TFunctor.h"
+
+// Explicit instantiation of factory dictionary to ensure singleton is in libDSF.so
+template class dsf::sim::TClassDict<dsf::sim::Block>;
 
 using namespace dsf::util;
 

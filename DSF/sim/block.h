@@ -144,5 +144,6 @@ namespace dsf
             double rptRate;                 ///< Report sample rate [s].
             std::string name;               ///< Block instance name.
         };
+        extern template class TClassDict<Block>;
     }
 }

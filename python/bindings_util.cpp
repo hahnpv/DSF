@@ -131,11 +131,20 @@ void init_util(py::module_ &m) {
         .def("findAttr", &xmlnode::findAttr)
         .def("attrAsString", &xmlnode::attrAsString)
         .def("attrAsDouble", &xmlnode::attrAsDouble)
+        .def("attrAsInt", [](xmlnode &n, std::string s){ return (int)n.attrAsDouble(s); })
+        .def("attrAsBool", &xmlnode::attrAsBool)
         .def("attrAsVec3", &xmlnode::attrAsVec3)
         .def("attrAsMat3", &xmlnode::attrAsMat3)
         .def("child", &xmlnode::child, py::return_value_policy::reference)
         .def("parent", &xmlnode::parent, py::return_value_policy::reference)
         .def("numchild", &xmlnode::numchild)
         .def("search", &xmlnode::search, py::return_value_policy::reference)
+        .def("children", &xmlnode::children)
         .def("name", &xmlnode::name);
+
+    // xml
+    py::class_<xml>(m, "xml")
+        .def(py::init<std::string>())
+        .def("parse", &xml::parse)
+        .def_readonly("xmlRoot", &xml::xmlRoot, py::return_value_policy::reference);
 }

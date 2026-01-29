@@ -70,11 +70,8 @@ add_library(DSF SHARED
     DSF/util/math/vec3.cpp
     DSF/util/tbl/tbl.cpp
     DSF/util/tbl/tbl2d.cpp
-    python/bindings_main.cpp
-    python/bindings_util.cpp
-    python/bindings_sim.cpp
-    python/bindings_net.cpp
 )
+
 
 # Target Properties
 target_include_directories(DSF PUBLIC 
@@ -84,9 +81,23 @@ target_include_directories(DSF PUBLIC
     ${OPENSCENEGRAPH_INCLUDE_DIRS}
 )
 
-target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES} pybind11::embed ${HDF5_LIBRARIES})
+target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
 target_compile_options(DSF PRIVATE -fpermissive)
 set_target_properties(DSF PROPERTIES LINKER_LANGUAGE CXX)
+
+# Python Bindings Module
+pybind11_add_module(dsf 
+    python/bindings_main.cpp
+    python/bindings_util.cpp
+    python/bindings_sim.cpp
+    python/bindings_net.cpp
+)
+target_link_libraries(dsf PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
+ target_include_directories(dsf PRIVATE 
+    ${Boost_INCLUDE_DIRS}
+    ${OPENSCENEGRAPH_INCLUDE_DIRS}
+)
+target_compile_options(dsf PRIVATE -fpermissive)
 
 # Add Examples
 add_subdirectory(examples/dynamic)
