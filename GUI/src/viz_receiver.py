@@ -66,12 +66,13 @@ def main():
         gp = GlobePlotter(distinct_window=True)
         
         # State
-        trajectory_points = []
+        trajectories = {} # {id: [[x,y,z], ...]}
+        
+        # Color palette for distinct vehicles
+        colors = ["cyan", "magenta", "orange", "lime", "yellow", "white", "red", "blue"]
         
         def update_viz(step_id):
             # Process up to N items from queue to avoid freezing UI if flood
-            # If queue is huge, we might lag, but UI will stay responsive.
-            
             items_processed = 0
             has_new_data = False
             
@@ -79,26 +80,68 @@ def main():
                 try:
                     chunk = data_queue.get_nowait()
                     try:
-                        pos = json.loads(chunk.decode())
-                        pt = [float(pos['x']), float(pos['y']), float(pos['z'])]
-                        trajectory_points.append(pt)
+                        data = json.loads(chunk.decode())
+                        
+                        # Check for commands
+                        if "command" in data:
+                            if data["command"] == "reset":
+                                print("Viz Receiver: Resetting trajectories.")
+                                trajectories.clear()
+                                # Also clear existing actors from plotter?
+                                # PyVista actors persist. We need to clear them.
+                                # GlobePlotter doesn't expose a clear method on `gp`.
+                                # We can clear the plot and re-add earth? Or just let them fade?
+                                # Actually `gp.add_trajectory` returns an actor name?
+                                # If we clear `trajectories`, the next `update_viz` loop won't draw lines.
+                                # But PyVista retains the actors in the scene until removed.
+                                # We need to remove them.
+                                # We can iterate over `gp.plotter.actors` and remove those starting with "Traj_".
+                                actors_to_remove = [name for name in gp.plotter.actors if name.startswith("Traj_")]
+                                for name in actors_to_remove:
+                                    gp.plotter.remove_actor(name)
+                                has_new_data = False # Don't update this frame
+                                
+                        # Handle both single object (legacy) and dict of vehicles
+                        elif "x" in data and "y" in data:
+                             # Legacy single vehicle
+                             packets = {"Vehicle": data}
+                        else:
+                             packets = data
+                             
+                        if "command" not in data:
+                            for vid, pos in packets.items():
+                             if vid not in trajectories:
+                                 trajectories[vid] = []
+                             
+                             pt = [float(pos['x']), float(pos['y']), float(pos['z'])]
+                             trajectories[vid].append(pt)
+                             
+                             # Keep tail limit per vehicle
+                             if len(trajectories[vid]) > 2000:
+                                 trajectories[vid].pop(0)
+
                         has_new_data = True
                     except Exception as e:
-                        pass # Ignore parse errors
+                        # print(f"Parse error: {e}")
+                        pass
                     items_processed += 1
                 except queue.Empty:
                     break
             
             # Update Plot if we have new points
-            if has_new_data and len(trajectory_points) > 2:
-                # Keep tail
-                limit = 2000 # Reduced limit for performance
-                pts_to_plot = trajectory_points[-limit:]
-                
+            if has_new_data:
                 import numpy as np
-                arr = np.array(pts_to_plot)
-                gp.add_trajectory(arr, name="LiveTraj", color="cyan", line_width=4, stop_marker=True)
-                gp.add_ground_track(arr, name="LiveGround", color="magenta", line_width=2)
+                color_idx = 0
+                for vid, points in trajectories.items():
+                    if len(points) > 2:
+                        arr = np.array(points)
+                        # Assign color based on simple hash or index
+                        c = colors[color_idx % len(colors)]
+                        
+                        gp.add_trajectory(arr, name=f"Traj_{vid}", color=c, line_width=2, stop_marker=True)
+                        # Optional: Ground track might be too messy for 30 constellation
+                        # gp.add_ground_track(arr, name=f"Gnd_{vid}", color=c, line_width=1) 
+                        color_idx += 1
 
         # Register callback to run
         # gp.plotter.add_timer_event(max_steps=2147483647, duration=33, callback=update_viz)

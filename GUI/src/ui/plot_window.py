@@ -26,29 +26,17 @@ class PlotWindow(QMainWindow):
         # Use standard Window type. Tool windows can have weird hide/show behavior on some Linux WMs.
         self.setWindowFlags(Qt.WindowType.Window)
         
-        self.splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.setCentralWidget(self.splitter)
-        
-        # Left Side: Container for 2D PlotWidget
+        # Main Container for 2D PlotWidget
+        # We removed the QSplitter since the Globe is now in a separate window
         self.plot_container = QWidget()
         self.plot_layout = QVBoxLayout(self.plot_container)
         self.plot_layout.setContentsMargins(0, 0, 0, 0)
-        self.splitter.addWidget(self.plot_container)
+        
+        self.setCentralWidget(self.plot_container)
         
         self.plot_widget = None
         self.init_btn = None
         
-        # Right Side: Controls for 3D Globe (Detached)
-        self.globe_controls = QWidget()
-        self.globe_layout = QVBoxLayout(self.globe_controls)
-        
-        from PyQt6.QtWidgets import QLabel
-        self.globe_layout.addWidget(QLabel("3D Visualization"))
-        self.globe_layout.addWidget(QLabel("Launch from Main Toolbar"))
-        self.globe_layout.addStretch()
-        
-        self.splitter.addWidget(self.globe_controls)
-
         self.viz_process = None
         self.traj_history = []
         self.headers = None
@@ -65,9 +53,48 @@ class PlotWindow(QMainWindow):
 
     def set_headers(self, headers):
         """Called by SimulationWorker to provide signal names matching the data list."""
-        self.headers = headers
-        self.header_map = {name: i for i, name in enumerate(headers)}
-        print(f"DEBUG: PlotWindow received {len(headers)} headers: {headers}")
+        
+        # Disambiguate duplicate headers
+        # e.g. ["Latitude", "Longitude", "Latitude", "Longitude"] -> ["Latitude_0", "Longitude_0", "Latitude_1", "Longitude_1"]
+        # Or even better: "Vehicle_1_Latitude" if we could infer it?
+        # But for now, simple counter suffix if collision found.
+        
+        self.headers = []
+        counts = {}
+        # First pass count
+        for h in headers:
+            counts[h] = counts.get(h, 0) + 1
+            
+        current_counts = {}
+        for h in headers:
+            if counts[h] > 1:
+                idx = current_counts.get(h, 0)
+                unique_name = f"{h}_{idx}"
+                current_counts[h] = idx + 1
+                self.headers.append(unique_name)
+            else:
+                self.headers.append(h)
+
+        self.header_map = {name: i for i, name in enumerate(self.headers)}
+        
+        # Identity all unique vehicles by looking for "_Latitude" or just "Latitude"
+        # If multiple vehicles exist, they usually prefix with the vehicle id (fixed in fix_ids.py)
+        # With disambiguation, we might get "Latitude_0", "Latitude_1".
+        # We need a robust way to identify vehicle groups.
+        self.vehicle_ids = set()
+        
+        # Strategy: Look for "Latitude" substring.
+        for h in self.headers:
+            if "Latitude" in h:
+                # e.g. "GPS_1_Latitude", "Latitude_0"
+                vid = h.replace("Latitude", "").strip("_")
+                self.vehicle_ids.add(vid)
+        
+        # If empty set (maybe "Lat"?), default to 0
+        if not self.vehicle_ids:
+             self.vehicle_ids.add("0")
+        
+        print(f"DEBUG: PlotWindow detected {len(self.vehicle_ids)} vehicles: {list(self.vehicle_ids)}")
 
     def _launch_globe_window(self):
         """Launches the 3D globe in a separate Process."""
@@ -80,8 +107,6 @@ class PlotWindow(QMainWindow):
 
         try:
             # Cleanup any zombie instances from previous runs
-            # We can't easily rely on PID tracking across restarts, so we use pkill
-            # This is safe-ish because we are targeting our specific script
             try:
                 subprocess.run(["pkill", "-f", "viz_receiver.py"], check=False)
                 time.sleep(0.5) # Give it time to die and release port
@@ -89,24 +114,15 @@ class PlotWindow(QMainWindow):
                 pass
 
             print("DEBUG: Launching viz_receiver.py subprocess...")
-            
             script_path = os.path.join(os.path.dirname(__file__), "../viz_receiver.py")
-            
-            # Launch detached process
-            # sys.executable ensures we use the same python interpreter
             self.viz_process = subprocess.Popen([sys.executable, script_path])
             
         except Exception as e:
             print(f"Error launching 3D Globe Process: {e}")
-            import traceback
-            traceback.print_exc()
             self.viz_process = None
 
     def showEvent(self, event):
         super().showEvent(event)
-        # Timer removed - manual init only for safety
-        # Set initial split (50/50 or prefer 2D slightly)
-        self.splitter.setSizes([600, 600])
 
     def set_plot_widget(self, widget):
         if self.plot_widget:
@@ -114,85 +130,76 @@ class PlotWindow(QMainWindow):
         self.plot_widget = widget
         if self.plot_widget:
             self.plot_layout.addWidget(self.plot_widget)
-            
+
+
+    def reset_view(self):
+        """Clears 3D visualization by sending reset command."""
+        self.render_counter = 0
+        try:
+            import json
+            msg = json.dumps({"command": "reset"}).encode('utf-8')
+            self.udp_sock.sendto(msg, (self.udp_ip, self.udp_port))
+            print("PlotWindow: Sent RESET command to 3D Viz.")
+        except Exception as e:
+            print(f"Error sending RESET: {e}")
+
     def update_3d_data(self, data):
         """Called to update the 3D globe with new simulation data."""
-        # Only send if headers are known
         if not self.headers or not self.header_map:
             return
 
-        # Throttle: Simulation might run at 100Hz+, we only need ~60Hz for Viz
         self.render_counter += 1
-        if self.render_counter % 2 != 0: # Send every 2nd frame (50% subsampling)
+        if self.render_counter % 2 != 0: 
             return
 
-        try:
-            # Extract XYZ
-            # Only perform lookup if we haven't cached indices? 
-            # Optimization: Cache indices in set_headers? For now map lookup is fast enough.
-            
-            def get_val(key_candidates):
-                for key in key_candidates:
-                    idx = self.header_map.get(key)
-                    if idx is not None and idx < len(data):
-                        return data[idx]
-                return None
+        # Prepare a dictionary of positions for all vehicles
+        positions = {}
+        
+        # WGS84 Constants
+        a = 6378137.0
+        f = 1.0 / 298.257223563
+        e2 = f * (2 - f)
 
-            # Try to calculate from LLA (Latitude, Longitude, Altitude) if available
-            # This is more robust than relying on "Earth XYZ" which might be local/relative
-            lat = get_val(["Latitude", "Lat"])
-            lon = get_val(["Earth Longitude", "Longitude", "Lon"]) # Prefer Earth-Start (Fixed) Longitude
-            alt = get_val(["Altitude", "Alt"])
+        import math
+        
+        for vid in self.vehicle_ids:
+            prefix = f"{vid}_" if vid else ""
             
-            x, y, z = None, None, None
+            # Key candidates for this specific vehicle
+            lat_key = f"{prefix}Latitude"
+            lon_key = f"{prefix}Earth Longitude" if f"{prefix}Earth Longitude" in self.header_map else f"{prefix}Longitude"
+            alt_key = f"{prefix}Altitude"
             
-            if lat is not None and lon is not None and alt is not None:
+            idx_lat = self.header_map.get(lat_key)
+            idx_lon = self.header_map.get(lon_key)
+            idx_alt = self.header_map.get(alt_key)
+            
+            if idx_lat is not None and idx_lon is not None and idx_alt is not None:
                 try:
-                    import math
-                    # WGS84 Ellipsoid Constants
-                    a = 6378137.0
-                    f = 1.0 / 298.257223563
-                    e2 = f * (2 - f)
-                    
-                    phi = float(lat) # Radians
-                    theta = float(lon) # Radians
-                    h = float(alt)
+                    phi = float(data[idx_lat])
+                    theta = float(data[idx_lon])
+                    h = float(data[idx_alt])
                     
                     sin_phi = math.sin(phi)
                     cos_phi = math.cos(phi)
-                    
-                    # Prime Vertical Radius of Curvature
                     N = a / math.sqrt(1 - e2 * (sin_phi ** 2))
                     
-                    # ECEF Conversion
                     x = (N + h) * cos_phi * math.cos(theta)
                     y = (N + h) * cos_phi * math.sin(theta)
                     z = (N * (1 - e2) + h) * sin_phi
                     
-                except Exception as e:
-                    print(f"LLA Extraction Error: {e}")
+                    positions[vid or "Vehicle"] = {"x": x, "y": y, "z": z}
+                except Exception:
+                    pass
 
-            # Fallback to direct XYZ if LLA failed
-            if x is None:
-                x = get_val(["Earth XYZ (x)", "Inertial Position (x)"])
-                y = get_val(["Earth XYZ (y)", "Inertial Position (y)"])
-                z = get_val(["Earth XYZ (z)", "Inertial Position (z)"])
-            
-            if x is not None and y is not None and z is not None:
-                # Prepare JSON packet
+        if positions:
+            try:
                 import json
-                packet = {
-                    "x": float(x),
-                    "y": float(y),
-                    "z": float(z)
-                }
-                msg = json.dumps(packet).encode('utf-8')
+                msg = json.dumps(positions).encode('utf-8')
                 self.udp_sock.sendto(msg, (self.udp_ip, self.udp_port))
-                
-        except Exception as e:
-            # Don't spam print on every frame if error
-            if self.render_counter % 100 == 0:
-                print(f"UDP Send Error: {e}")
+            except Exception as e:
+                if self.render_counter % 100 == 0:
+                    print(f"UDP Send Error: {e}")
 
     def hideEvent(self, event):
         self.visibilityChanged.emit(False)

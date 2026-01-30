@@ -95,19 +95,38 @@ class PlotWidget(QWidget):
         selected_items = self.var_list.selectedItems()
         selected_idxs = set()
         
+        # 1. Add new curves
         for item in selected_items:
             idx = item.data(Qt.ItemDataRole.UserRole)
             selected_idxs.add(idx)
             
             if idx not in self.curves:
                 color = self.colors[len(self.curves) % len(self.colors)]
-                self.curves[idx] = self.graph.plot(pen=color, name=self.headers[idx])
+                # Ensure header name is valid
+                name = self.headers[idx] if idx < len(self.headers) else f"Var {idx}"
+                self.curves[idx] = self.graph.plot(pen=color, name=name)
         
-        # Remove old traces
-        for idx in list(self.curves.keys()):
+        # 2. Remove unselected traces
+        current_idxs = list(self.curves.keys())
+        for idx in current_idxs:
             if idx not in selected_idxs:
                 self.graph.removeItem(self.curves[idx])
                 del self.curves[idx]
+
+    def reset_plots(self):
+        """Clears all plot data and history."""
+        self.data_history.clear()
+        self.time_history.clear()
+        self.graph.clear()
+        self.curves.clear()
+        
+        # Re-initialize empty buffers for current headers
+        for i in range(len(self.headers)):
+            self.data_history[i] = deque(maxlen=self.max_points)
+            
+        # Re-plot empty curves? Or wait for update?
+        # Ideally wait for update.
+        print("PlotWidget: Reset complete.")
 
     @pyqtSlot(list)
     def update_data(self, values):

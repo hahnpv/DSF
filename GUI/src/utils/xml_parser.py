@@ -28,7 +28,11 @@ class XMLParser:
                     metadata[k] = v
 
         # Check if root itself is a block (e.g. <vehicle>)
-        root_block = self._parse_element(root)
+        # Special case: 'sim' is the container, never a block in this context
+        root_block = None
+        if root.tag.lower() != "sim":
+            root_block = self._parse_element(root)
+            
         if root_block:
             blocks.append(root_block)
         else:
@@ -49,12 +53,15 @@ class XMLParser:
         # But usually 'class' is required for factory.
         # If it's something like <gravity class="FlatGravity">
         if not block_class and not block_id:
-            # Might be a container or metadata? e.g. <sim dt="0.1">
-            return None
+            # If it has children, treat it as a structural block (e.g. <state>)
+            # If it has no children, it's likely a leaf parameter handled by the caller or metadata.
+            if len(element) == 0:
+                return None
+            
+            # Heuristic: tag name is the class/type
+            # We capitalize it to match naming conventions (e.g. state -> State)
+            block_class = element.tag.capitalize()
 
-        if not block_class:
-            # Heuristic: tag name could be class if class is missing
-            block_class = element.tag.capitalize() # Simple mapping
             
         data = {
             "type": block_class,

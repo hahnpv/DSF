@@ -30,13 +30,14 @@ find_package(Doxygen)
 
 # Default to Debug build if not specified
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
+    set(CMAKE_BUILD_TYPE Release)
 endif()
 
 # Enable testing
 enable_testing()
 
 # Add Subdirectories
+# External sixdof library integration
 # External sixdof library integration
 set(SIXDOF_SEARCH_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../sixdof")
 if(NOT DEFINED SIXDOF_DIR AND EXISTS "${SIXDOF_SEARCH_PATH}")
@@ -45,11 +46,8 @@ if(NOT DEFINED SIXDOF_DIR AND EXISTS "${SIXDOF_SEARCH_PATH}")
 endif()
 
 if(DEFINED SIXDOF_DIR)
-    if(EXISTS "${SIXDOF_DIR}/sixdof/CMakeLists.txt")
-        add_subdirectory("${SIXDOF_DIR}/sixdof" "${CMAKE_BINARY_DIR}/sixdof_build")
-    else()
-        message(WARNING "SIXDOF_DIR is set to ${SIXDOF_DIR} but ${SIXDOF_DIR}/sixdof/CMakeLists.txt not found.")
-    endif()
+    # We include headers but DO NOT add_subdirectory to avoid duplicate ABI build.
+    include_directories("${SIXDOF_DIR}")
 else()
     message(STATUS "sixdof library not found (checked ../sixdof). Skipping.")
 endif()

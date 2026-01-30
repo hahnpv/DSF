@@ -114,29 +114,25 @@ def main():
     
     # Iterate over children of 'sim' node
     children = sim_node.children()
+    blocks = []
+    children_nodes = []
     for child in children:
         child_id = child.attrAsString("id")
+        child_class = child.attrAsString("class")
         if not child_id:
-            continue # Skip nodes without ID if any (xmlnode.children filters out comments/text, but verify)
+            continue
             
-        print(f"Creating block: {child_id}")
+        class_to_use = child_class or child.tag().capitalize()
+        print(f"Creating root block: {child_id} [class={class_to_use}]")
         
-        # dsf.make_block is a helper in bindings_sim.cpp: return dsf::sim::TRefUnique<Block>(id);
-        # It creates the block using the factory.
         try:
-            new_block = dsf.make_block(child_id)
+            new_block = dsf.make_block(class_to_use)
             if new_block:
                 sim_root.addChild(new_block)
-                # Configuration happens in a second pass in C++, strictly speaking.
-                # "root->getChild(i)->configure( child_node);"
-                # But here we can do it immediately if we want, OR follow C++ pattern strictly.
-                # C++ pattern:
-                # 1. Create all children
-                # 2. Configure all children
-                # This might matter if configuration depends on siblings? Usually not in this framework pattern.
-                # But let's follow the pattern to be safe.
+                blocks.append(new_block)
+                children_nodes.append(child)
             else:
-                print(f"Warning: Factory returned None for id '{child_id}'")
+                print(f"Warning: Factory returned None for class '{class_to_use}' (id={child_id})")
         except Exception as e:
             print(f"Error creating block '{child_id}': {e}")
 
@@ -189,8 +185,20 @@ def main():
     sim = dsf.Sim()
     sim.load(sim_root, dt, tmax, rate_console, rate_file)
     
-    print("Starting simulation...")
-    sim.run()
+    if hasattr(sim, 'init') and hasattr(sim, 'exec'):
+        print("Starting simulation (init/exec)...")
+        sim.init()
+        
+        # Quick Header Print
+        if hasattr(sim, 'output'):
+            headers = sim.output.get_header_names()
+            print(f"Telemetry Headers: {headers}")
+            
+        sim.exec()
+    else:
+        print("Starting simulation (run)...")
+        sim.run()
+        
     print("Simulation complete.")
 
 if __name__ == "__main__":

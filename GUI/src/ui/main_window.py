@@ -150,6 +150,10 @@ class MainWindow(QMainWindow):
         self.stop_action.setEnabled(False)
         self.stop_action.triggered.connect(self._stop_simulation)
         
+        self.reset_action = sim_toolbar.addAction("↺ Reset")
+        self.reset_action.setToolTip("Reset simulation state and visualization")
+        self.reset_action.triggered.connect(self._reset_simulation)
+        
         sim_toolbar.addSeparator()
 
         # Plot Window Toggle
@@ -164,6 +168,8 @@ class MainWindow(QMainWindow):
 
         # Simulation State
         self.sim_worker = None
+    
+
 
         # Menu Bar
         menu = self.menuBar()
@@ -562,6 +568,7 @@ class MainWindow(QMainWindow):
             msg += "OK"
         else:
             msg += f"{error_count} Errors, {warning_count} Warnings"
+        if error_count > 0:
             print(f"DEBUG: Validation Failed with {error_count} errors:")
             for err in errors:
                 if err.level == "error":
@@ -723,6 +730,9 @@ class MainWindow(QMainWindow):
                 self.view.fitInView(rect.adjusted(-50, -50, 50, 50), Qt.AspectRatioMode.KeepAspectRatio)
                 
             print(f"Successfully imported {len(created_blocks)} blocks from {path}")
+            
+            # Fetch variables
+            self._probe_headers()
             
         except Exception as e:
             print(f"Error importing XML: {e}")
@@ -1095,3 +1105,22 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.warning(self, "Error", "Detached 3D Globe logic not found in PlotWindow")
 
+
+    def _reset_simulation(self):
+        """Clears 2D plots and 3D visualization to allow fresh run."""
+        if self.sim_worker and self.sim_worker.isRunning():
+            QMessageBox.warning(self, "Simulation Running", "Please stop the simulation before resetting.")
+            return
+
+        # Clear 2D Plots
+        if self.plot_widget:
+            self.plot_widget.reset_plots()
+            
+        # Clear 3D Globe
+        if self.plot_window:
+            self.plot_window.reset_view()
+            
+        # Reset UI
+        self.progress_bar.setValue(0)
+        self.status_bar.showMessage("Simulation Reset.")
+        self.start_action.setEnabled(True)
