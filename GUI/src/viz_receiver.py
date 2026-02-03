@@ -46,15 +46,23 @@ def main():
         running = True
 
         def receiver_loop():
+            first_packet = True # Initialize for logging
             while running:
                 try:
-                    chunk, addr = sock.recvfrom(4096)
+                    # UDP limit is theoretically 65535. 
+                    # With 30+ satellites, JSON can easily exceed 4KB.
+                    chunk, addr = sock.recvfrom(65535)
                     # Parse immediately in thread to offload main thread? 
                     # Or just queue raw bytes? Queueing raw bytes is safer for speed.
-                    data_queue.put(chunk)
-                    if not getattr(receiver_loop, "logged", False):
-                        print(f"Viz Receiver: First packet received ({len(chunk)} bytes)")
-                        receiver_loop.logged = True
+                    data_str = chunk.decode('utf-8')
+                    positions = json.loads(data_str)
+                    
+                    if first_packet:
+                         print(f"Viz Receiver: First packet received ({len(chunk)} bytes). Vehicles: {len(positions)}", flush=True)
+                         print(f"Viz Receiver: Vehicle Keys: {list(positions.keys())}", flush=True)
+                         first_packet = False
+                    
+                    data_queue.put(positions)
                 except socket.timeout:
                     continue
                 except Exception as e:
@@ -87,9 +95,10 @@ def main():
             
             while not data_queue.empty() and items_processed < 50:
                 try:
-                    chunk = data_queue.get_nowait()
+                    data = data_queue.get_nowait()
                     try:
-                        data = json.loads(chunk.decode())
+                        # data is already a dict from receiver_loop
+                        # data = json.loads(chunk.decode()) 
                         
                         # Check for commands
                         if "command" in data:
@@ -131,15 +140,19 @@ def main():
 
                         has_new_data = True
                     except Exception as e:
-                        # print(f"Parse error: {e}")
+                        print(f"Parse error: {e}", flush=True)
                         pass
                     items_processed += 1
                 except queue.Empty:
                     break
             
             # Debug: print status periodically
-            if step_id % 100 == 0 and trajectories:
-                print(f"Viz Debug: {len(trajectories)} satellites tracking. Frame {step_id}")
+            if step_id % 20 == 0: # Print more often
+                if trajectories:
+                    print(f"Viz Debug: {len(trajectories)} satellites tracking. Frame {step_id}", flush=True)
+                else:
+                    # Print even if empty to prove loop is running
+                    print(f"Viz Debug: No trajectories yet. Frame {step_id}", flush=True)
             
             # Update Plot if we have new points
             if has_new_data:
@@ -161,8 +174,10 @@ def main():
         print("3D Window Opening. Interaction should be smooth.")
         gp.plotter.show(title="DSF 3D Visualization (Child Process)", interactive_update=True)
         
+        step_counter = 0
         while True:
-            update_viz(0)
+            update_viz(step_counter)
+            step_counter += 1
             gp.plotter.update()
             time.sleep(0.01) # ~100 FPS cap, keeps CPU usage sane
             if gp.plotter.render_window.GetGenericDisplayId() == None: # Check if window closed

@@ -1,8 +1,9 @@
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QWidget, QCheckBox
 from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QImage, QPen, QColor, QFont, QBrush
 import math
 import os
+import sys
 
 class MapWidget(QWidget):
     def __init__(self, parent=None):
@@ -32,13 +33,52 @@ class MapWidget(QWidget):
         self.header_map = {}
         self.vehicle_ids = set()
         
+        # Trail settings
+        self.max_history = 500 # Default to short for performance
+        
+        # Checkbox for full trails
+        self.full_trails_cb = QCheckBox("Full Trails", self)
+        self.full_trails_cb.setStyleSheet("QCheckBox { color: white; font-weight: bold; background: rgba(0,0,0,100); padding: 2px; }")
+        self.full_trails_cb.setChecked(False)
+        self.full_trails_cb.stateChanged.connect(self._toggle_trails)
+        
         # Plotting colors
         self.colors = [Qt.GlobalColor.red, Qt.GlobalColor.green, Qt.GlobalColor.cyan, 
                        Qt.GlobalColor.magenta, Qt.GlobalColor.yellow, Qt.GlobalColor.white]
 
+    def _toggle_trails(self, state):
+        if self.full_trails_cb.isChecked():
+            self.max_history = 100000 # Effectively unlimited for this sim
+            print("MapWidget: Full trails enabled", file=sys.stderr)
+        else:
+            self.max_history = 500
+            print("MapWidget: Short trails enabled (Performance mode)", file=sys.stderr)
+            # Truncate existing
+            for vid in self.vehicle_history:
+                if len(self.vehicle_history[vid]) > self.max_history:
+                    # Keep latest
+                    self.vehicle_history[vid] = self.vehicle_history[vid][-self.max_history:]
+        self.update()
+
     def set_headers(self, headers):
-        self.headers = headers
-        self.header_map = {name: i for i, name in enumerate(headers)}
+        # Disambiguate duplicate headers (copied from PlotWindow)
+        self.headers = []
+        counts = {}
+        # First pass count
+        for h in headers:
+            counts[h] = counts.get(h, 0) + 1
+            
+        current_counts = {}
+        for h in headers:
+            if counts[h] > 1:
+                idx = current_counts.get(h, 0)
+                unique_name = f"{h}_{idx}"
+                current_counts[h] = idx + 1
+                self.headers.append(unique_name)
+            else:
+                self.headers.append(h)
+
+        self.header_map = {name: i for i, name in enumerate(self.headers)}
         
         self.vehicle_ids.clear()
         
@@ -50,8 +90,9 @@ class MapWidget(QWidget):
                 
         if not self.vehicle_ids:
             # Fallback for simple cases where maybe headers are just "Lat", "Lon" or similar?
-            # Or if "Latitude" is present but no suffix/prefix (meaning "" ID)
             pass
+        
+        print(f"DEBUG: MapWidget Headers set. Found {len(self.vehicle_ids)} vehicles: {list(self.vehicle_ids)[:10]}...", file=sys.stderr)
             
         # Assign colors
         self.vehicle_colors.clear()
@@ -105,8 +146,8 @@ class MapWidget(QWidget):
                             self.vehicle_history[vid] = []
                         self.vehicle_history[vid].append((lat, lon))
                         
-                        # Limit history size for performance? Maybe 5000 points?
-                        if len(self.vehicle_history[vid]) > 5000:
+                        # Limit history based on toggle
+                        if len(self.vehicle_history[vid]) > self.max_history:
                             self.vehicle_history[vid].pop(0)
                         
                         updated = True
@@ -115,6 +156,15 @@ class MapWidget(QWidget):
         
         if updated:
             self.update()
+
+    def resizeEvent(self, event):
+        # Anchor checkbox to bottom right
+        padding = 10
+        cb_size = self.full_trails_cb.sizeHint()
+        x = self.width() - cb_size.width() - padding
+        y = self.height() - cb_size.height() - padding
+        self.full_trails_cb.move(x, y)
+        super().resizeEvent(event)
 
     def paintEvent(self, event):
         painter = QPainter(self)

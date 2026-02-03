@@ -83,21 +83,14 @@ class PlotWindow(QMainWindow):
         # We need a robust way to identify vehicle groups.
         self.vehicle_ids = set()
         
+        print(f"DEBUG: Raw Headers received: {headers}", file=sys.stderr)
+
         # Strategy: Look for "Latitude" substring.
         for h in self.headers:
             if "Latitude" in h:
-                # Special handling for duplicate "Latitude" columns (e.g. Latitude_0, Latitude_1)
-                # These usually come from the same vehicle reporting multiple times (flat hierarchy)
-                # We only want to track the primary one (index 0 or no suffix)
-                if h.startswith("Latitude_"):
-                    try:
-                        suffix = h.split("_")[-1]
-                        if suffix.isdigit() and int(suffix) > 0:
-                            # Skip Latitude_1, Latitude_2, etc. to avoid ghost vehicles
-                            continue
-                    except ValueError:
-                        pass
-
+                # Removed filter to allow all vehicles. 
+                # If we get duplicates (Latitude_0, Latitude_1), we accept them for now.
+                
                 # e.g. "GPS_1_Latitude", "Latitude_0"
                 vid = h.replace("Latitude", "").strip("_")
                 self.vehicle_ids.add(vid)
@@ -106,8 +99,8 @@ class PlotWindow(QMainWindow):
         if not self.vehicle_ids:
              self.vehicle_ids.add("0")
         
-        # print(f"DEBUG: PlotWindow Headers set. Found {len(self.vehicle_ids)} vehicles: {self.vehicle_ids}", file=sys.stderr)
-        # print(f"DEBUG: Headers: {self.headers}", file=sys.stderr)
+        print(f"DEBUG: PlotWindow Headers set. Found {len(self.vehicle_ids)} vehicles: {self.vehicle_ids}", file=sys.stderr)
+        print(f"DEBUG: Processed Headers: {self.headers}", file=sys.stderr)
 
     def _launch_globe_window(self):
         """Launches the 3D globe in a separate Process."""
