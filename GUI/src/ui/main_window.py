@@ -20,6 +20,9 @@ class MainWindow(QMainWindow):
             # Stop the window from ignoring close events during shutdown
             self.plot_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
             self.plot_window.close()
+        if hasattr(self, 'map_window'):
+            self.map_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+            self.map_window.close()
         super().closeEvent(event)
 
     def resizeEvent(self, event):
@@ -88,6 +91,12 @@ class MainWindow(QMainWindow):
         self.plot_window.set_plot_widget(self.plot_widget)
         self.plot_window.visibilityChanged.connect(self._on_plot_window_visibility_changed)
         
+        
+        # Map Window
+        from ui.map_window import MapWindow
+        self.map_window = MapWindow()
+        self.map_window.visibilityChanged.connect(self._on_map_window_visibility_changed)
+
         self._finish_init()
         
 
@@ -98,6 +107,18 @@ class MainWindow(QMainWindow):
                 action.blockSignals(True)
                 action.setChecked(visible)
                 action.blockSignals(False)
+
+    def _on_map_window_visibility_changed(self, visible):
+        if hasattr(self, 'map_action'):
+            self.map_action.blockSignals(True)
+            self.map_action.setChecked(visible)
+            self.map_action.blockSignals(False)
+
+    def _toggle_map_window(self, checked):
+        if checked:
+            self.map_window.show()
+        else:
+            self.map_window.hide()
 
     def _toggle_plot_window(self, checked):
         if checked:
@@ -165,6 +186,12 @@ class MainWindow(QMainWindow):
         self.globe_action = sim_toolbar.addAction("🌎 Globe")
         self.globe_action.setToolTip("Launch detached 3D Globe window")
         self.globe_action.triggered.connect(self._launch_globe)
+
+        # Map Window Action
+        self.map_action = sim_toolbar.addAction("🗺 Map")
+        self.map_action.setCheckable(True)
+        self.map_action.setToolTip("Show 2D Ground Track Map")
+        self.map_action.triggered.connect(self._toggle_map_window)
 
         # Simulation State
         self.sim_worker = None
@@ -1065,6 +1092,10 @@ class MainWindow(QMainWindow):
         self.sim_worker.headers_ready.connect(self.plot_window.set_headers)
         if hasattr(self.plot_window, "update_3d_data"):
              self.sim_worker.data_ready.connect(self.plot_window.update_3d_data)
+
+        # Connect to MapWindow
+        self.sim_worker.headers_ready.connect(self.map_window.set_headers)
+        self.sim_worker.data_ready.connect(self.map_window.update_data)
         
         self.start_action.setEnabled(False)
         self.stop_action.setEnabled(True)
@@ -1120,6 +1151,10 @@ class MainWindow(QMainWindow):
         if self.plot_window:
             self.plot_window.reset_view()
             
+        # Clear Map
+        if hasattr(self, "map_window") and self.map_window:
+            self.map_window.reset()
+
         # Reset UI
         self.progress_bar.setValue(0)
         self.status_bar.showMessage("Simulation Reset.")

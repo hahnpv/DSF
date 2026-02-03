@@ -52,6 +52,9 @@ def main():
                     # Parse immediately in thread to offload main thread? 
                     # Or just queue raw bytes? Queueing raw bytes is safer for speed.
                     data_queue.put(chunk)
+                    if not getattr(receiver_loop, "logged", False):
+                        print(f"Viz Receiver: First packet received ({len(chunk)} bytes)")
+                        receiver_loop.logged = True
                 except socket.timeout:
                     continue
                 except Exception as e:
@@ -64,6 +67,12 @@ def main():
 
         # Create the plotter
         gp = GlobePlotter(distinct_window=True)
+        
+        # Set initial wide view to see MEO/GEO orbits
+        # Earth Radius ~6378 km. GPS ~26500 km radius.
+        # 5x Radius ensures we see everything comfortably.
+        R_EARTH = 6378137.0
+        gp.plotter.camera_position = [(10 * R_EARTH, 0, 0), (0, 0, 0), (0, 0, 1)]
         
         # State
         trajectories = {} # {id: [[x,y,z], ...]}
@@ -128,6 +137,10 @@ def main():
                 except queue.Empty:
                     break
             
+            # Debug: print status periodically
+            if step_id % 100 == 0 and trajectories:
+                print(f"Viz Debug: {len(trajectories)} satellites tracking. Frame {step_id}")
+            
             # Update Plot if we have new points
             if has_new_data:
                 import numpy as np
@@ -139,8 +152,7 @@ def main():
                         c = colors[color_idx % len(colors)]
                         
                         gp.add_trajectory(arr, name=f"Traj_{vid}", color=c, line_width=2, stop_marker=True)
-                        # Optional: Ground track might be too messy for 30 constellation
-                        # gp.add_ground_track(arr, name=f"Gnd_{vid}", color=c, line_width=1) 
+                        gp.add_ground_track(arr, name=f"Gnd_{vid}", color=c, line_width=1) 
                         color_idx += 1
 
         # Register callback to run

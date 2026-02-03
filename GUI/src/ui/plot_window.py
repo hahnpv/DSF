@@ -86,6 +86,18 @@ class PlotWindow(QMainWindow):
         # Strategy: Look for "Latitude" substring.
         for h in self.headers:
             if "Latitude" in h:
+                # Special handling for duplicate "Latitude" columns (e.g. Latitude_0, Latitude_1)
+                # These usually come from the same vehicle reporting multiple times (flat hierarchy)
+                # We only want to track the primary one (index 0 or no suffix)
+                if h.startswith("Latitude_"):
+                    try:
+                        suffix = h.split("_")[-1]
+                        if suffix.isdigit() and int(suffix) > 0:
+                            # Skip Latitude_1, Latitude_2, etc. to avoid ghost vehicles
+                            continue
+                    except ValueError:
+                        pass
+
                 # e.g. "GPS_1_Latitude", "Latitude_0"
                 vid = h.replace("Latitude", "").strip("_")
                 self.vehicle_ids.add(vid)
@@ -94,7 +106,8 @@ class PlotWindow(QMainWindow):
         if not self.vehicle_ids:
              self.vehicle_ids.add("0")
         
-        print(f"DEBUG: PlotWindow detected {len(self.vehicle_ids)} vehicles: {list(self.vehicle_ids)}")
+        # print(f"DEBUG: PlotWindow Headers set. Found {len(self.vehicle_ids)} vehicles: {self.vehicle_ids}", file=sys.stderr)
+        # print(f"DEBUG: Headers: {self.headers}", file=sys.stderr)
 
     def _launch_globe_window(self):
         """Launches the 3D globe in a separate Process."""
@@ -102,7 +115,7 @@ class PlotWindow(QMainWindow):
         import time
         
         if hasattr(self, "viz_process") and self.viz_process and self.viz_process.poll() is None:
-            print("DEBUG: 3D Viz process already running.")
+            # print("DEBUG: 3D Viz process already running.")
             return
 
         try:
@@ -113,9 +126,10 @@ class PlotWindow(QMainWindow):
             except Exception:
                 pass
 
-            print("DEBUG: Launching viz_receiver.py subprocess...")
+            # print("DEBUG: Launching viz_receiver.py subprocess...", file=sys.stderr)
             script_path = os.path.join(os.path.dirname(__file__), "../viz_receiver.py")
-            self.viz_process = subprocess.Popen([sys.executable, script_path])
+            # Use -u for unbuffered output to see logs immediately
+            self.viz_process = subprocess.Popen([sys.executable, "-u", script_path])
             
         except Exception as e:
             print(f"Error launching 3D Globe Process: {e}")
@@ -145,6 +159,10 @@ class PlotWindow(QMainWindow):
 
     def update_3d_data(self, data):
         """Called to update the 3D globe with new simulation data."""
+        # print(f"DEBUG: update_3d_data called with {len(data)} items", file=sys.stderr)
+    def update_3d_data(self, data):
+        """Called to update the 3D globe with new simulation data."""
+        # print(f"DEBUG: update_3d_data called with {len(data)} items", file=sys.stderr)
         if not self.headers or not self.header_map:
             return
 
@@ -161,11 +179,13 @@ class PlotWindow(QMainWindow):
         e2 = f * (2 - f)
 
         import math
+        R_EARTH = 6378137.0
         
         for vid in self.vehicle_ids:
             prefix = f"{vid}_" if vid else ""
             
             # Key candidates for this specific vehicle
+            # Try Prefix first (e.g. GPS_1_Latitude)
             lat_key = f"{prefix}Latitude"
             lon_key = f"{prefix}Earth Longitude" if f"{prefix}Earth Longitude" in self.header_map else f"{prefix}Longitude"
             alt_key = f"{prefix}Altitude"
@@ -173,33 +193,60 @@ class PlotWindow(QMainWindow):
             idx_lat = self.header_map.get(lat_key)
             idx_lon = self.header_map.get(lon_key)
             idx_alt = self.header_map.get(alt_key)
+
+            # If not found, try Suffix (e.g. Latitude_0)
+            if idx_lat is None:
+                lat_key = f"Latitude_{vid}"
+                lon_key = f"Earth Longitude_{vid}" if f"Earth Longitude_{vid}" in self.header_map else f"Longitude_{vid}"
+                alt_key = f"Altitude_{vid}"
+                if alt_key not in self.header_map and f"altitude_{vid}" in self.header_map:
+                    alt_key = f"altitude_{vid}"
+                
+                idx_lat = self.header_map.get(lat_key)
+                idx_lon = self.header_map.get(lon_key)
+                idx_alt = self.header_map.get(alt_key)
             
             if idx_lat is not None and idx_lon is not None and idx_alt is not None:
                 try:
                     phi = float(data[idx_lat])
-                    theta = float(data[idx_lon])
+                    theta = float(data[idx_lon]) 
                     h = float(data[idx_alt])
+
+                    if math.isnan(phi) or math.isnan(theta) or math.isnan(h):
+                        # print(f"DEBUG: NaNs found for {vid}", file=sys.stderr)
+                        continue
+                        
+                    x_sph = (R_EARTH + h) * math.cos(math.radians(phi)) * math.cos(math.radians(theta))
+                    y_sph = (R_EARTH + h) * math.cos(math.radians(phi)) * math.sin(math.radians(theta))
+                    z_sph = (R_EARTH + h) * math.sin(math.radians(phi))
+
+                    # Use simple mapping for now. 
+                    # Note: Original code used (x,y,z) map directly if available? No, we need LLA to XYZ usually for Globe.
+                    # Wait, the visualization expects XYZ or LLA?
+                    # The `viz_receiver` expects "x", "y", "z".
+                    # Let's use the computed spherical ones.
                     
-                    sin_phi = math.sin(phi)
-                    cos_phi = math.cos(phi)
-                    N = a / math.sqrt(1 - e2 * (sin_phi ** 2))
-                    
-                    x = (N + h) * cos_phi * math.cos(theta)
-                    y = (N + h) * cos_phi * math.sin(theta)
-                    z = (N * (1 - e2) + h) * sin_phi
-                    
-                    positions[vid or "Vehicle"] = {"x": x, "y": y, "z": z}
-                except Exception:
+                    positions[vid or "Vehicle"] = {"x": x_sph, "y": y_sph, "z": z_sph}
+                    # print(f"DEBUG: {vid} LLA=({phi:.2f}, {theta:.2f}, {h:.2f}) -> XYZ", file=sys.stderr)
+
+                except Exception as e:
+                    # print(f"DEBUG: Error processing keys for {vid}: {e}", file=sys.stderr)
                     pass
+            else:
+                if self.render_counter % 100 == 0:
+                     pass
+                    # print(f"DEBUG: Keys missing for {vid}. lat_key={lat_key} found={idx_lat is not None}", file=sys.stderr)
 
         if positions:
             try:
                 import json
                 msg = json.dumps(positions).encode('utf-8')
                 self.udp_sock.sendto(msg, (self.udp_ip, self.udp_port))
+                # print(f"DEBUG: Sent {len(msg)} bytes to Viz", file=sys.stderr)
             except Exception as e:
+                # Always print send errors
                 if self.render_counter % 100 == 0:
-                    print(f"UDP Send Error: {e}")
+                    print(f"UDP Send Error: {e}", file=sys.stderr)
 
     def hideEvent(self, event):
         self.visibilityChanged.emit(False)
