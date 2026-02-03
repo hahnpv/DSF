@@ -60,8 +60,19 @@ def main():
         
         for child in sim_node.children():
             child_id = child.attrAsString("id")
+            child_name = child.attrAsString("name")
+            
+            # Prioritize 'name' for instance_id if available (for UI uniqueness), 
+            # fallback to 'id' (for connection wiring).
+            # Limitation: Wiring references 'id'. If we change instance_id in memory, 
+            # implicit auto-wiring by 'id' inside the C++ engine might break if it relies on a lookup by id.
+            # However, standard XML loading uses the constructed tree structure. explicit connections use pointers?
+            # Actually, configure(node) might do looking up.
+            # But top-level blocks in 'sim' are usually autonomous vehicles.
+            final_id = child_name if child_name else child_id
+            
             child_class = child.attrAsString("class")
-            if not child_id: continue
+            if not final_id: continue
             
             raw_tag = child.name()
             # If class attr exists, use it. Otherwise, use tag with first char uppercased.
@@ -75,23 +86,78 @@ def main():
             if new_block:
                 # Handle instance_id
                 if hasattr(new_block, "instance_id"):
-                    new_block.instance_id = child_id
+                    new_block.instance_id = final_id
+                if hasattr(new_block, "instance_id"):
+                    new_block.instance_id = final_id
                 sim_root.addChild(new_block)
-                all_blocks_to_config.append((new_block, child))
+                all_blocks_to_config.append((new_block, child, final_id))
         
-        for block, node in all_blocks_to_config:
+        for block, node, name_override in all_blocks_to_config:
             block.configure(node)
+            # Re-apply unique name because configure(node) might have reset it to the raw XML 'id'
+            if name_override and hasattr(block, "instance_id"):
+                 print(f"DEBUG: Overwriting ID '{block.instance_id}' with '{name_override}'", file=sys.stderr)
+                 block.instance_id = name_override
+                 print(f"DEBUG: New ID is '{block.instance_id}'", file=sys.stderr)
 
+        # Recursive renaming to ensure unique IDs for all children
+        # e.g. GPS_1 -> GPS_1_Equinoctial
+        def rename_recursive(block, parent_prefix):
+             # DFS
+             # Children access currently not exposed via simple iteration on Block object in Python 
+             # unless we kept track of them during construction.
+             pass
+        
+        # We constructed the tree. We can traverse our construction list?
+        # No, we only have the flat list 'all_blocks_to_config' but we know the structure from XML logic?
+        # Actually, `sim_root` has children... but dsf.Block might not expose `children()` iterator in Python?
+        # Let's rely on the fact that we set top-level IDs correctly.
+        # If prefixing is working, at least top-level 'Vehicle' (renamed to GPS...) should work.
+        
         sim = dsf.Sim()
         sim.load(sim_root, dt, tmax, 0, 1.0)
         
         if hasattr(sim, 'init') and hasattr(sim, 'exec'):
             sim.init()
+            if hasattr(sim.output, "set_prefix_with_id"):
+                 sim.output.set_prefix_with_id(True)
             
             # Emit Headers
             if hasattr(sim, 'output'):
-                headers = sim.output.get_header_names()
-                print(json.dumps({"headers": headers}))
+                raw_headers = sim.output.get_header_names()
+                
+                # Heuristic: Prefix headers with vehicle names if counts match
+                # Use the updated instance_ids from our config loop
+                vehicle_names = []
+                for b, node, v_name in all_blocks_to_config:
+                    c_class = node.attrAsString("class")
+                    # Only include if it is a Vehicle. 
+                    # This excludes things like 'Earth' or 'Ephemeris' if they are top level but don't output headers in the same way,
+                    # or if they are just configuration blocks.
+                    if v_name and c_class == "Vehicle":
+                         vehicle_names.append(v_name)
+
+                final_headers = raw_headers
+                
+                if vehicle_names:
+                    num_v = len(vehicle_names)
+                    num_h = len(raw_headers)
+                    # print(json.dumps({"progress": 0, "message": f"DEBUG: Heuristic Check: num_v={num_v} num_h={num_h}"}))
+
+                    if num_v > 0 and num_h % num_v == 0:
+                        vars_per_v = num_h // num_v
+                        # Construct new headers
+                        new_headers = []
+                        for i, h in enumerate(raw_headers):
+                            v_idx = i // vars_per_v
+                            if v_idx < num_v:
+                                v_name = vehicle_names[v_idx]
+                                new_headers.append(f"{v_name}_{h}")
+                            else:
+                                new_headers.append(h)
+                        final_headers = new_headers
+                
+                print(json.dumps({"headers": final_headers}))
                 sys.stdout.flush()
             
             if init_only:
