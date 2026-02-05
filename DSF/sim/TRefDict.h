@@ -105,5 +105,32 @@ namespace dsf
 
             return TRefSim<BClass, DClass>(b->getParent(), id);
         }
+
+        /**
+         * @brief Search simulation graph for a block by its instance name (id attribute).
+         * 
+         * Unlike TRefSim which searches by class type, this function searches
+         * by the block's getName() value (the 'id' attribute from XML).
+         * 
+         * @tparam DClass Derived class type to find and return.
+         * @param parent Starting block for search (typically the block's parent).
+         * @param name Instance name to search for.
+         * @return Pointer to found block cast to DClass, or nullptr if not found.
+         * 
+         * ## Usage
+         * @code{.cpp}
+         * GroundStation* station = TRefSimByName<GroundStation>(parent, "Anchor");
+         * @endcode
+         */
+        template<typename DClass>
+        DClass* TRefSimByName(Block* parent, const std::string& name) {
+            if (!parent) return nullptr;
+            for (Block* child : parent->getChildren()) {
+                if (child->getName() == name) {
+                    return dynamic_cast<DClass*>(child);
+                }
+            }
+            return nullptr;
+        }
     }
 }

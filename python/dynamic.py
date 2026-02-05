@@ -162,24 +162,10 @@ def main():
     # for ( int i = 0; i < nx; i++) root->addChild( TRefUnique<Block>( child_node.attrAsString("id")));
     # for ( int i = 0; i < nx; i++) root->getChild(i)->configure( child_node);
     
-    # I'll modify my loop to do both, or store in list.
-    # Storing in list `blocks` is safer.
-    
-    blocks = []
-    children_nodes = [] # Keep correspondent nodes
-    
-    for child in children:
-        child_id = child.attrAsString("id")
-        if not child_id: continue
-        
-        new_block = dsf.make_block(child_id)
-        if new_block:
-            sim_root.addChild(new_block)
-            blocks.append(new_block)
-            children_nodes.append(child)
-            
+    # Configure each block with its corresponding XML node
     for block, node in zip(blocks, children_nodes):
         block.configure(node)
+
 
     # 5. Run Simulation
     sim = dsf.Sim()
