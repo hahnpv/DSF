@@ -147,12 +147,9 @@ def main():
                     break
             
             # Debug: print status periodically
-            if step_id % 20 == 0: # Print more often
-                if trajectories:
-                    print(f"Viz Debug: {len(trajectories)} satellites tracking. Frame {step_id}", flush=True)
-                else:
-                    # Print even if empty to prove loop is running
-                    print(f"Viz Debug: No trajectories yet. Frame {step_id}", flush=True)
+            if step_id % 300 == 0 and trajectories:
+                 # Print occasionally to show it's alive, but not spam
+                 print(f"Viz Debug: {len(trajectories)} satellites tracking. Frame {step_id}", flush=True)
             
             # Update Plot if we have new points
             if has_new_data:

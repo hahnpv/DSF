@@ -1030,7 +1030,8 @@ class MainWindow(QMainWindow):
             init_only=True
         )
         
-        self.probe_worker.headers_ready.connect(self.plot_widget.set_headers)
+        self.probe_worker.headers_ready.connect(self.plot_window.set_headers)
+        self.probe_worker.headers_ready.connect(self.map_window.set_headers)
         self.probe_worker.start()
 
     def _start_simulation(self):

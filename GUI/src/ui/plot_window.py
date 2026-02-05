@@ -99,8 +99,14 @@ class PlotWindow(QMainWindow):
         if not self.vehicle_ids:
              self.vehicle_ids.add("0")
         
-        print(f"DEBUG: PlotWindow Headers set. Found {len(self.vehicle_ids)} vehicles: {self.vehicle_ids}", file=sys.stderr)
-        print(f"DEBUG: Processed Headers: {self.headers}", file=sys.stderr)
+        if not self.vehicle_ids:
+             self.vehicle_ids.add("0")
+        
+        # print(f"DEBUG: PlotWindow Headers set. Found {len(self.vehicle_ids)} vehicles: {self.vehicle_ids}", file=sys.stderr)
+        
+        # Forward headers to PlotWidget for the tree view
+        if self.plot_widget:
+            self.plot_widget.set_headers(self.headers)
 
     def _launch_globe_window(self):
         """Launches the 3D globe in a separate Process."""
