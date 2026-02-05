@@ -1030,8 +1030,6 @@ class MainWindow(QMainWindow):
             init_only=True
         )
         
-        self.probe_worker.headers_ready.connect(self.plot_window.set_headers)
-        self.probe_worker.headers_ready.connect(self.map_window.set_headers)
         self.probe_worker.deep_data_ready.connect(self.plot_widget.update_deep_data)
         self.probe_worker.start()
 
@@ -1087,20 +1085,13 @@ class MainWindow(QMainWindow):
         self.sim_worker.progress.connect(self._on_sim_progress)
         self.sim_worker.finished.connect(self._on_sim_finished)
         self.sim_worker.error.connect(self._on_sim_error)
-        self.sim_worker.headers_ready.connect(self.plot_widget.set_headers)
-        self.sim_worker.data_ready.connect(self.plot_widget.update_data)
         self.sim_worker.deep_data_ready.connect(self.plot_widget.update_deep_data) # New Introspection Connection
         
         # Connect to custom 3D PlotWindow
-        self.sim_worker.headers_ready.connect(self.plot_window.set_headers)
-        if hasattr(self.plot_window, "update_3d_data"):
-             self.sim_worker.data_ready.connect(self.plot_window.update_3d_data)
         if hasattr(self.plot_window, "update_deep_data"):
              self.sim_worker.deep_data_ready.connect(self.plot_window.update_deep_data)
 
         # Connect to MapWindow
-        self.sim_worker.headers_ready.connect(self.map_window.set_headers)
-        self.sim_worker.data_ready.connect(self.map_window.update_data)
         self.sim_worker.deep_data_ready.connect(self.map_window.update_deep_data)
         
         self.start_action.setEnabled(False)

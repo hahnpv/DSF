@@ -165,20 +165,15 @@ def main():
                         gp.add_ground_track(arr, name=f"Gnd_{vid}", color=c, line_width=1) 
                         color_idx += 1
 
-        # Register callback to run
-        # gp.plotter.add_timer_event(max_steps=2147483647, duration=33, callback=update_viz)
+        # Use persistent timer event for interactions
+        # This lets PyVista handle the event loop (including window close) naturally.
+        gp.plotter.add_timer_event(max_steps=2147483647, duration=33, callback=update_viz)
         
         print("3D Window Opening. Interaction should be smooth.")
-        gp.plotter.show(title="DSF 3D Visualization (Child Process)", interactive_update=True)
+        # Blocking show call. Returns only when user closes the window.
+        gp.plotter.show(title="DSF 3D Visualization (Child Process)", interactive_update=False)
         
-        step_counter = 0
-        while True:
-            update_viz(step_counter)
-            step_counter += 1
-            gp.plotter.update()
-            time.sleep(0.01) # ~100 FPS cap, keeps CPU usage sane
-            if gp.plotter.render_window.GetGenericDisplayId() == None: # Check if window closed
-                break
+        # When show() returns (window closed), we exit cleanly.
         
     except Exception as e:
         print(f"Viz Process Error: {e}")
@@ -186,6 +181,8 @@ def main():
         running = False # Stop thread
         if 'sock' in locals():
             sock.close()
+        if 'gp' in locals():
+            gp.close()
 
 if __name__ == "__main__":
     main()

@@ -41,7 +41,7 @@ class MapWindow(QMainWindow):
             
         self.visibilityChanged.emit(False)
         self.hide()
-        event.ignore()
+        event.accept()
 
     def showEvent(self, event):
         self.visibilityChanged.emit(True)

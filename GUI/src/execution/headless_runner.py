@@ -199,7 +199,7 @@ def main():
                          for child in children:
                              c_name = child.get_name()
                              if not c_name: c_name = "Child"
-                             child_id = f"{current_id}_{c_name}"
+                             child_id = f"{current_id}.{c_name}"
                              collect_recursive(child, child_id)
 
                 for block, node, b_id in all_blocks_to_config:

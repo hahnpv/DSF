@@ -60,102 +60,11 @@ class MapWidget(QWidget):
                     self.vehicle_history[vid] = self.vehicle_history[vid][-self.max_history:]
         self.update()
 
-    def set_headers(self, headers):
-        # Disambiguate duplicate headers (copied from PlotWindow)
-        self.headers = []
-        counts = {}
-        # First pass count
-        for h in headers:
-            counts[h] = counts.get(h, 0) + 1
-            
-        current_counts = {}
-        for h in headers:
-            if counts[h] > 1:
-                idx = current_counts.get(h, 0)
-                unique_name = f"{h}_{idx}"
-                current_counts[h] = idx + 1
-                self.headers.append(unique_name)
-            else:
-                self.headers.append(h)
-
-        self.header_map = {name: i for i, name in enumerate(self.headers)}
-        
-        self.vehicle_ids.clear()
-        
-        # Identify vehicles (Reuse logic from PlotWindow)
-        for h in self.headers:
-            if "Latitude" in h:
-                vid = h.replace("Latitude", "").strip("_")
-                self.vehicle_ids.add(vid)
-                
-        if not self.vehicle_ids:
-            # Fallback for simple cases where maybe headers are just "Lat", "Lon" or similar?
-            pass
-        
-        print(f"DEBUG: MapWidget Headers set. Found {len(self.vehicle_ids)} vehicles: {list(self.vehicle_ids)[:10]}...", file=sys.stderr)
-            
-        # Assign colors
-        self.vehicle_colors.clear()
-        for i, vid in enumerate(sorted(list(self.vehicle_ids))):
-            self.vehicle_colors[vid] = self.colors[i % len(self.colors)]
-
     def reset(self):
         """Clears all vehicle data and repaints."""
         self.vehicle_positions.clear()
         self.vehicle_history.clear()
         self.update()
-
-    def update_data(self, values):
-        if not self.headers or not self.header_map:
-            return
-            
-        updated = False
-        
-        for vid in self.vehicle_ids:
-            prefix = f"{vid}_" if vid else ""
-            
-            # Try Prefix
-            lat_key = f"{prefix}Latitude"
-            lon_key = f"{prefix}Earth Longitude" 
-            if lon_key not in self.header_map:
-                 lon_key = f"{prefix}Longitude"
-            
-            idx_lat = self.header_map.get(lat_key)
-            idx_lon = self.header_map.get(lon_key)
-            
-            # Try Suffix if prefix failed
-            if idx_lat is None:
-                lat_key = f"Latitude_{vid}"
-                lon_key = f"Earth Longitude_{vid}"
-                if lon_key not in self.header_map:
-                    lon_key = f"Longitude_{vid}"
-                
-                idx_lat = self.header_map.get(lat_key)
-                idx_lon = self.header_map.get(lon_key)
-            
-            if idx_lat is not None and idx_lon is not None:
-                try:
-                    lat = values[idx_lat]
-                    lon = values[idx_lon]
-                    
-                    if not (math.isnan(lat) or math.isnan(lon)):
-                        self.vehicle_positions[vid] = (lat, lon)
-                        
-                        # Add to history
-                        if vid not in self.vehicle_history:
-                            self.vehicle_history[vid] = []
-                        self.vehicle_history[vid].append((lat, lon))
-                        
-                        # Limit history based on toggle
-                        if len(self.vehicle_history[vid]) > self.max_history:
-                            self.vehicle_history[vid].pop(0)
-                        
-                        updated = True
-                except IndexError:
-                    pass
-        
-        if updated:
-            self.update()
 
     def resizeEvent(self, event):
         # Anchor checkbox to bottom right

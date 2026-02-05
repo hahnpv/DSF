@@ -52,23 +52,7 @@ class PlotWidget(QWidget):
         
         # Introspection State
         self.known_structure = set() # Set of known keys (block_id, prop_name) to avoid tree rebuilds
-        self.block_items = {} # block_id -> QTreeWidgetItem
-        self.vehicle_items = {} # vehicle_id -> QTreeWidgetItem
-        
-        self.persisted_selection = set() # Set of keys (block_id, prop_name, sub_index)
-
-    @pyqtSlot(list)
-    def set_headers(self, headers):
-        # Legacy support or mixed mode? 
-        # For now, we ignore flat headers if we are using Deep Data.
-        # But if Deep Data is not available, we could fallback.
-        # However, user requested Introspection Driving.
-        pass
-
-    @pyqtSlot(list)
-    def update_data(self, values):
-        # Legacy flat data update. Ignored in favor of update_deep_data for this mode.
-        pass
+        self.path_items = {} # Path string -> QTreeWidgetItem
 
     def update_deep_data(self, t, data):
         """
@@ -83,51 +67,13 @@ class PlotWidget(QWidget):
         structure_changed = False
         
         for block_id, props in data.items():
-            # Heuristic for Vehicle ID: Split by first underscore? 
-            # e.g. "GPS_1_Equinoctial" -> "GPS_1"
-            # If no underscore, use block_id as Vehicle (if strictly flat) or "Global"
-            
-            # Better heuristic: "Vehicle" is usually the top level prefix for components.
-            # We can try to infer hierarchy or just group by prefix.
-            
-            if "_" in block_id:
-                # Find the 'Vehicle' part. 
-                # Usually standard format: {VehicleName}_{Component}
-                # But sometimes {VehicleName} has underscores.
-                # Let's assume the LAST part is the Component if multiple parts?
-                # Or parsing the known XML structure? 
-                # Let's try to match existing Vehicle IDs from MapWidget logic?
-                # Simpler: First part is Vehicle.
-                parts = block_id.split('_')
-                if len(parts) > 1:
-                    # Check if first part looks like a vehicle?
-                    # "GPS_BIIR-2__(PRN_13)__2_Equinoctial" -> Vehicle is "GPS_BIIR-2__(PRN_13)__2"
-                    # The suffix is the dynamic block name.
-                    # This is tricky without knowing the exact separator.
-                    # But generic "starts with" logic works well.
-                    # Let's just USE the whole block_id as the group if we can't be sure?
-                    # No, we want grouping.
-                    
-                    # Let's assume the introspection ID coming from headless_runner 
-                    # was constructed as `parentID_childName`.
-                    # Recursively: `VehicleID_Equinoctial`.
-                    # So the prefix is the parent.
-                    # We can visualize this as a tree if we want?
-                    
-                    # For a simple list: group by top-most prefix?
-                    pass
-            
-            # Simplified Grouping:
-            # If we saw this block_id before, skip structure check (optimization)
-            # But properties inside might change/appear? usually static.
-            
             # For each property:
             for prop_name, val in props.items():
                 if isinstance(val, list):
                     # Vector
                     for i, v in enumerate(val):
                         key = (block_id, prop_name, i)
-                        self._process_value(key, v, t, structure_changed=False) # Structure check handled separately?
+                        self._process_value(key, v, t, structure_changed=False)
                 else:
                     # Scalar
                     key = (block_id, prop_name, None)
@@ -135,8 +81,6 @@ class PlotWidget(QWidget):
                     self._process_value(key, v, t, structure_changed=False)
         
         # Structure Check / Tree Update
-        # Doing this per-frame is expensive. 
-        # Optimization: Only run structure update if we discover NEW keys.
         self._batch_process_structure(data)
         
         # Update Plots
@@ -177,92 +121,58 @@ class PlotWidget(QWidget):
             self.var_tree.sortItems(0, Qt.SortOrder.AscendingOrder)
 
     def _add_tree_item(self, block_id, prop_name, sub_index):
-        # Hierarchy: Vehicle (inferred) -> Block -> Property -> [Axis]
+        # Hierarchy: Split block_id by '.' -> Segments
+        # e.g. "GPS_1.Equinoctial" -> ["GPS_1", "Equinoctial"]
         
-        # 1. Infer Vehicle / Group
-        # Heuristic: The standard Vehicle naming in this Sim seems to be "GPS_..."
-        # or IDs provided in XML.
-        # We can try to split by the last underscore to find the Component name vs Parent ID?
-        # e.g. "GPS_1_Equinoctial" -> Parent="GPS_1", Comp="Equinoctial"
+        parts = block_id.split('.')
         
-        if "_Equinoctial" in block_id:
-            vid = block_id.replace("_Equinoctial", "")
-            comp = "Equinoctial"
-        elif "_WGS84" in block_id:
-            vid = "Environment"
-            comp = "WGS84"
-        elif block_id == "WGS84":
-            vid = "Environment"
-            comp = "WGS84"
-        else:
-            # Fallback: Treat whole ID as vehicle if no better guess
-            # OR Check if it looks like a vehicle (Top Level)?
-            # headless_runner recursion naming: parentID_childName
-            # Top levels are usually just the ID.
-            # So "GPS_1" is a block. "GPS_1_Equinoctial" is a child.
-            
-            # Let's try to parse the recursion path.
-            tokens = block_id.split('_')
-            # If we have "GPS_BIIR-2__(PRN_13)__2_Equinoctial", tokens are many.
-            
-            # General approach:
-            # Root Groups: Anything that appears as a prefix to others?
-            # Or just flat sorting.
-            
-            # Requested: Groups by Vehicle.
-            # Let's assume the first part of the ID is the grouping key if it starts with "GPS"?
-            if block_id.startswith("GPS"):
-                # Find the component suffix if any known ones
-                # We know standard components: Equinoctial, Aero, Control, Nav...
-                # Actually, headless_runner construct: `f"{current_id}_{c_name}"`
-                # So it appends `_Name`.
-                
-                # We can try to match known suffixes.
-                known_suffixes = ["_Equinoctial", "_Aero", "_Control", "_Nav", "_Guidance", "_PrescribedMotion", "_State"]
-                vid = block_id
-                comp = "Main"
-                
-                for suffix in known_suffixes:
-                    if block_id.endswith(suffix):
-                        vid = block_id[:-len(suffix)]
-                        comp = suffix.strip("_")
-                        break
+        # Traverse / Build Path
+        current_path = ""
+        parent_item = self.var_tree # Root
+        
+        for part in parts:
+            if current_path:
+                current_path += "." + part
             else:
-                 vid = "Global / Other"
-                 comp = block_id
-
-        # 2. Get/Create Vehicle Item
-        if vid not in self.vehicle_items:
-            v_item = QTreeWidgetItem(self.var_tree)
-            v_item.setText(0, vid)
-            v_item.setExpanded(False)
-            self.vehicle_items[vid] = v_item
-            self.block_items[vid] = {} # Nested dict for this vehicle
-        
-        v_node = self.vehicle_items[vid]
-        
-        # 3. Get/Create Component Item
-        # We store comp items in a dict keyed by (vid, comp) to avoid collision?
-        # self.block_items structure: { vid: { comp: Item } }
-        
-        if comp not in self.block_items[vid]:
-            c_item = QTreeWidgetItem(v_node)
-            c_item.setText(0, comp)
-            self.block_items[vid][comp] = c_item
+                current_path = part
+                
+            if current_path not in self.path_items:
+                # Create Node
+                if current_path == part:
+                     # Top level: Add directly to tree (or use parent_item which is root)
+                     item = QTreeWidgetItem(self.var_tree)
+                else:
+                     # Nested: Add to parent item
+                     # Check if parent exists? It must, because we iterate parts in order.
+                     # But we need the parent *item object*.
+                     # Recover parent path
+                     parent_path = current_path.rsplit('.', 1)[0]
+                     p_node = self.path_items.get(parent_path, self.var_tree)
+                     # If p_node is tree, add top level? (Covered above)
+                     # Actually if p_node is QTreeWidgetItem, construct with parent.
+                     if isinstance(p_node, QTreeWidget):
+                         item = QTreeWidgetItem(p_node)
+                     else:
+                         item = QTreeWidgetItem(p_node)
+                         
+                item.setText(0, part)
+                item.setExpanded(False) # Default collapsed
+                self.path_items[current_path] = item
             
-        c_node = self.block_items[vid][comp]
-        
-        # 4. Property Item
-        # Display Name: prop or prop[i]
+            # Update parent for next iteration
+            parent_item = self.path_items[current_path]
+
+        # Now add Property under the final block item
         disp_name = prop_name
         if sub_index is not None:
              axis = ["x", "y", "z", "w"][sub_index] if sub_index < 4 else str(sub_index)
              disp_name = f"{prop_name}.{axis}"
              
-        p_item = QTreeWidgetItem(c_node)
+        p_item = QTreeWidgetItem(parent_item)
         p_item.setText(0, disp_name)
         # Store key
         p_item.setData(0, Qt.ItemDataRole.UserRole, (block_id, prop_name, sub_index))
+        # Tooltip with full path
         p_item.setToolTip(0, f"{block_id}.{prop_name}")
 
         
