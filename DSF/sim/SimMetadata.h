@@ -15,7 +15,13 @@
 
 #define DSF_PROPERTY(propName, type, defaultValue, description) \
     static inline bool _reg_prop_##propName = []() { \
-        dsf::sim::TClass<_ThisClass, _BaseClass>::Instance()->AddProperty(#propName, type, defaultValue, description); \
+        dsf::sim::TClass<_ThisClass, _BaseClass>::Instance()->AddProperty(#propName, type, defaultValue, description, 0); \
+        return true; \
+    }();
+
+#define DSF_PROPERTY_BIND(propName, memberName, type, defaultValue, description) \
+    static inline bool _reg_prop_##propName = []() { \
+        dsf::sim::TClass<_ThisClass, _BaseClass>::Instance()->AddProperty(#propName, type, defaultValue, description, offsetof(_ThisClass, memberName)); \
         return true; \
     }();
 

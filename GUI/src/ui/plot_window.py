@@ -243,9 +243,49 @@ class PlotWindow(QMainWindow):
                 self.udp_sock.sendto(msg, (self.udp_ip, self.udp_port))
                 # print(f"DEBUG: Sent {len(msg)} bytes to Viz", file=sys.stderr)
             except Exception as e:
-                # Always print send errors
                 if self.render_counter % 100 == 0:
                     print(f"UDP Send Error: {e}", file=sys.stderr)
+
+    def update_deep_data(self, t, data):
+        """
+        Updates 3D globe using introspection data (xyz_e).
+        t: float (simulation time)
+        data: dict { block_id: { prop_name: value, ... } }
+        """
+        self.render_counter += 1
+        if self.render_counter % 2 != 0: 
+            return
+
+        positions = {}
+        
+        for block_id, props in data.items():
+            # Look for explicit Earth-Fixed coordinates first
+            if "xyz_e" in props:
+                try:
+                    val = props["xyz_e"]
+                    # Expecting list [x, y, z] from introspection
+                    if isinstance(val, list) and len(val) == 3:
+                        # Extract Vehicle block ID if possible (e.g. Vehicle_EOM -> Vehicle)
+                        # Heuristic: split by underscore, take first part if it looks like an ID?
+                        # Or better: The map widget used the block_id directly.
+                        # The block_id here is likely the EOM name (e.g. "Vehicle_EOM" or similar).
+                        # Let's try to infer a cleaner ID for display.
+                        
+                        vid = block_id
+                        # Strip common suffixes/prefixes if we can guess hierarchy?
+                        # For now, use full ID to be safe and distinct.
+                        
+                        positions[vid] = {"x": val[0], "y": val[1], "z": val[2]}
+                except Exception:
+                    pass
+        
+        if positions:
+            try:
+                import json
+                msg = json.dumps(positions).encode('utf-8')
+                self.udp_sock.sendto(msg, (self.udp_ip, self.udp_port))
+            except Exception as e:
+                pass
 
     def hideEvent(self, event):
         self.visibilityChanged.emit(False)

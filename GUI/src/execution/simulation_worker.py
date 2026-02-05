@@ -10,7 +10,8 @@ class SimulationWorker(QThread):
     error = pyqtSignal(str)
     headers_ready = pyqtSignal(list) # Emits list of variable names
     data_ready = pyqtSignal(list)    # Emits list of float values
-    
+    deep_data_ready = pyqtSignal(float, dict) # Emits (time, structured introspection data)
+
     def __init__(self, xml_path, lib_path, dt, tmax, init_only=False):
         super().__init__()
         self.xml_path = xml_path
@@ -63,12 +64,16 @@ class SimulationWorker(QThread):
                     
                     if "headers" in msg:
                         self.headers_ready.emit(msg["headers"])
-                        if self.init_only:
-                            self.stop()
-                            return
+                    if "headers" in msg:
+                        self.headers_ready.emit(msg["headers"])
+                        # Don't stop here if init_only, wait for state report which follows
+                            
                             
                     elif "data" in msg:
                         self.data_ready.emit(msg["data"])
+                        if "deep_data" in msg:
+                            t = msg.get("time", 0.0)
+                            self.deep_data_ready.emit(t, msg["deep_data"])
                         
                     elif "progress" in msg:
                         self.progress.emit(msg["progress"])

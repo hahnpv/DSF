@@ -6,6 +6,7 @@
 #include "sim/sim.h"
 #include "sim/TRefDict.h"
 #include "sim/TClassDict.h" // Added include
+#include "util/math/quat.h" // Added for Quaternion introspection
 
 using namespace dsf::sim;
 
@@ -64,10 +65,60 @@ void init_sim(py::module_ &m) {
         .def("end", &Block::end)
         .def("sample", &Block::sample)
         .def("addChild", &Block::addChild, py::keep_alive<1, 2>())
+        .def("getChildren", &Block::getChildren, py::return_value_policy::reference)
+        .def("get_name", &Block::getName)
+        .def("get_class_name", [](Block& self) -> std::string {
+            return boost::core::demangle(typeid(self).name());
+        })
         .def("has_children", &Block::has_children)
-        // .def("getParent", &Block::getParent) 
-        // .def("getChild", &Block::getChild)
-        ;
+        .def("get_property", [](Block& self, std::string name) -> py::object {
+            // 1. Find the factory for this instance's class
+            std::string class_name = boost::core::demangle(typeid(self).name());
+            auto* dict = dsf::sim::TClassDict<Block>::Instance();
+            // Demangled name might need cleanup or direct match
+            // TClassDict stores demangled names.
+            
+            // Search logic in TClassDict is: classDictPtr[i]->name().compare(compareid)
+            int idx = dict->search(class_name);
+            if (idx == -1) {
+                // Fallback: Try regex or manual strip if needed? 
+                // For now assuming boost::core::demangle output matches TClass registration exactly.
+                throw std::runtime_error("Class not found in registry: " + class_name);
+            }
+            
+            auto* factory = dict->classDictPtr[idx];
+            const auto& props = factory->getProperties();
+            
+            for (const auto& p : props) {
+                if (p.name == name) {
+                    // std::cout << "DEBUG: get_property " << name << " offset=" << p.offset << std::endl;
+                    if (p.offset == 0) {
+                        return py::none();
+                    }
+                    // Use byte pointer arithmetic
+                    char* base = reinterpret_cast<char*>(&self);
+                    void* ptr = static_cast<void*>(base + p.offset);
+                    
+                    if (p.type == "double") {
+                        return py::cast(*(double*)ptr);
+                    } else if (p.type == "int") {
+                        return py::cast(*(int*)ptr);
+                    } else if (p.type == "bool") {
+                        return py::cast(*(bool*)ptr);
+                    } else if (p.type == "Vec3" || p.type == "vector") {
+                        return py::cast(*(dsf::util::Vec3*)ptr);
+                    } else if (p.type == "Mat3") {
+                        return py::cast(*(dsf::util::Mat3*)ptr);
+                    } else if (p.type == "Quaternion") {
+                        return py::cast(*(dsf::util::Quaternion*)ptr);
+                    }
+                    else {
+                        throw std::runtime_error("Unsupported property type for introspection: " + p.type);
+                    }
+                }
+            }
+            return py::none();
+        });
 
     py::class_<Output, Block>(m, "Output")
         .def(py::init<double>())
@@ -98,6 +149,8 @@ void init_sim(py::module_ &m) {
         .def("load", &Sim::load)
         .def("run", &Sim::run, py::call_guard<py::gil_scoped_release>()) // Release GIL!
         .def("exec", &Sim::exec, py::call_guard<py::gil_scoped_release>()) // Release GIL!
+        .def("step", &Sim::step, py::call_guard<py::gil_scoped_release>()) // Release GIL!
+        .def("finalize", &Sim::finalize)
         .def("init", &Sim::init)
         .def_readonly("clock", &Sim::clock, py::return_value_policy::reference)
         .def_readonly("output", &Sim::output, py::return_value_policy::reference);

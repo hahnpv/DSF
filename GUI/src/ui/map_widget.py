@@ -166,6 +166,49 @@ class MapWidget(QWidget):
         self.full_trails_cb.move(x, y)
         super().resizeEvent(event)
 
+    def update_deep_data(self, t, data):
+        """
+        Updates vehicle positions from introspection data.
+        t: float (simulation time)
+        data: dict { block_id: { prop_name: value, ... } }
+        """
+        updated = False
+        
+        for block_id, props in data.items():
+            # Check if this block looks like a vehicle with position
+            # We look for lambda_d (Geodetic Lat) and l_i_earth (Geographic Lon)
+            # Both are in radians.
+            if "lambda_d" in props and "l_i_earth" in props:
+                try:
+                    lat_rad = float(props["lambda_d"])
+                    lon_rad = float(props["l_i_earth"])
+                    
+                    lat_deg = math.degrees(lat_rad)
+                    lon_deg = math.degrees(lon_rad)
+                    
+                    self.vehicle_positions[block_id] = (lat_deg, lon_deg)
+                    
+                    # Ensure color exists
+                    if block_id not in self.vehicle_colors:
+                         idx = len(self.vehicle_colors)
+                         self.vehicle_colors[block_id] = self.colors[idx % len(self.colors)]
+                    
+                    # History
+                    if block_id not in self.vehicle_history:
+                        self.vehicle_history[block_id] = []
+                    self.vehicle_history[block_id].append((lat_deg, lon_deg))
+                    
+                    if len(self.vehicle_history[block_id]) > self.max_history:
+                        self.vehicle_history[block_id].pop(0)
+                        
+                    updated = True
+                    self.vehicle_ids.add(block_id) # Track ID
+                except (ValueError, TypeError):
+                    pass
+        
+        if updated:
+            self.update()
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)

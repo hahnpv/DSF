@@ -15,6 +15,8 @@ namespace dsf
 		public:
 			void run();
 			void init();
+			void step();
+			void finalize();
 			void exec();
 			void load(Block * simulation, double dt, double tmax, double console, double file);
 			/// Returns the simulation vector, used by Integrator to get a handle on the sim vector for derivatives.

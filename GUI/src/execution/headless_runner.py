@@ -114,10 +114,14 @@ def main():
         # Let's rely on the fact that we set top-level IDs correctly.
         # If prefixing is working, at least top-level 'Vehicle' (renamed to GPS...) should work.
         
+        if hasattr(sim_root, "addChild"):
+             pass 
+
         sim = dsf.Sim()
         sim.load(sim_root, dt, tmax, 0, 1.0)
         
         if hasattr(sim, 'init') and hasattr(sim, 'exec'):
+            # Synchronous Loop
             sim.init()
             if hasattr(sim.output, "set_prefix_with_id"):
                  sim.output.set_prefix_with_id(True)
@@ -127,13 +131,9 @@ def main():
                 raw_headers = sim.output.get_header_names()
                 
                 # Heuristic: Prefix headers with vehicle names if counts match
-                # Use the updated instance_ids from our config loop
                 vehicle_names = []
                 for b, node, v_name in all_blocks_to_config:
                     c_class = node.attrAsString("class")
-                    # Only include if it is a Vehicle. 
-                    # This excludes things like 'Earth' or 'Ephemeris' if they are top level but don't output headers in the same way,
-                    # or if they are just configuration blocks.
                     if v_name and c_class == "Vehicle":
                          vehicle_names.append(v_name)
 
@@ -142,11 +142,8 @@ def main():
                 if vehicle_names:
                     num_v = len(vehicle_names)
                     num_h = len(raw_headers)
-                    # print(json.dumps({"progress": 0, "message": f"DEBUG: Heuristic Check: num_v={num_v} num_h={num_h}"}))
-
                     if num_v > 0 and num_h % num_v == 0:
                         vars_per_v = num_h // num_v
-                        # Construct new headers
                         new_headers = []
                         for i, h in enumerate(raw_headers):
                             v_idx = i // vars_per_v
@@ -160,44 +157,87 @@ def main():
                 print(json.dumps({"headers": final_headers}))
                 sys.stdout.flush()
             
+            last_pt = time.time()
+            
+            # Main Simulation Loop
+            def report_state():
+                vals = sim.output.get_current_values()
+                deep_state = {}
+
+                def collect_recursive(block, current_id):
+                     # Metadata lookup
+                     try:
+                         # Requires updated dsf binding with get_class_name
+                         class_name = block.get_class_name()
+                         
+                         try:
+                             meta = dsf.get_block_metadata(class_name)
+                             props = meta[0] 
+                             
+                             block_data = {}
+                             for p in props:
+                                 try:
+                                     val = block.get_property(p.name)
+                                     # Convert Vec3/Mat3 to list for JSON
+                                     if hasattr(val, "x") and hasattr(val, "y") and hasattr(val, "z"):
+                                          val = [val.x, val.y, val.z]
+                                     block_data[p.name] = val
+                                 except Exception:
+                                     pass
+                             
+                             if block_data:
+                                 deep_state[current_id] = block_data
+                         except:
+                             # Metadata might not exist for all classes
+                             pass
+                     except:
+                         pass
+                     
+                     # Recurse
+                     if hasattr(block, "has_children") and block.has_children():
+                         children = block.getChildren() # Returns list of Block*
+                         for child in children:
+                             c_name = child.get_name()
+                             if not c_name: c_name = "Child"
+                             child_id = f"{current_id}_{c_name}"
+                             collect_recursive(child, child_id)
+
+                for block, node, b_id in all_blocks_to_config:
+                     collect_recursive(block, b_id)
+
+                t = sim.clock.t()
+                msg = {
+                    "time": t,
+                    "progress": (t / tmax) * 100.0,
+                    "data": vals,
+                    "deep_data": deep_state
+                }
+                print(json.dumps(msg))
+                sys.stdout.flush()
+
+            # Emit initial state for introspection probing
+            report_state()
+            
             if init_only:
                 return
 
-            # Start Poller Thread
-            stop_event = threading.Event()
-            
-            def poller():
-                last_t = -1.0
-                while not stop_event.is_set():
-                    if sim.clock:
-                        t = sim.clock.t()
-                        if t >= tmax:
-                            break
-                        
-                        # Throttle updates (30Hz)
-                        if t > last_t:
-                            vals = sim.output.get_current_values()
-                            # Send progress and data
-                            msg = {
-                                "progress": (t / tmax) * 100.0,
-                                "data": vals
-                            }
-                            print(json.dumps(msg))
-                            sys.stdout.flush()
-                            last_t = t
-                    time.sleep(0.033)
-            
-            t = threading.Thread(target=poller, daemon=True)
-            t.start()
-            
-            # Blocking Run
-            sim.exec()
-            
-            stop_event.set()
-            t.join(timeout=1.0)
+            while sim.clock.t() < tmax:
+                sim.step()
+                t = sim.clock.t()
+                
+                pt = time.time()
+                if pt - last_pt > 0.033:
+                    report_state()
+                    last_pt = pt
+
+            # Final Report
+            report_state()
+
+            sim.finalize()
             
             print(json.dumps({"finished": True, "message": "Simulation Complete"}))
         else:
+             # Fallback for old dsf versions (unlikely now)
             print(json.dumps({"error": "Legacy API not supported in headless mode"}))
 
     except Exception as e:

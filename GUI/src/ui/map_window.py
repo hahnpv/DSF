@@ -28,6 +28,9 @@ class MapWindow(QMainWindow):
     def update_data(self, values):
         self.map_widget.update_data(values)
 
+    def update_deep_data(self, t, data):
+        self.map_widget.update_deep_data(t, data)
+
     def reset(self):
         self.map_widget.reset()
 

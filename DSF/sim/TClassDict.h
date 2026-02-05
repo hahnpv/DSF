@@ -30,6 +30,7 @@ namespace dsf
             string type;
             string defaultValue;
             string description;
+            size_t offset;
         };
 
         /**
@@ -158,8 +159,8 @@ namespace dsf
             virtual BClass * getnew() { cout << "TClassBase" << endl; return new BClass; }; ///< Create new instance.
             static  BClass * getStatic() { return (new BClass); };  ///< Static factory method.
 
-            void AddProperty(string name, string type, string defaultValue, string description="") {
-                properties.push_back({name, type, defaultValue, description});
+            void AddProperty(string name, string type, string defaultValue, string description="", size_t offset=0) {
+                properties.push_back({name, type, defaultValue, description, offset});
             }
             void AddPort(string name, string type, string direction) {
                 ports.push_back({name, type, direction});

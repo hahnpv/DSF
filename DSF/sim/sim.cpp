@@ -26,18 +26,28 @@ namespace dsf
 			dsf::util::TFunctor<Block>(simulation, &Block::init);
 		}
 
+		void Sim::step()
+		{
+			i->propagate(simulation[0]);							// integrate
+			dsf::util::TFunctor<Block>(simulation, &Block::rptSim);	// report
+		}
+
+		void Sim::finalize()
+		{
+			dsf::util::TFunctor<Block>(simulation, &Block::rpt);		// final report, all models.
+			dsf::util::TFunctor<Block>(simulation, &Block::finalize);
+		}
+
 		void Sim::exec()
 		{
 			time_t seconds = time(NULL);
 
 			while ( (clock->t() < clock->tmax()) && clock->is_running() )
 			{
-				i->propagate(simulation[0]);							// integrate
-				dsf::util::TFunctor<Block>(simulation, &Block::rptSim);	// report
+				step();
 			}
 
-			dsf::util::TFunctor<Block>(simulation, &Block::rpt);		// final report, all models.
-			dsf::util::TFunctor<Block>(simulation, &Block::finalize);
+			finalize();
 
 			cout << "Sim run time: " << time(NULL) - seconds << endl;
 		}
