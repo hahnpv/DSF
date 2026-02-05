@@ -1,0 +1,1134 @@
+{
+    "blocks": [
+        {
+            "id": "WGS84",
+            "type": "WGS84",
+            "tag": "earth",
+            "parent_id": null,
+            "x": 0.0,
+            "y": 0.0,
+            "parameters": {},
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "Vehicle",
+            "type": "Vehicle",
+            "tag": "vehicle",
+            "parent_id": null,
+            "x": 0.0,
+            "y": 235.0,
+            "parameters": {
+                "name": "Vehicle",
+                "rpt": 1.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "Stage2",
+            "type": "stageMass",
+            "tag": "stagemass",
+            "parent_id": "Vehicle",
+            "x": 0.0,
+            "y": 380.0,
+            "parameters": {
+                "rpt": 0.0,
+                "track": 1.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "Stage1",
+            "type": "stageMass",
+            "tag": "stagemass",
+            "parent_id": "Vehicle",
+            "x": 750.0,
+            "y": 380.0,
+            "parameters": {
+                "track": 1.0,
+                "rpt": 0.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "OblateEarth",
+            "type": "OblateEarth",
+            "tag": "rbeom",
+            "parent_id": "Vehicle",
+            "x": 269.18070444104137,
+            "y": 41.740684022460755,
+            "parameters": {
+                "frame": "ECI",
+                "ground_terminate": 0.0,
+                "rpt": 0.0
+            },
+            "raw_params": {
+                "position": "6378237, 0, 0",
+                "velocity": "0, 0, 463.3",
+                "orientation": "0, 1.562, 1.570796",
+                "rates": "0, 0, 0"
+            },
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "Atmosphere",
+            "type": "Atmosphere",
+            "tag": "atmosphere",
+            "parent_id": "Vehicle",
+            "x": 519.1807044410414,
+            "y": 41.740684022460755,
+            "parameters": {},
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "SimpleAero",
+            "type": "SimpleAero",
+            "tag": "aero",
+            "parent_id": "Vehicle",
+            "x": 269.18070444104137,
+            "y": 276.74068402246075,
+            "parameters": {
+                "Cd": 0.2,
+                "Sref": 2.87
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "S2_Nav",
+            "type": "PerfectNav",
+            "tag": "navigation",
+            "parent_id": "Stage2",
+            "x": 0.0,
+            "y": 525.0,
+            "parameters": {},
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "S2_Control",
+            "type": "PerfectControl",
+            "tag": "control",
+            "parent_id": "Stage2",
+            "x": 250.0,
+            "y": 525.0,
+            "parameters": {
+                "Kp": 0.05,
+                "Kd": 0.3
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "Stage2_Fsw",
+            "type": "StageManager",
+            "tag": "stagemgr",
+            "parent_id": "Stage2",
+            "x": 500.0,
+            "y": 525.0,
+            "parameters": {
+                "start_time": 151.0,
+                "separation_time": 10000.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": [
+                    {
+                        "name": "out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "S2_Guidance",
+            "type": "LinearTangentGuidance",
+            "tag": "guidance",
+            "parent_id": "Stage2",
+            "x": 0.0,
+            "y": 760.0,
+            "parameters": {
+                "stage_id": "Stage2_Fsw",
+                "a": 0.0,
+                "b": 0.0,
+                "t_start": 151.0,
+                "v_target": 10000.0,
+                "h_target": 350000.0,
+                "target_perigee": 300000.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "stage",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "id": "S2_Fuel",
+            "type": "Tank",
+            "tag": "tank",
+            "parent_id": "Stage2",
+            "x": 250.0,
+            "y": 760.0,
+            "parameters": {
+                "mass": 32300.0,
+                "station": 0.0,
+                "geometry": "cylinder",
+                "radius": 1.0,
+                "length": 5.0,
+                "density": 1000.0,
+                "position": [
+                    12.0,
+                    0.0,
+                    0.0
+                ],
+                "MOI": [
+                    2000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    15000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    15000.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": [
+                    {
+                        "name": "flow_out",
+                        "type": "flow"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "S2_Ox",
+            "type": "Tank",
+            "tag": "tank",
+            "parent_id": "Stage2",
+            "x": 500.0,
+            "y": 760.0,
+            "parameters": {
+                "mass": 75200.0,
+                "station": 0.0,
+                "geometry": "cylinder",
+                "radius": 1.0,
+                "length": 5.0,
+                "density": 1000.0,
+                "position": [
+                    10.0,
+                    0.0,
+                    0.0
+                ],
+                "MOI": [
+                    5000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    40000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    40000.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": [
+                    {
+                        "name": "flow_out",
+                        "type": "flow"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "MerlinVac",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage2",
+            "x": 0.0,
+            "y": 995.0,
+            "parameters": {
+                "max_thrust": 981000.0,
+                "Isp": 348.0,
+                "fuel_tank_id": "S2_Fuel",
+                "ox_tank_id": "S2_Ox",
+                "MR": 2.33,
+                "sb": [
+                    5.0,
+                    0.0,
+                    0.0
+                ],
+                "rpt": 1.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "S2_Dry",
+            "type": "Mass",
+            "tag": "mass",
+            "parent_id": "Stage2",
+            "x": 250.0,
+            "y": 995.0,
+            "parameters": {
+                "mass": 4000.0,
+                "station": 0.0,
+                "MOI": [
+                    3000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    10000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    10000.0
+                ],
+                "position": [
+                    10.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "force_in",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "id": "Payload",
+            "type": "Mass",
+            "tag": "mass",
+            "parent_id": "Stage2",
+            "x": 500.0,
+            "y": 995.0,
+            "parameters": {
+                "mass": 15600.0,
+                "station": 0.0,
+                "MOI": [
+                    2000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    10000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    10000.0
+                ],
+                "position": [
+                    16.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "force_in",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "id": "S1_Nav",
+            "type": "PerfectNav",
+            "tag": "navigation",
+            "parent_id": "Stage1",
+            "x": 750.0,
+            "y": 525.0,
+            "parameters": {},
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "S1_Control",
+            "type": "PerfectControl",
+            "tag": "control",
+            "parent_id": "Stage1",
+            "x": 1000.0,
+            "y": 525.0,
+            "parameters": {
+                "Kp": 0.01,
+                "Kd": 0.05
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "id": "Stage1_Fsw",
+            "type": "StageManager",
+            "tag": "stagemgr",
+            "parent_id": "Stage1",
+            "x": 1250.0,
+            "y": 525.0,
+            "parameters": {
+                "start_time": 0.0,
+                "separation_time": 150.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": [
+                    {
+                        "name": "out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "S1_Guidance",
+            "type": "GravityTurnGuidance",
+            "tag": "guidance",
+            "parent_id": "Stage1",
+            "x": 1500.0,
+            "y": 525.0,
+            "parameters": {
+                "stage_id": "Stage1_Fsw",
+                "vertical_alt": 300.0,
+                "kick_angle": 85.0,
+                "v_target": 7800.0,
+                "h_target": 350000.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "stage",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "id": "BoosterFuel",
+            "type": "Tank",
+            "tag": "tank",
+            "parent_id": "Stage1",
+            "x": 750.0,
+            "y": 760.0,
+            "parameters": {
+                "mass": 111151.0,
+                "station": 0.0,
+                "geometry": "cylinder",
+                "radius": 1.0,
+                "length": 5.0,
+                "density": 1000.0,
+                "position": [
+                    -15.0,
+                    0.0,
+                    0.0
+                ],
+                "MOI": [
+                    20000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    400000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    400000.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": [
+                    {
+                        "name": "flow_out",
+                        "type": "flow"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "BoosterOx",
+            "type": "Tank",
+            "tag": "tank",
+            "parent_id": "Stage1",
+            "x": 1000.0,
+            "y": 760.0,
+            "parameters": {
+                "mass": 284549.0,
+                "station": 0.0,
+                "geometry": "cylinder",
+                "radius": 1.0,
+                "length": 5.0,
+                "density": 1000.0,
+                "position": [
+                    -25.0,
+                    0.0,
+                    0.0
+                ],
+                "MOI": [
+                    50000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1000000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1000000.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [],
+                "outputs": [
+                    {
+                        "name": "flow_out",
+                        "type": "flow"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_Center",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 1250.0,
+            "y": 760.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    0.0,
+                    0.0
+                ],
+                "rpt": 1.0
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_1",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 1500.0,
+            "y": 760.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    1.5,
+                    0.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_2",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 750.0,
+            "y": 995.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    1.06,
+                    1.06
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_3",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 1000.0,
+            "y": 995.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    0.0,
+                    1.5
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_4",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 1250.0,
+            "y": 995.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    -1.06,
+                    1.06
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_5",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 1500.0,
+            "y": 995.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    -1.5,
+                    0.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_6",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 750.0,
+            "y": 1230.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    -1.06,
+                    -1.06
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_7",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 1000.0,
+            "y": 1230.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    0.0,
+                    -1.5
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "Merlin_8",
+            "type": "RocketProp",
+            "tag": "prop",
+            "parent_id": "Stage1",
+            "x": 1250.0,
+            "y": 1230.0,
+            "parameters": {
+                "max_thrust": 845222.0,
+                "Isp": 295.0,
+                "fuel_tank_id": "BoosterFuel",
+                "ox_tank_id": "BoosterOx",
+                "MR": 2.56,
+                "sb": [
+                    -35.0,
+                    1.06,
+                    -1.06
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "throttle",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "fuel_tank",
+                        "type": "signal"
+                    },
+                    {
+                        "name": "ox_tank",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "force_out",
+                        "type": "signal"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "BoosterDry",
+            "type": "Mass",
+            "tag": "mass",
+            "parent_id": "Stage1",
+            "x": 1500.0,
+            "y": 1230.0,
+            "parameters": {
+                "mass": 22200.0,
+                "station": 0.0,
+                "MOI": [
+                    150000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    2000000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    2000000.0
+                ],
+                "position": [
+                    -20.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "raw_params": {},
+            "ports": {
+                "inputs": [
+                    {
+                        "name": "force_in",
+                        "type": "signal"
+                    }
+                ],
+                "outputs": []
+            }
+        }
+    ],
+    "connections": [
+        {
+            "from_block": "Stage2_Fsw",
+            "from_port": "out",
+            "to_block": "S2_Guidance",
+            "to_port": "stage"
+        },
+        {
+            "from_block": "S2_Fuel",
+            "from_port": "flow_out",
+            "to_block": "MerlinVac",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "S2_Ox",
+            "from_port": "flow_out",
+            "to_block": "MerlinVac",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "Stage1_Fsw",
+            "from_port": "out",
+            "to_block": "S1_Guidance",
+            "to_port": "stage"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_Center",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_Center",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_1",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_1",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_2",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_2",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_3",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_3",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_4",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_4",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_5",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_5",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_6",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_6",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_7",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_7",
+            "to_port": "ox_tank"
+        },
+        {
+            "from_block": "BoosterFuel",
+            "from_port": "flow_out",
+            "to_block": "Merlin_8",
+            "to_port": "fuel_tank"
+        },
+        {
+            "from_block": "BoosterOx",
+            "from_port": "flow_out",
+            "to_block": "Merlin_8",
+            "to_port": "ox_tank"
+        }
+    ],
+    "metadata": {
+        "dt": 0.05,
+        "tmax": 45.0,
+        "lib_path": "/home/philip/git/sixdof/build/libsixdof.so"
+    }
+}
