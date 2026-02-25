@@ -12,6 +12,7 @@
 #include "log_level.h"
 #include "../util/math/vec3.h"
 #include "../util/math/mat3.h"
+#include <unistd.h>  // for access()
 
 namespace dsf
 {
@@ -25,7 +26,7 @@ namespace dsf
         class HDF5Output
         {
         public:
-            HDF5Output() : file(nullptr) 
+            HDF5Output() : file(nullptr), group(nullptr), frame_count(0)
             {
             }
 
@@ -34,44 +35,48 @@ namespace dsf
                 finalize();
             }
 
+            /** @brief Set the HDF5 group name (block ID). Must be called before open(). */
+            void setGroup(const std::string& name)
+            {
+                group_name = name;
+            }
+
             void finalize()
             {
-                if (file) {
-                    file->close();
-                    delete file;
-                    file = nullptr;
-                }
+                if (group) { delete group; group = nullptr; }
+                if (file)  { file->close(); delete file; file = nullptr; }
             }
 
             void open(std::string filename)
             {
                 try {
-                // Determine file name (append .h5 if missing)
                 if (filename.find(".h5") == std::string::npos) filename += ".h5";
-                
-                // Create file (truncate if exists)
+
+                // Always create fresh — each Output block has its own unique filename
                 file = new H5::H5File(filename, H5F_ACC_TRUNC);
-                
-                // Initialize groups/datasets could happen here or in first report
-                // But report() implies step-by-step writing.
-                // We initially create datasets with Dimension [0], Max [Unlimited].
-                // Initialize existing variables
-                for(size_t i=0; i<titles.size(); i++) createDataset(titles[i], H5::PredType::NATIVE_DOUBLE);
-                
-                for(size_t i=0; i<vec_titles.size(); i++) {
+
+                // Write into a named group (set via setGroup before open)
+                if (!group_name.empty())
+                    group = new H5::Group(file->createGroup(group_name));
+
+                // Pre-create datasets for variables registered before open()
+                for (size_t i = 0; i < titles.size(); i++)
+                    createDataset(titles[i], H5::PredType::NATIVE_DOUBLE);
+
+                for (size_t i = 0; i < vec_titles.size(); i++) {
                     createDataset(vec_titles[i] + "_x", H5::PredType::NATIVE_DOUBLE);
                     createDataset(vec_titles[i] + "_y", H5::PredType::NATIVE_DOUBLE);
                     createDataset(vec_titles[i] + "_z", H5::PredType::NATIVE_DOUBLE);
                 }
-                
-                for(size_t k=0; k<mat_titles.size(); k++) {
-                     for(int i=0; i<3; i++) for(int j=0; j<3; j++) {
-                        createDataset(mat_titles[k] + "_" + std::to_string(i) + std::to_string(j), H5::PredType::NATIVE_DOUBLE);
-                     }
-                }
-                
-                } catch( H5::FileIException error ) {
-                    std::cerr << "HDF5 Open Failed" << std::endl;
+
+                for (size_t k = 0; k < mat_titles.size(); k++)
+                    for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++)
+                        createDataset(mat_titles[k] + "_" + std::to_string(i) + std::to_string(j),
+                                      H5::PredType::NATIVE_DOUBLE);
+
+                } catch (...) {
+                    std::cerr << "HDF5 Open Failed for: " << filename << std::endl;
+                    if (file) { delete file; file = nullptr; }
                 }
             }
             
@@ -147,7 +152,51 @@ namespace dsf
 
         private:
             H5::H5File* file;
+            H5::Group*  group;       ///< Non-null when writing into a named group
+            std::string group_name;  ///< Block ID used as group name
             long frame_count = 0;
+
+            // Helper: create a dataset in the right location (file root or group)
+            void createDatasetIn(const std::string& name, const H5::DataType& type, const std::string& units)
+            {
+                hsize_t dims[1]    = {0};
+                hsize_t maxdims[1] = {H5S_UNLIMITED};
+                H5::DataSpace dataspace(1, dims, maxdims);
+                H5::DSetCreatPropList prop;
+                hsize_t chunk_dims[1] = {1000};
+                prop.setChunk(1, chunk_dims);
+
+                H5::DataSet ds;
+                if (group) ds = group->createDataSet(name, type, dataspace, prop);
+                else       ds = file->createDataSet(name, type, dataspace, prop);
+
+                if (!units.empty()) {
+                    H5::StrType stype(H5::PredType::C_S1, units.length() + 1);
+                    H5::DataSpace attr_space(H5S_SCALAR);
+                    H5::Attribute attr = ds.createAttribute("units", stype, attr_space);
+                    attr.write(stype, units.c_str());
+                }
+            }
+
+            // Helper: open a dataset and append one double
+            void appendIn(const std::string& name, double value)
+            {
+                H5::DataSet ds;
+                if (group) ds = group->openDataSet(name);
+                else       ds = file->openDataSet(name);
+
+                hsize_t size[1]   = {(hsize_t)frame_count + 1};
+                ds.extend(size);
+
+                H5::DataSpace filespace = ds.getSpace();
+                hsize_t offset[1] = {(hsize_t)frame_count};
+                hsize_t dim1[1]   = {1};
+                filespace.selectHyperslab(H5S_SELECT_SET, dim1, offset);
+
+                hsize_t memdims[1] = {1};
+                H5::DataSpace memspace(1, memdims);
+                ds.write(&value, H5::PredType::NATIVE_DOUBLE, memspace, filespace);
+            }
             
             std::vector<double*> doubles;
             std::vector<std::string> titles;
@@ -161,50 +210,24 @@ namespace dsf
             std::vector<std::string> mat_titles;
             std::vector<double> mat_conversions;
 
+            bool nameExists(const std::string& name)
+            {
+                if (group) return group->nameExists(name);
+                if (file)  return file->nameExists(name);
+                return false;
+            }
+
             void createDataset(std::string name, const H5::DataType& type, std::string units = "")
             {
                 if (!file) return;
-                try {
-                    hsize_t dims[1] = {0};
-                    hsize_t maxdims[1] = {H5S_UNLIMITED};
-                    H5::DataSpace dataspace(1, dims, maxdims);
-                    
-                    H5::DSetCreatPropList prop;
-                    hsize_t chunk_dims[1] = {1000}; // Chunk size
-                    prop.setChunk(1, chunk_dims);
-                    
-                    H5::DataSet dataset = file->createDataSet(name, type, dataspace, prop);
-                    
-//                    if (!units.empty()) {
-//                        H5::StrType stype(H5::PredType::C_S1, units.length()+1);
-//                        H5::DataSpace attr_dataspace(H5S_SCALAR);
-//                        H5::Attribute attr = dataset.createAttribute("units", stype, attr_dataspace);
-//                        attr.write(stype, units.c_str());
-//                    }
-                } catch(...) {}
+                if (nameExists(name)) return;  // idempotent — skip if already created
+                try { createDatasetIn(name, type, units); } catch (...) {}
             }
-            
+
             void appendToDataset(std::string name, double value)
             {
                 if (!file) return;
-                try {
-                H5::DataSet dataset = file->openDataSet(name);
-                
-                // Extend
-                hsize_t size[1] = {(hsize_t)frame_count + 1};
-                dataset.extend(size);
-                
-                // Write to last element (hyperslab)
-                H5::DataSpace filespace = dataset.getSpace();
-                hsize_t offset[1] = {(hsize_t)frame_count};
-                hsize_t dim1[1] = {1};
-                filespace.selectHyperslab(H5S_SELECT_SET, dim1, offset);
-                
-                hsize_t memdims[1] = {1};
-                H5::DataSpace memspace(1, memdims);
-                
-                dataset.write(&value, H5::PredType::NATIVE_DOUBLE, memspace, filespace);
-                } catch(...) {}
+                try { appendIn(name, value); } catch (...) {}
             }
         };
     }

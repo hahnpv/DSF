@@ -45,7 +45,7 @@ def _format_row(headers: List[str], values: List[Any], width: int = 12) -> str:
 
 
 def run_watch(xml_path: str, lib_path: str, dt: float, tmax: float, watch: List[str],
-              console_rate: float = 1.0):
+              console_rate: float = 1.0, is_csv: bool = True, is_hdf5: bool = False):
     """
     Core watch loop. Drives SimSession's step loop and prints filtered telemetry.
 
@@ -56,11 +56,19 @@ def run_watch(xml_path: str, lib_path: str, dt: float, tmax: float, watch: List[
     dt, tmax     : Simulation timing.
     watch        : List of variable name patterns to display. Empty = all headers.
     console_rate : Minimum wall-clock seconds between console prints.
+    is_csv       : Write CSV output (default True).
+    is_hdf5      : Write HDF5 output (default False; overridden by --h5 flag).
     """
     from dsf.utils.sim_session import SimSession
+    import dsf
+
+    # Configure C++ Output layer before building the session
+    dsf.Output.defaultCSV   = is_csv
+    dsf.Output.defaultHDF5  = is_hdf5
 
     print(f"\ndsf watch [{os.path.basename(xml_path)}]")
     print(f"  dt={dt}  tmax={tmax}  library={os.path.basename(lib_path)}")
+    print(f"  Output: CSV={is_csv}, HDF5={is_hdf5}")
     if watch:
         print(f"  Watching: {watch}")
     print()

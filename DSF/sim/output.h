@@ -67,6 +67,9 @@ namespace dsf
             void setCSV(bool enable) { csv_enabled = enable; }
             void setLogLevel(LogLevel csv, LogLevel h5v) { csv_level = csv; h5_level = h5v; }
 
+            /** @brief Set the HDF5 group name (block/vehicle ID) for hierarchical output. */
+            void setGroupName(const std::string& gname) { h5_group_name = gname; }
+
             /** @brief Write all registered values to file. */
             void report()
             {
@@ -89,42 +92,41 @@ namespace dsf
             /** @brief Open output file and write headers. */
             void open()
             {
-                // Determine Filename (Base)
-                // If CSV enabled, use "output.csv" convention. If HDF5 only, same convention.
-                string filename = "output.csv"; 
-                // get_unique_file returns "outputN.csv" and "outputN". 
-                // Actually dsf::util::get_unique_file returns struct with .filename ("outputN.csv")
-                
-                // We want base name "outputN".
-                // I'll assume get_unique_file logic handles extension.
-                // If I pass "output", it searches "output", "output1"...
-                // If I pass "output.csv", it searches "output.csv", "output0.csv"...
-                
+                // CSV: find a unique "outputN.csv" base
+                string filename = "output.csv";
                 std::string unique_csv = dsf::util::get_unique_file(filename).filename;
-                // Strip .csv
-                std::string base = unique_csv.substr(0, unique_csv.find_last_of("."));
-                
+                std::string csv_base = unique_csv.substr(0, unique_csv.find_last_of("."));
+
                 if (csv_enabled) {
-                    string f = base + ".csv";
+                    string f = csv_base + ".csv";
                     out = new ofstream(f.c_str(), ios::out);
                     out->precision(10);
                     out->width(10);
                     writeHeader();
                 }
-                
+
                 if (h5_enabled && h5) {
-                     h5->open(base); // HDF5Output appends .h5
+                     // Use explicitly-set group name (e.g. from setGroupName()) first.
+                     // Fall back to parent-chain walk for blocks that live in the block tree.
+                     std::string bname = h5_group_name;
+                     if (bname.empty()) {
+                         for (Block* b = getParent(); b != nullptr; b = b->getParent()) {
+                             std::string n = b->getName();
+                             if (!n.empty()) { bname = n; break; }
+                         }
+                     }
+                     if (!bname.empty()) h5->setGroup(bname);
+
+                     // Get a unique HDF5 filename independently (avoids re-using stale .h5 files)
+                     std::string unique_h5 = dsf::util::get_unique_file("output.h5").filename;
+                     std::string h5_base = unique_h5.substr(0, unique_h5.find_last_of("."));
+                     h5->open(h5_base);
                 }
             }
 
-            void init()     { 
-                // Initialize HDF5 object if enabled but not created?
-                // Logic fix: h5 object must exist to receive add() calls.
-                // So create it in constructor? No, don't want dependency if disabled.
-                // Create it in setHDF5(true).
-                
-                if ( out == NULL) open(); 
-                report(); 
+            void init()     {
+                if ( out == NULL) open();
+                report();
             }
             void rpt()      { report(); };                          
             void finalize() { 
@@ -279,6 +281,8 @@ namespace dsf
             bool h5_enabled;
             LogLevel csv_level;
             LogLevel h5_level;
+            std::string h5_group_name; ///< Explicit group name for HDF5 hierarchy (set via setGroupName)
         };
+
     }
 }

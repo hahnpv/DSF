@@ -9,10 +9,13 @@ def cli():
 
 @cli.command()
 @click.argument('xml_file', type=click.Path(exists=True))
-def run(xml_file):
+@click.option('--h5', is_flag=True, default=False, help="Also write an HDF5 output file.")
+def run(xml_file, h5):
     """Run a simulation from an XML configuration file."""
-    # Patch sys.argv for run.main() which expects --fname
-    sys.argv = ['dsf-run', '--fname', xml_file]
+    argv = ['dsf-run', '--fname', xml_file]
+    if h5:
+        argv.append('--h5')
+    sys.argv = argv
     
     from dsf.cli import run as dsf_run
     dsf_run.main()
@@ -38,7 +41,8 @@ def gui(file, import_xml, load_lib):
 @click.argument('dsf_file', type=click.Path(exists=True))
 @click.option('--console-rate', default=1.0, show_default=True,
               help="Seconds of sim time between console updates.")
-def watch(dsf_file, console_rate):
+@click.option('--h5', is_flag=True, default=False, help="Also write an HDF5 output file.")
+def watch(dsf_file, console_rate, h5):
     """
     Run a DSF project with live telemetry output.
 
@@ -73,6 +77,8 @@ def watch(dsf_file, console_rate):
             tmax=cfg.tmax,
             watch=cfg.watch,
             console_rate=rate,
+            is_csv=cfg.is_csv,
+            is_hdf5=(cfg.is_hdf5 or h5),
         )
     finally:
         if os.path.exists(xml_path):
@@ -80,6 +86,27 @@ def watch(dsf_file, console_rate):
                 os.remove(xml_path)
             except OSError:
                 pass
+
+@cli.command()
+@click.argument('h5_file', type=click.Path(exists=True))
+def plot(h5_file):
+    """Open an HDF5 output file in the interactive strip-chart viewer."""
+    from dsf.cli.plot import run_plot
+    run_plot(h5_file)
+
+@cli.command()
+@click.argument('h5_file', type=click.Path(exists=True))
+def map(h5_file):
+    """Open an HDF5 output file in the 2D ground-track map."""
+    from dsf.cli.map_view import run_map
+    run_map(h5_file)
+
+@cli.command()
+@click.argument('h5_file', type=click.Path(exists=True))
+def globe(h5_file):
+    """Open an HDF5 output file in the 3D orbit globe."""
+    from dsf.cli.globe_view import run_globe
+    run_globe(h5_file)
 
 if __name__ == '__main__':
     cli()

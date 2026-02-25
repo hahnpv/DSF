@@ -18,6 +18,8 @@ except ImportError as e:
 def parse_args():
     parser = argparse.ArgumentParser(description="Run a simulation from an XML configuration file.")
     parser.add_argument("--fname", required=True, help="Path to the XML configuration file")
+    parser.add_argument("--h5", action="store_true", default=False,
+                        help="Also write an HDF5 output file (overrides project/XML setting)")
     return parser.parse_args()
 
 def map_level(level_str):
@@ -105,6 +107,10 @@ def main():
             rate_console = run_config.console_rate
         if run_config.file_rate > 0:
             rate_file = run_config.file_rate
+
+    # --h5 CLI flag always wins, regardless of project/XML defaults
+    if args.h5:
+        is_hdf5 = True
 
     print(f"Configuration:")
     print(f"  Tmax: {tmax}, dt: {dt}")
