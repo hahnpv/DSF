@@ -34,6 +34,9 @@ def run_map(h5_path: str):
     LAT_KEYS = {"Latitude", "lambda_d", "lat", "latitude"}
     LON_KEYS = {"Earth Longitude", "l_i_earth", "lon", "longitude", "Earth\\ Longitude"}
 
+    # In replay mode we have all frames upfront — keep the full history
+    win.map_widget.max_history = len(times)
+
     for i, t in enumerate(times):
         frame = {}
         for block_id, props in data.items():

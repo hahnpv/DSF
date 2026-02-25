@@ -29,17 +29,20 @@ def run_globe(h5_path: str):
     for block_id, props in data.items():
         xyz = None
 
-        # Look for ECEF position — try Vec3 dataset "xyz_e" first (new grouped format)
-        if "xyz_e" in props:
-            arr = props["xyz_e"]
-            if arr.ndim == 2 and arr.shape[1] == 3:
-                xyz = arr
+        # Prefer ECEF position datasets (Earth-fixed, correct for ground track)
+        for ecef_key in ("XYZ_ECEF", "xyz_e"):
+            if ecef_key in props:
+                arr = props[ecef_key]
+                if arr.ndim == 2 and arr.shape[1] == 3:
+                    xyz = arr
+                    break
 
-        # Fallback: look for "XYZ" Vec3 reassembled from flat _x/_y/_z
+        # Fallback only if no ECEF data available — note XYZ is ECI (not Earth-fixed)
         if xyz is None and "XYZ" in props:
             arr = props["XYZ"]
             if arr.ndim == 2 and arr.shape[1] == 3:
                 xyz = arr
+                print(f"  Warning: '{block_id}' using ECI XYZ (no ECEF data found)")
 
         if xyz is not None and len(xyz) > 2:
             c = colors[color_idx % len(colors)]
