@@ -84,18 +84,18 @@ target_compile_options(DSF PRIVATE -fpermissive)
 set_target_properties(DSF PROPERTIES LINKER_LANGUAGE CXX)
 
 # Python Bindings Module
-pybind11_add_module(dsf 
-    python/bindings_main.cpp
-    python/bindings_util.cpp
-    python/bindings_sim.cpp
-    python/bindings_net.cpp
+pybind11_add_module(dsf_core 
+    python/bindings/bindings_main.cpp
+    python/bindings/bindings_util.cpp
+    python/bindings/bindings_sim.cpp
+    python/bindings/bindings_net.cpp
 )
-target_link_libraries(dsf PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
- target_include_directories(dsf PRIVATE 
+target_link_libraries(dsf_core PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
+ target_include_directories(dsf_core PRIVATE 
     ${Boost_INCLUDE_DIRS}
     ${OPENSCENEGRAPH_INCLUDE_DIRS}
 )
-target_compile_options(dsf PRIVATE -fpermissive)
+target_compile_options(dsf_core PRIVATE -fpermissive)
 
 # Add Examples
 add_subdirectory(examples/dynamic)
