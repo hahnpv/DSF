@@ -35,6 +35,9 @@ def _dict_to_xml(json_data):
     sim_root.set("tmax", str(tmax))
     if library:
         sim_root.set("library", library)
+    file_rate = metadata.get("file")
+    if file_rate is not None:
+        sim_root.set("file", str(file_rate))
 
     blocks = json_data.get("blocks", [])
     connections = json_data.get("connections", [])

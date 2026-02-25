@@ -1,0 +1,103 @@
+{
+  "blocks": [
+    {
+      "id": "WGS84",
+      "type": "WGS84",
+      "tag": "earth",
+      "parent_id": null,
+      "x": 0.0,
+      "y": 0.0,
+      "parameters": {},
+      "raw_params": {},
+      "ports": {
+        "inputs": [],
+        "outputs": []
+      }
+    },
+    {
+      "id": "State_133438785068848",
+      "type": "State",
+      "tag": "state",
+      "parent_id": "Equinoctial",
+      "x": 0.0,
+      "y": 0.0,
+      "parameters": {},
+      "raw_params": {
+        "eccentricity": "0.015653435282672032",
+        "semimajor_axis": "26558762.943163067",
+        "inclination": "54.716471105314504",
+        "RAAN": "65.56401337417735",
+        "omega": "81.73531922843574",
+        "tanom": "3.542328800618416"
+      },
+      "ports": {
+        "inputs": [],
+        "outputs": []
+      }
+    },
+    {
+      "id": "Equinoctial",
+      "type": "Equinoctial",
+      "tag": "rbeom",
+      "parent_id": "Vehicle",
+      "x": 0.0,
+      "y": 0.0,
+      "parameters": {
+        "xyz_e": "0,0,0",
+        "l_i_earth": "0.0",
+        "lambda_d": "0.0",
+        "altitude": "0.0",
+        "p": "0.0",
+        "f": "0.0",
+        "g": "0.0",
+        "h": "0.0",
+        "k": "0.0",
+        "L": "0.0",
+        "a": "0.0",
+        "eccentricity": "0.0",
+        "inclination": "0.0",
+        "RAAN": "0.0",
+        "omega": "0.0",
+        "nu": "0.0",
+        "rpt": 1000.0
+      },
+      "raw_params": {},
+      "ports": {
+        "inputs": [],
+        "outputs": []
+      }
+    },
+    {
+      "id": "Vehicle",
+      "type": "Vehicle",
+      "tag": "vehicle",
+      "parent_id": null,
+      "x": 0.0,
+      "y": 0.0,
+      "parameters": {
+        "layout_origin": "nose",
+        "layout_direction": "positive_aft",
+        "layout_offset": "0,0,0",
+        "name": "GPS_BIIA-23_(PRN_18)"
+      },
+      "raw_params": {},
+      "ports": {
+        "inputs": [],
+        "outputs": []
+      }
+    }
+  ],
+  "connections": [],
+  "metadata": {
+    "dt": 0.1,
+    "tmax": 3600.0,
+    "library": "libsixdof.so",
+    "telemetry": {
+      "watch": [
+        "altitude",
+        "Latitude"
+      ]
+    },
+    "file": 100.0
+  }
+}
