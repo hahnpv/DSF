@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: dsf-gui
+Version: 0.1.0
+Summary: Interactive 6-DOF Model Configuration Interface
+Author: DSF Team
+Requires-Python: >=3.8
+Requires-Dist: PyQt6
+Requires-Dist: pyqtgraph
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: lxml
+Requires-Dist: pyqtdarktheme
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
