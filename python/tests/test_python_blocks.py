@@ -92,7 +92,7 @@ print(len(children))
         out = _assert_runs("""
 b = dsf.Block()
 b.setName("TestBlock")
-print(b.getName())
+print(b.get_name())
         """)
         assert "TestBlock" in out.strip()
 
@@ -106,6 +106,22 @@ for i in range(3):
 print(len(root.getChildren()))
         """)
         assert int(out.strip()) == 3
+
+    def test_block_accessors(self):
+        out = _assert_runs("""
+b = dsf.Block()
+print(b.has_children())
+b.addChild(dsf.Block())
+print(b.has_children())
+try:
+    print(b.get_property("nonexistent"))
+except RuntimeError:
+    print("None")
+        """)
+        vals = out.strip().split()
+        assert vals[-3] == "False"
+        assert vals[-2] == "True"
+        assert vals[-1] == "None"
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +151,10 @@ root.addChild(block)
 sim = dsf.Sim()
 sim.load(root, 0.05, 1.0, 0, 1.0)
 sim.init()
+if hasattr(sim.clock, 't'): events.append("clock_ok")
+if hasattr(sim.output, 'defaultCSV'): events.append("output_ok")
+sim.step()
+events.append("step_ok")
 sim.exec()
 sim.finalize()
 for e in events:
@@ -166,3 +186,8 @@ class TestPythonBlockLifecycle:
 
     def test_finalize_called(self, lifecycle_out):
         assert "finalize" in lifecycle_out
+
+    def test_sim_accessors(self, lifecycle_out):
+        assert "clock_ok" in lifecycle_out
+        assert "output_ok" in lifecycle_out
+        assert "step_ok" in lifecycle_out

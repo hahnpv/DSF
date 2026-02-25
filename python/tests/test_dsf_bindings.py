@@ -150,6 +150,20 @@ class TestMat3:
         x, y, z = map(float, out.split())
         assert (x, y, z) == (1.0, 2.0, 3.0)
 
+    def test_mat_accessors(self):
+        out = _assert_runs("""
+            m = dsf.Mat3(1, 2, 3, 4, 5, 6, 7, 8, 9)
+            print(m.a0.x, m.a0.y, m.a0.z)
+            print(m.transpose().a0.x)
+            m_inv = dsf.Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1).inv()
+            print(m_inv.det())
+        """)
+        vals = list(map(float, out.split()))
+        assert abs(vals[0] - 1.0) < 1e-6  # a00
+        assert abs(vals[1] - 2.0) < 1e-6  # a01
+        assert abs(vals[2] - 3.0) < 1e-6  # a02
+        assert abs(vals[3] - 1.0) < 1e-6  # transpose a00
+        assert abs(vals[4] - 1.0) < 1e-6  # inv det of I is 1
 
 # ---------------------------------------------------------------------------
 # Quaternion
@@ -165,7 +179,15 @@ class TestQuaternion:
         assert abs(x) < 1e-12 and abs(y) < 1e-12 and abs(z) < 1e-12
         assert abs(w - 1.0) < 1e-12
 
-
+    def test_euler_angles_and_teb(self):
+        out = _assert_runs("""
+            q = dsf.Quaternion(0.1, 0.2, 0.3)
+            print(q.phi(), q.theta(), q.psi())
+            q.normalize()
+            print(q.Teb().a0.x)
+        """)
+        vals = list(map(float, out.split()))
+        assert len(vals) == 4
 # ---------------------------------------------------------------------------
 # Table (1D) and Table2d
 # ---------------------------------------------------------------------------
