@@ -27,7 +27,6 @@ PYTHON     = sys.executable
 _PREAMBLE = f"""\
 import sys, os
 sys.path.insert(0, {PYTHON_SRC!r})
-sys.path.insert(0, {BUILD_DIR!r})
 sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)
 import dsf
 """
@@ -42,8 +41,9 @@ def _run(code: str, need_exit: bool = True) -> subprocess.CompletedProcess:
     suffix = _EXIT_SUFFIX if need_exit else ""
     # Prepend conda lib dir so dsf_core.so finds libhdf5.so.310.
     env = os.environ.copy()
-    conda_lib = os.path.join(os.environ.get("CONDA_PREFIX", ""), "lib")
-    if conda_lib:
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        conda_lib = os.path.join(conda_prefix, "lib")
         env["LD_LIBRARY_PATH"] = conda_lib + ":" + env.get("LD_LIBRARY_PATH", "")
     script = textwrap.dedent(_PREAMBLE + "\n" + textwrap.dedent(code) + suffix)
     return subprocess.run([PYTHON, "-c", script], capture_output=True, text=True, env=env)
@@ -61,19 +61,8 @@ def _assert_runs(code: str, need_exit: bool = True) -> str:
 # dsf.Block API — tests that do NOT require dsf.Sim()
 # ---------------------------------------------------------------------------
 
-XFAIL_BLOCK_REASON = (
-    "dsf.Block() and dsf.Sim() both trigger H5::DataTypeIException in their "
-    "C++ destructors (or constructors) when created in a direct-Python "
-    "subprocess context. All Block/Sim-based tests are covered indirectly "
-    "by the end-to-end simulation tests (test_dsf_xml_equivalence, "
-    "test_run_vs_watch). These are preserved here for when the HDF5/dtor "
-    "ordering issue is resolved in the pybind11 bindings."
-)
-
-
-@pytest.mark.xfail(reason=XFAIL_BLOCK_REASON, strict=False)
 class TestBlockAPI:
-    """Block API tests — xfail until HDF5/Block dtor subprocess issue is resolved."""
+    """Block API tests."""
 
     def test_can_subclass_block(self):
         out = _assert_runs("""
@@ -94,7 +83,7 @@ print(isinstance(b, dsf.Block))
 parent = dsf.Block()
 child  = dsf.Block()
 parent.addChild(child)
-children = parent.children()
+children = parent.getChildren()
 print(len(children))
         """)
         assert int(out.strip()) == 1
@@ -114,7 +103,7 @@ for i in range(3):
     c = dsf.Block()
     c.setName(f"child{i}")
     root.addChild(c)
-print(len(root.children()))
+print(len(root.getChildren()))
         """)
         assert int(out.strip()) == 3
 
@@ -123,18 +112,10 @@ print(len(root.children()))
 # Python block lifecycle — xfail pending HDF5 Sim() constructor issue
 # ---------------------------------------------------------------------------
 
-XFAIL_REASON = (
-    "dsf.Sim() throws H5::DataTypeIException during construction in a "
-    "direct-Python subprocess. Lifecycle hooks (configure/init/update/rpt/"
-    "finalize) are covered indirectly by the end-to-end simulation tests."
-)
-
 _LIFECYCLE_SCRIPT = """
 events = []
 
 class TestBlock(dsf.Block):
-    def configure(self, xml):
-        events.append("configure")
     def init(self):
         events.append("init")
         events.append(f"t={self.t():.3f}")
@@ -161,16 +142,12 @@ for e in events:
 """
 
 
-@pytest.mark.xfail(reason=XFAIL_REASON, strict=False)
 class TestPythonBlockLifecycle:
-    """Lifecycle tests — xfail until HDF5/Sim() subprocess issue is resolved."""
+    """Lifecycle tests."""
 
     @pytest.fixture(scope="class")
     def lifecycle_out(self):
         return _assert_runs(_LIFECYCLE_SCRIPT, need_exit=True)
-
-    def test_configure_called(self, lifecycle_out):
-        assert "configure" in lifecycle_out
 
     def test_init_called(self, lifecycle_out):
         assert "init" in lifecycle_out

@@ -67,6 +67,8 @@ void init_sim(py::module_ &m) {
         .def("addChild", &Block::addChild, py::keep_alive<1, 2>())
         .def("getChildren", &Block::getChildren, py::return_value_policy::reference)
         .def("get_name", &Block::getName)
+        .def("setName", &Block::setName)
+        .def("set_name", &Block::setName)
         .def("get_class_name", [](Block& self) -> std::string {
             return boost::core::demangle(typeid(self).name());
         })
