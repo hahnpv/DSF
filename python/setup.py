@@ -15,6 +15,8 @@ setup(
         "lxml",
         "pyqtdarktheme",
         "click",
+        "pyvista",
+        "h5py",
     ],
     entry_points={
         "gui_scripts": [

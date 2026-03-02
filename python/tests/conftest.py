@@ -43,11 +43,16 @@ def run_sim(input_path: str, work_dir: str) -> str:
     """
     before = set(glob.glob(os.path.join(work_dir, "*.h5")))
 
+    env = os.environ.copy()
+    build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../..", "build"))
+    env["LD_LIBRARY_PATH"] = f"{build_dir}:{env.get('LD_LIBRARY_PATH', '')}"
+
     result = subprocess.run(
         ["dsf", "run", input_path, "--h5"],
         cwd=work_dir,
         capture_output=True,
         text=True,
+        env=env
     )
 
     if result.returncode != 0:
@@ -101,11 +106,16 @@ def watch_h5(tmp_path_factory):
     d = str(tmp_path_factory.mktemp("watch_run"))
     before = set(glob.glob(os.path.join(d, "*.h5")))
 
+    env = os.environ.copy()
+    build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../..", "build"))
+    env["LD_LIBRARY_PATH"] = f"{build_dir}:{env.get('LD_LIBRARY_PATH', '')}"
+
     result = subprocess.run(
         ["dsf", "watch", GPS_6MIN_DSF, "--h5"],
         cwd=d,
         capture_output=True,
         text=True,
+        env=env
     )
 
     after = set(glob.glob(os.path.join(d, "*.h5")))
