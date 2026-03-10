@@ -44,9 +44,9 @@ namespace dsf
 		/// Return the skew-symmetric form of the vector (an off-diagonal matrix).
 		Mat3 Vec3::skew()
 		{
-			return Mat3(0, this->z, -this->y,
-    			-this->z, 0, this->x,
-				 this->y, -this->x, 0);
+			return Mat3(0, -this->z, this->y,
+    			this->z, 0, -this->x,
+				-this->y, this->x, 0);
 		}
 
 		/// Dot product of two vectors.

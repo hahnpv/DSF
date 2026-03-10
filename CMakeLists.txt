@@ -117,3 +117,28 @@ if(DOXYGEN_FOUND)
     )
     add_custom_target(doc ALL DEPENDS ${DOXYGEN_OUTPUT})
 endif()
+
+# --- Python Tests (CTest Integration) ---
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+# Determine paths for PYTHONPATH
+# We want: <source_dir>/python (for the package)
+# And: <binary_dir> (for dsf_core.so)
+set(PYTHON_TEST_PATH "${CMAKE_SOURCE_DIR}/python")
+set(BINARY_TEST_PATH "${CMAKE_BINARY_DIR}")
+
+add_test(NAME python_tests
+         COMMAND ${Python3_EXECUTABLE} -m pytest python/tests
+         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+# Set environment for the test execution
+# Combine source and binary paths for PYTHONPATH
+set_tests_properties(python_tests PROPERTIES ENVIRONMENT 
+    "PYTHONPATH=${PYTHON_TEST_PATH}:${BINARY_TEST_PATH}:$ENV{PYTHONPATH}"
+)
+
+# On Linux, help the dynamic linker find the libraries we just built
+if(UNIX)
+    set(TEST_LIB_PATH "${BINARY_TEST_PATH}:$ENV{LD_LIBRARY_PATH}")
+    set_property(TEST python_tests APPEND PROPERTY ENVIRONMENT "LD_LIBRARY_PATH=${TEST_LIB_PATH}")
+endif()
