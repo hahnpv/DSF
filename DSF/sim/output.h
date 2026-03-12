@@ -239,6 +239,16 @@ namespace dsf
             }
             /// @}
 
+            /// Find a registered double* by header-name substring match.
+            /// Returns nullptr if no match.
+            double* find_variable(const std::string& name) {
+                for (size_t i = 0; i < title[0].size(); i++) {
+                    if (title[0][i].find(name) != std::string::npos)
+                        return doubles[i];
+                }
+                return nullptr;
+            }
+
         private:
             void writeHeader() {
                 // Original header writing logic...

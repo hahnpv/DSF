@@ -2,6 +2,7 @@
 
 #include "sim.h"
 #include "integrator_base.h"
+#include "event.h"
 #include "integratorRK4.h"
 #include "integrator_rk45.h"
 #include "integrator_verlet.h"
@@ -32,6 +33,8 @@ namespace dsf
 		void Sim::step()
 		{
 			i->propagate(simulation[0]);							// integrate
+			EventBus::Instance()->evaluate(clock->t(), clock->dt());	// event detection
+			EventBus::Instance()->latch();							// save state for next step
 			dsf::util::TFunctor<Block>(simulation, &Block::rptSim);	// report
 		}
 

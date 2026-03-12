@@ -16,6 +16,8 @@ set(sim_source_files
   hdf5output.h
   log_level.h
   output.cpp
+  event.h
+  event.cpp
   sim.cpp
   TClassDict.h
   TRefDict.h

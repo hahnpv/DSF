@@ -3,6 +3,7 @@
 
 #include "SimInput.h"
 #include "sim/sim.h"
+#include "sim/event.h"
 #include "sim/TRefDict.h"
 #include "util/xml/xml.h"
 
@@ -68,13 +69,17 @@ int main(int argc, char *argv[])
 	{
 		xmlnode child_node = n;
 		child_node.child(i);
-		root->addChild( TRefUnique<Block>( child_node.attrAsString("id")));
+		std::string child_id = child_node.attrAsString("id");
+		if (child_id.empty()) continue;  // skip non-block nodes like <events>
+		root->addChild( TRefUnique<Block>( child_id.c_str()));
 	}
-	for ( int i = 0; i < nx; i++)
+	for ( int i = 0, bi = 0; i < nx; i++)
 	{
 		xmlnode child_node = n;
 		child_node.child(i);
-		root->getChild(i)->configure( child_node);
+		if (std::string(child_node.attrAsString("id")).empty()) continue;
+		root->getChild(bi)->configure( child_node);
+		bi++;
 	}
 
     // Map XML LogLevel
@@ -98,7 +103,80 @@ int main(int argc, char *argv[])
 	sim->load(root, input.dt(), input.tmax(), input.rateConsole(), input.rateFile(),
 	          input.integrator(), input.atol(), input.rtol());
     
-	sim->run();
+	// init first — blocks register output variables during init()
+	sim->init();
+
+	// Parse <events> from XML (after init so Output has all variable pointers)
+	for (int ei = 0; ei < n.numchild(); ei++)
+	{
+		xmlnode child = n;
+		child.child(ei);
+		if (std::string(child.name()) != "events") continue;
+
+		for (int ej = 0; ej < child.numchild(); ej++)
+		{
+			xmlnode ev = child;
+			ev.child(ej);
+			if (std::string(ev.name()) != "event") continue;
+
+			std::string name   = ev.attrAsString("name");
+			std::string type_s = ev.attrAsString("type");
+			std::string var_s  = ev.attrAsString("variable");
+			double value       = ev.attrAsDouble("value");
+			std::string action = ev.attrAsString("action");
+
+			// Resolve condition type
+			dsf::sim::EventType etype;
+			if      (type_s == "time_ge")  etype = dsf::sim::EventType::TIME_GE;
+			else if (type_s == "crosses")  etype = dsf::sim::EventType::CROSSES_VALUE;
+			else if (type_s == "rising")   etype = dsf::sim::EventType::RISING;
+			else if (type_s == "falling")  etype = dsf::sim::EventType::FALLING;
+			else if (type_s == "ge")       etype = dsf::sim::EventType::STATE_GE;
+			else if (type_s == "le")       etype = dsf::sim::EventType::STATE_LE;
+			else {
+				cout << "[Event] Unknown type '" << type_s << "' for event '" << name << "'" << endl;
+				continue;
+			}
+
+			// Resolve variable pointer via Output
+			double* var_ptr = nullptr;
+			if (!var_s.empty() && sim->output) {
+				var_ptr = sim->output->find_variable(var_s);
+				if (!var_ptr) {
+					cout << "[Event] WARNING: Variable '" << var_s << "' not found for event '" << name << "'" << endl;
+					continue;
+				}
+			}
+
+			// Build Event
+			dsf::sim::Event event;
+			event.name = name;
+			event.condition.type = etype;
+			event.condition.variable = var_ptr;
+			event.condition.threshold = value;
+			event.one_shot = true;
+
+			// Resolve action
+			if (action == "sim.terminate") {
+				event.callback = [sim]() {
+					cout << "[Event] Terminating simulation" << endl;
+					sim->clock->end();
+				};
+			} else if (action == "log" || action.empty()) {
+				event.callback = nullptr; // EventBus prints [Event] line by default
+			} else {
+				cout << "[Event] Unknown action '" << action << "' for '" << name << "'" << endl;
+			}
+
+			int id = dsf::sim::EventBus::Instance()->add(event);
+			cout << "[Event] Registered '" << name << "' (id=" << id << " type=" << type_s
+			     << " var=" << var_s << " val=" << value << " action=" << action << ")" << endl;
+		}
+	}
+
+	// Latch initial values for crossing detection, then run
+	dsf::sim::EventBus::Instance()->latch();
+	sim->exec();
 
 	return 0;
 }
