@@ -74,13 +74,12 @@ Comprehensive assessment of both codebases against the expectations of a product
 
 ### 🟡 Medium Priority — Model Completeness
 
-#### 5. No Multi-Dimensional Table Interpolation
-**Impact**: Aero databases are typically 3D+ (α, β, Mach → Cx). The current `Table` class only supports 1D. F16Aero hard-codes its own table lookups.
+#### 5. No 3D+ Table Interpolation
+**Impact**: DSF has `Table` (1D) and `Table2d` (2D bilinear). F16Aero uses 2D tables (α×δ, α×β) with 1D Mach corrections applied additively. Full aero databases for modern vehicles typically need 3D (α, β, Mach → Cx) or higher.
 
 **What's needed**:
-- 2D bilinear interpolation (α, Mach)
 - 3D trilinear interpolation (α, β, Mach)
-- N-D scattered data interpolation (or regular grid)
+- N-D regular grid interpolation
 - Table file format that supports multi-dimensional data
 
 #### 6. No Actuator / Servo Dynamics

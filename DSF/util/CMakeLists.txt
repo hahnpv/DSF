@@ -14,6 +14,8 @@ set(util_source_files
   tbl/tbl.h
   tbl/tbl2d.cpp
   tbl/tbl2d.h
+  tbl/tablend.cpp
+  tbl/tablend.h
   TFunctor.h
   xml/xml.h
   xml/xml.cpp
