@@ -6,6 +6,7 @@
 
 #include <sstream>
 #include <string>
+#include <vector>
 using namespace std;
 
 namespace dsf
@@ -163,6 +164,9 @@ namespace dsf
 		/// \param x Value to interpolate for.
 		double Table::interp(double x)
 		{
+			if (min == max) return table[min][1];
+			if (x <= table[min][0]) return table[min][1];
+			if (x >= table[max][0]) return table[max][1];
 			return binarySearch(x, min, max);
 		}
 
