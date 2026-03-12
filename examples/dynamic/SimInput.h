@@ -28,6 +28,11 @@ public:
         logLevel = n.attrAsString("log_level");
         csvLogLevel = n.attrAsString("csv_log_level");
         hdf5LogLevel = n.attrAsString("hdf5_log_level");
+        integratorType = n.attrAsString("integrator");
+        std::string atol_s = n.attrAsString("atol");
+        std::string rtol_s = n.attrAsString("rtol");
+        aTol = atol_s.empty() ? 1e-8 : std::stod(atol_s);
+        rTol = rtol_s.empty() ? 1e-6 : std::stod(rtol_s);
 	}
 
 	double tmax()	     { return time;       };
@@ -35,6 +40,10 @@ public:
 	double rateConsole() { return console;    };
 	double rateFile()    { return file;       };
         std::string library(){ return lib;        };
+
+    std::string integrator() { return integratorType; }
+    double atol() { return aTol; }
+    double rtol() { return rTol; }
 
     bool isHDF5() { return outputCfg.find("hdf5") != std::string::npos; }
     bool isCSV() { return outputCfg.empty() || outputCfg.find("csv") != std::string::npos; }
@@ -70,4 +79,7 @@ private:
     std::string logLevel;
     std::string csvLogLevel;
     std::string hdf5LogLevel;
+    std::string integratorType;
+    double aTol;
+    double rTol;
 };

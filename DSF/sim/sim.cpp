@@ -1,7 +1,10 @@
 #include <time.h>
 
 #include "sim.h"
+#include "integrator_base.h"
 #include "integratorRK4.h"
+#include "integrator_rk45.h"
+#include "integrator_verlet.h"
 #include "block.h"
 #include "TClassDict.h"
 #include "../util/TFunctor.h"
@@ -57,12 +60,34 @@ namespace dsf
 		/// time constraints.
 		void Sim::load(Block * root, double _dt, double _tmax, double _console, double _file) 
 		{
+			load(root, _dt, _tmax, _console, _file, "RK4", 1e-8, 1e-6);
+		}
+
+		void Sim::load(Block * root, double _dt, double _tmax, double _console, double _file,
+		               const std::string& integrator_type, double atol, double rtol)
+		{
 			rptRate = _console;
 
-			// Instantiate clock, output and integrator
+			// Instantiate clock and output
 			clock = new Clock( _dt, _tmax );
 			output = new Output( _file);
-			i = new Integrator;
+
+			// Integrator factory
+			if (integrator_type == "RK45" || integrator_type == "rk45") {
+				auto* rk45 = new IntegratorRK45(atol, rtol);
+				rk45->set_step_bounds(_dt * 0.01, _dt * 100.0);
+				i = rk45;
+				cout << "Integrator: Dormand-Prince RK45 (atol=" << atol << ", rtol=" << rtol << ")" << endl;
+			} else if (integrator_type == "Verlet" || integrator_type == "verlet") {
+				i = new IntegratorVerlet;
+				cout << "Integrator: Stormer-Verlet (symplectic)" << endl;
+			} else {
+				i = new IntegratorRK4;
+				if (integrator_type != "RK4" && integrator_type != "rk4" && !integrator_type.empty())
+					cout << "Warning: Unknown integrator '" << integrator_type << "', defaulting to RK4" << endl;
+				else
+					cout << "Integrator: RK4 (fixed-step)" << endl;
+			}
 			i->clock = clock;
 
 			// add output to the simulation vector

@@ -81,6 +81,11 @@ def main():
     log_level_str = sim_node.attrAsString("log_level")
     csv_log_level_str = sim_node.attrAsString("csv_log_level")
     hdf5_log_level_str = sim_node.attrAsString("hdf5_log_level")
+    
+    # Integrator selection (default: RK4)
+    integrator_type = sim_node.attrAsString("integrator") or "RK4"
+    atol = sim_node.attrAsDouble("atol") if sim_node.attrAsString("atol") else 1e-8
+    rtol = sim_node.attrAsDouble("rtol") if sim_node.attrAsString("rtol") else 1e-6
 
     # Resolve Log Levels
     def resolve_level(specific, global_val):
@@ -212,7 +217,7 @@ def main():
 
     # 5. Run Simulation
     sim = dsf.Sim()
-    sim.load(sim_root, dt, tmax, rate_console, rate_file)
+    sim.load(sim_root, dt, tmax, rate_console, rate_file, integrator_type, atol, rtol)
     
     if hasattr(sim, 'init') and hasattr(sim, 'exec'):
         print("Starting simulation (init/exec)...")

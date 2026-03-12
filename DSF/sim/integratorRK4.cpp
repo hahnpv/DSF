@@ -9,7 +9,7 @@ namespace dsf
 	namespace sim 
 	{
 		/// Propagate the simulation by integrating the state and derivative pairs.
-		void Integrator::propagate(Block * simulation) 
+		void IntegratorRK4::propagate(Block * simulation) 
 		{
 			dsf::util::TFunctor<Block>( simulation->getChildren(), &Block::update);
 
@@ -29,7 +29,7 @@ namespace dsf
 		}
 
 		/// Perform the rk4 integration at the specified pass.
-		void Integrator::rk4( int pass)
+		void IntegratorRK4::rk4( int pass)
 		{
 			TClassIntegrandDict<Block> * d = TClassIntegrandDict<Block>::Instance();
 

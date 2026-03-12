@@ -12,6 +12,7 @@
 #include <exception>
 #include <iostream>
 #include <string>
+#include "integrator_base.h"  // for IntegrandType
 
 using namespace std;
 
@@ -59,10 +60,11 @@ namespace dsf
              * @param v  State vector.
              * @param dv Derivative vector.
              */
-            void add(TClassBase<TClass > *in, dsf::util::Vec3 &v, dsf::util::Vec3 &dv)
+            void add(TClassBase<TClass > *in, dsf::util::Vec3 &v, dsf::util::Vec3 &dv,
+                     dsf::sim::IntegrandType type = dsf::sim::IntegrandType::GENERIC)
             {
                 for (int i=0; i<3; i++)
-                    addToIntegrator(in, v[i], dv[i]);
+                    addToIntegrator(in, v[i], dv[i], type);
             }
 
             /**
@@ -70,12 +72,14 @@ namespace dsf
              * @param in Owner block.
              * @param m  State matrix.
              * @param dm Derivative matrix.
+             * @param type IntegrandType tag (default GENERIC).
              */
-            void add(TClassBase<TClass > *in, dsf::util::Mat3 &m, dsf::util::Mat3 &dm)
+            void add(TClassBase<TClass > *in, dsf::util::Mat3 &m, dsf::util::Mat3 &dm,
+                     dsf::sim::IntegrandType type = dsf::sim::IntegrandType::GENERIC)
             {
                 for (int i=0; i<3; i++)
                     for (int j=0; j<3; j++)
-                        addToIntegrator(in, m[i][j], dm[i][j]);
+                        addToIntegrator(in, m[i][j], dm[i][j], type);
             }
 
             /**
@@ -83,10 +87,12 @@ namespace dsf
              * @param in Owner block.
              * @param x  State value.
              * @param dx Derivative value.
+             * @param type IntegrandType tag (default GENERIC).
              */
-            void add(TClassBase<TClass > *in, double &x, double &dx)
+            void add(TClassBase<TClass > *in, double &x, double &dx,
+                     dsf::sim::IntegrandType type = dsf::sim::IntegrandType::GENERIC)
             {
-                addToIntegrator(in, x, dx);
+                addToIntegrator(in, x, dx, type);
             }
 
             /**
@@ -95,7 +101,8 @@ namespace dsf
              * @param x  State reference.
              * @param dx Derivative reference.
              */
-            void addToIntegrator(TClassBase<TClass > *in, double &x, double &dx) 
+            void addToIntegrator(TClassBase<TClass > *in, double &x, double &dx,
+                                 dsf::sim::IntegrandType type = dsf::sim::IntegrandType::GENERIC) 
             {
                 double *x_ptr, *dx_ptr;
                  x_ptr =  &x;
@@ -106,12 +113,22 @@ namespace dsf
 
                 this->x0.push_back ( 0 );
 
-                this->xdd[0].push_back(0);
-                this->xdd[1].push_back(0);
-                this->xdd[2].push_back(0);
-                this->xdd[3].push_back(0);
+                for (size_t s = 0; s < xdd.size(); s++)
+                    xdd[s].push_back(0);
+                
+                this->types.push_back(type);
                 classDict.push_back( *in);
             }
+
+            /// Resize the intermediate stage storage (called by integrator at load time).
+            /// Default is 4 (RK4). RK45 needs 6, Verlet needs 2.
+            void resize_stages(int n_stages)
+            {
+                xdd.resize(n_stages);
+                for (auto& stage : xdd)
+                    stage.resize(x.size(), 0.0);
+            }
+
         private:
             TClassIntegrandDict()
             {
@@ -121,7 +138,8 @@ namespace dsf
             std::vector<double*>x;                          ///< State value pointers.
             std::vector<double>x0;                          ///< Initial values (start of step).
             std::vector<double*>xd;                         ///< Derivative pointers.
-            std::vector< std::vector<double> > xdd;         ///< RK4 intermediate values (k1-k4).
+            std::vector< std::vector<double> > xdd;         ///< Intermediate stage values.
+            std::vector<dsf::sim::IntegrandType> types;     ///< Per-integrand type tags.
             std::vector<TClassBase<TClass > >classDict;     ///< Owner blocks for each integrand.
             static TClassIntegrandDict<TClass> * SingletonInstance; ///< Singleton pointer.
         };

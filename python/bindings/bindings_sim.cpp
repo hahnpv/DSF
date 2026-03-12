@@ -148,7 +148,12 @@ void init_sim(py::module_ &m) {
 
     py::class_<Sim>(m, "Sim")
         .def(py::init<>())
-        .def("load", &Sim::load)
+        .def("load", py::overload_cast<Block*, double, double, double, double>(&Sim::load))
+        .def("load", py::overload_cast<Block*, double, double, double, double,
+             const std::string&, double, double>(&Sim::load),
+             py::arg("root"), py::arg("dt"), py::arg("tmax"),
+             py::arg("console"), py::arg("file"),
+             py::arg("integrator_type"), py::arg("atol") = 1e-8, py::arg("rtol") = 1e-6)
         .def("run", &Sim::run, py::call_guard<py::gil_scoped_release>()) // Release GIL!
         .def("exec", &Sim::exec, py::call_guard<py::gil_scoped_release>()) // Release GIL!
         .def("step", &Sim::step, py::call_guard<py::gil_scoped_release>()) // Release GIL!

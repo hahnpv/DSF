@@ -95,7 +95,8 @@ int main(int argc, char *argv[])
 
 		// Instantiate simulation
 	Sim *sim = new Sim();
-	sim->load(root, input.dt(), input.tmax(), input.rateConsole(), input.rateFile());
+	sim->load(root, input.dt(), input.tmax(), input.rateConsole(), input.rateFile(),
+	          input.integrator(), input.atol(), input.rtol());
     
 	sim->run();
 

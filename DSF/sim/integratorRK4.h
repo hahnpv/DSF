@@ -1,24 +1,33 @@
 #pragma once
 
+#include "integrator_base.h"
+
 namespace dsf
 {
-	namespace sim 
-	{
-		class Sim;
-		class Clock;
-		class Block;
-		// Make this a base integrator class; then have derivatives for RK4, A-B-M, euler, etc.
-		// pick via xml just like vehicle configuraiton
-		// need to register these sim classes with dictionary... don't have common base
-		// but we can make a generic SimToolkitBase or something and keep a separate dict which is probably wise...
-		class Integrator 
-		{
-		public:
-			Integrator() {};
-			void propagate(Block * simulation);				/// Propagate differential equations
-			Clock *clock;
-		private:
-			void rk4( int pass);
-		};
-	}
-}
+namespace sim
+{
+
+/**
+ * @class IntegratorRK4
+ * @brief Classic 4th-order Runge-Kutta integrator.
+ *
+ * Four-stage fixed-step method. This is the default integrator and provides
+ * backward compatibility with the original DSF integration behavior.
+ */
+class IntegratorRK4 : public IntegratorBase
+{
+public:
+    IntegratorRK4() = default;
+
+    void propagate(Block* root) override;
+    int stages() const override { return 4; }
+
+private:
+    void rk4(int pass);
+};
+
+// Backward compatibility alias
+using Integrator = IntegratorRK4;
+
+} // namespace sim
+} // namespace dsf

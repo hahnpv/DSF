@@ -83,7 +83,18 @@ class SimSession:
 
         # Init simulation
         self._sim = _dsf.Sim()
-        self._sim.load(self._sim_root, self.dt, self.tmax, 0, 1.0)
+        
+        # Parse integrator selection from XML
+        integrator_type = sim_node.attrAsString("integrator")
+        if integrator_type:
+            atol_str = sim_node.attrAsString("atol")
+            rtol_str = sim_node.attrAsString("rtol")
+            atol = float(atol_str) if atol_str else 1e-8
+            rtol = float(rtol_str) if rtol_str else 1e-6
+            self._sim.load(self._sim_root, self.dt, self.tmax, 0, 1.0,
+                           integrator_type, atol, rtol)
+        else:
+            self._sim.load(self._sim_root, self.dt, self.tmax, 0, 1.0)
         self._sim.init()
 
         # Build prefixed headers
