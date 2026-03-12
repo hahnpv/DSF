@@ -67,6 +67,7 @@ add_library(DSF SHARED
     DSF/util/math/quat.cpp
     DSF/util/math/vec3.cpp
     DSF/util/tbl/tbl.cpp
+    DSF/util/tbl/tablend.cpp
     DSF/util/tbl/tbl2d.cpp
 )
 

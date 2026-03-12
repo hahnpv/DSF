@@ -29,3 +29,12 @@ Future development would address the following
 ## Demonstrate parallel processing 
 1. DSF branch to demo threading capability? barrier seems like an easy thread stopper to maintain sync, add mutexes to integrator/variable libraries
     * https://www.modernescpp.com/index.php/latches-and-barriers
+
+## GRAM Atmosphere Model Integration
+1. NASA Global Reference Atmosphere Model (GRAM) for statistical atmosphere dispersions
+    * Requires Software Usage Agreement (SUA) from NASA — not open source
+    * Provides month/lat/lon-dependent atmosphere with perturbation envelopes
+    * Would implement as a new `AtmosBase` subclass wrapping GRAM C/Fortran source
+    * Needed for: Monte Carlo dispersions, contract deliverables requiring GRAM compliance
+    * Reference: https://software.nasa.gov/software/MFS-33888-1
+

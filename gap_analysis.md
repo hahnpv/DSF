@@ -54,33 +54,35 @@ Comprehensive assessment of both codebases against the expectations of a product
 - **Air data**: pitot-static with lag, altitude encoder with quantization
 - **Star tracker / horizon sensor**: for spacecraft attitude determination
 
-#### 3. Only RK4 Integrator
-**Impact**: RK4 is fixed-step only. No error control, no stiffness handling. Orbital propagation at dt=0.05s wastes compute; cable dynamics may need smaller steps.
+#### ~~3. Only RK4 Integrator~~ ✅ DONE
+**Resolved**: Integrator strategy pattern with XML selection.
 
-**What's needed**:
-- Variable-step RK45 (Dormand-Prince) with error tolerance
-- Symplectic integrator option for long-duration orbital mechanics
-- Per-block integration rate (fast inner loop for FCS, slow outer loop for environment)
+- `IntegratorBase` abstract class + factory in `Sim::load()`
+- **RK45 (Dormand-Prince)**: adaptive sub-stepping within Clock dt, `atol`/`rtol` configurable
+- **Störmer-Verlet**: symplectic integrator with `IntegrandType` position/momentum tags
+- XML: `<sim integrator="RK45" atol="1e-8" rtol="1e-6" />`
+- Regression verified: RK4 vs RK45 on F16 steady — ΔAlt=1m (0.02%), ΔMach≈0
 
-#### 4. No Event Detection / Discrete Logic Framework
-**Impact**: State machines, mode transitions, and event triggers are ad-hoc (hard-coded time checks in each model). No way to detect zero-crossings (e.g. "altitude == 0" for impact).
+#### ~~4. No Event Detection / Discrete Logic Framework~~ ✅ DONE
+**Resolved**: EventBus + PhaseSequencer framework.
 
-**What's needed**:
-- Zero-crossing detector (for impact, apogee, phase transitions)
-- Discrete-event scheduling (fire squib at event, not at fixed time)
-- State machine framework or at least a standardized event bus
+- **EventBus**: singleton with 7 condition types (time_ge, crosses, rising, falling, ge, le, crosses_zero), zero-crossing interpolation, sorted callback execution, event history
+- **XML events**: `<events><event name="impact" type="falling" variable="Altitude" value="0" action="sim.terminate" /></events>`
+- **PhaseSequencer**: named phases with `map<string,double>` params, time/guard triggers, transition callbacks
+- F16FCS migrated from ad-hoc `Phase` struct to PhaseSequencer
+- Variable resolution via `Output::find_variable()` substring matching
 
 ---
 
 ### 🟡 Medium Priority — Model Completeness
 
-#### 5. No 3D+ Table Interpolation
-**Impact**: DSF has `Table` (1D) and `Table2d` (2D bilinear). F16Aero uses 2D tables (α×δ, α×β) with 1D Mach corrections applied additively. Full aero databases for modern vehicles typically need 3D (α, β, Mach → Cx) or higher.
+#### ~~5. No 3D+ Table Interpolation~~ ✅ DONE
+**Resolved**: N-dimensional table interpolation via `TableND`.
 
-**What's needed**:
-- 3D trilinear interpolation (α, β, Mach)
-- N-D regular grid interpolation
-- Table file format that supports multi-dimensional data
+- `TableND` class with N-D regular grid multilinear interpolation
+- Supports arbitrary dimensionality (1D through N-D)
+- Deprecates legacy `Table` (1D) and `Table2d` (2D) without removing them
+- Used by `ReferenceTrajectoryGuidance` for trajectory table lookups
 
 #### 6. No Actuator / Servo Dynamics
 **Impact**: Control surfaces respond instantly. No way to evaluate actuator rate limits, saturation, hysteresis, or time delay effects on stability margins.
@@ -90,14 +92,19 @@ Comprehensive assessment of both codebases against the expectations of a product
 - Optional backlash, hysteresis, quantization
 - Configurable per control surface via XML
 
-#### 7. Atmosphere Model Incomplete
-**Impact**: US Standard 1976 is the only option. No off-standard day, no high-altitude (>86 km) model, no planetary atmospheres.
+#### 7. ~~Atmosphere Model Incomplete~~ ✅ DONE
+**Resolved**: Full 7-layer US Standard Atmosphere 1976 (0–86 km) with tabulated upper atmosphere (86–1000 km, cubic interpolation). Hot/cold day perturbation (MIL-STD-210C).
 
-**What's needed**:
-- Hot/cold day profiles (MIL-STD-210)
-- GRAM (Global Reference Atmosphere Model) or equivalent for dispersions
-- High-altitude extension (>86 km for reentry vehicles)
-- Mars / Titan atmosphere models for interplanetary work
+- 7-layer analytical model replacing broken 3-layer (was missing mesosphere, had dead code above 25 km)
+- Upper atmosphere with pressure/density ratio tables + kinetic temperature model
+- `day="hot|cold|standard"` XML attribute for temperature perturbation
+- `WindModel` base class with `wind_NED(alt)` + forward-compatible `wind_NED(alt, lat, lon, t)`
+- `WindProfile`: XML-configurable altitude layers + optional discrete gust (MIL-F-8785C)
+- Falcon 9 Cape Canaveral wind variant verified (+11 km altitude deviation)
+
+**Deferred**:
+- GRAM (NASA proprietary, requires SUA — added to TODO.md)
+- Dryden continuous turbulence (future `WindDryden` class)
 
 #### 8. No Flex-Body / Structural Dynamics
 **Impact**: Large rockets experience significant bending modes that couple with the flight control system. Slosh dynamics affect guidance stability.
@@ -129,12 +136,12 @@ Comprehensive assessment of both codebases against the expectations of a product
 
 ### 🟢 Lower Priority — Framework Polish
 
-#### 11. XML Parser Fragility
-**Impact**: Already documented in TODO.md — tab-dependent parsing, space-splitting bugs, model name truncation.
+#### ~~11. XML Parser Fragility~~ ✅ DONE
+**Resolved**: Custom parser replaced with `boost::property_tree`.
 
-**What's needed**:
-- Migrate to pugixml or RapidXML
-- Or alternatively, support YAML/JSON as an option
+- `xmlnode` wrapper provides stateful navigation with parent stack
+- Proper error handling, attribute lookup, Vec3/Mat3 parsing
+- No more tab-dependent or space-splitting bugs
 
 #### 12. No Monte Carlo / Dispersion Framework
 **Impact**: Can only run single deterministic cases. No way to evaluate system robustness.
@@ -175,13 +182,13 @@ Comprehensive assessment of both codebases against the expectations of a product
 
 | Feature | JSBSim | Trick | DSF/sixdof |
 |---------|--------|-------|------------|
-| Variable-step integrator | ✅ | ✅ | ❌ (RK4 only) |
-| Wind/turbulence | ✅ | ✅ | ❌ |
+| Variable-step integrator | ✅ | ✅ | ✅ (RK4, RK45, Verlet) |
+| Wind/turbulence | ✅ | ✅ | ✅ (WindProfile + gust) |
 | Sensor models | ✅ | ✅ | ❌ (PerfectNav only) |
-| Multi-dim tables | ✅ | ✅ | ❌ (1D only) |
+| Multi-dim tables | ✅ | ✅ | ✅ (TableND, N-D) |
 | Actuator dynamics | ✅ | ✅ | ❌ |
 | Monte Carlo | ✅ | ✅ | ❌ |
-| Event detection | ✅ | ✅ | ❌ (ad-hoc) |
+| Event detection | ✅ | ✅ | ✅ (EventBus + PhaseSequencer) |
 | Flex-body | ❌ | ✅ | ❌ |
 | Python scripting | ❌ | ✅ | ✅ |
 | MCP / AI integration | ❌ | ❌ | ✅ |
