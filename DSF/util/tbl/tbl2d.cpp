@@ -128,3 +128,81 @@ namespace dsf
 		}
 	}
 }
+
+// ---- New bilinear interpolation support ----
+
+namespace dsf
+{
+	namespace util
+	{
+		/// Construct from breakpoints and data grid (bilinear 2D mode)
+		Table2d::Table2d(const std::vector<double>& rows,
+		                 const std::vector<double>& cols,
+		                 const std::vector<std::vector<double>>& data)
+			: row_breaks(rows), col_breaks(cols), grid(data)
+		{
+		}
+
+		/// Binary search for bracket index: returns j such that breaks[j] <= val < breaks[j+1]
+		/// Clamps to valid range [0, n-2].
+		int Table2d::findBracket(const std::vector<double>& breaks, double val)
+		{
+			int n = (int)breaks.size();
+			if (n < 2) return 0;
+
+			// Clamp to table bounds
+			if (val <= breaks[0]) return 0;
+			if (val >= breaks[n-1]) return n - 2;
+
+			// Binary search
+			int lo = 0, hi = n - 2;
+			while (lo < hi)
+			{
+				int mid = (lo + hi) / 2;
+				if (val < breaks[mid])
+					hi = mid - 1;
+				else if (val >= breaks[mid + 1])
+					lo = mid + 1;
+				else
+					return mid;  // breaks[mid] <= val < breaks[mid+1]
+			}
+			return lo;
+		}
+
+		/// True 2D bilinear interpolation: f(row_val, col_val)
+		///
+		/// Standard bilinear interpolation over the 4 surrounding grid points:
+		///   f(r,c) = (1-t)(1-u)*f00 + t*(1-u)*f10 + (1-t)*u*f01 + t*u*f11
+		/// where t and u are the fractional positions within the bracket cell.
+		double Table2d::interp(double row_val, double col_val)
+		{
+			// Find bracket indices
+			int ri = findBracket(row_breaks, row_val);
+			int ci = findBracket(col_breaks, col_val);
+
+			// Compute fractional positions within the cell
+			double dr = row_breaks[ri+1] - row_breaks[ri];
+			double dc = col_breaks[ci+1] - col_breaks[ci];
+
+			double t = (dr > 0.0) ? (row_val - row_breaks[ri]) / dr : 0.0;
+			double u = (dc > 0.0) ? (col_val - col_breaks[ci]) / dc : 0.0;
+
+			// Clamp fractions (for extrapolation protection)
+			if (t < 0.0) t = 0.0; if (t > 1.0) t = 1.0;
+			if (u < 0.0) u = 0.0; if (u > 1.0) u = 1.0;
+
+			// Four corners
+			double f00 = grid[ri  ][ci  ];
+			double f10 = grid[ri+1][ci  ];
+			double f01 = grid[ri  ][ci+1];
+			double f11 = grid[ri+1][ci+1];
+
+			// Bilinear formula
+			return (1.0 - t) * (1.0 - u) * f00
+			     + t         * (1.0 - u) * f10
+			     + (1.0 - t) * u         * f01
+			     + t         * u         * f11;
+		}
+	}
+}
+

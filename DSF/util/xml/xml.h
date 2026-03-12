@@ -167,8 +167,18 @@ public:
     double attrAsDouble(const std::string& str) {
         auto attr = current_->get_optional<double>("<xmlattr>." + str);
         if (attr) return attr.get();
+        // Boost property_tree may reject integer strings ("0", "1") as doubles.
+        // Fall back to std::stod on the raw string value.
+        auto attr_str = current_->get_optional<std::string>("<xmlattr>." + str);
+        if (attr_str) {
+            try { return std::stod(attr_str.get()); } catch (...) {}
+        }
         auto child = current_->get_optional<double>(str);
         if (child) return child.get();
+        auto child_str = current_->get_optional<std::string>(str);
+        if (child_str) {
+            try { return std::stod(child_str.get()); } catch (...) {}
+        }
         if (str == name_) return current_->get_value<double>();
         return 0.0;
     }

@@ -53,7 +53,7 @@ namespace dsf
 					table = new double*[numberOfLines];
 					for (int i=0; i <=numberOfLines-1; i++)
 					{
-						table[i] = new double[1];
+						table[i] = new double[2];
 					}
 
 					min = 0;
@@ -84,6 +84,80 @@ namespace dsf
 					}
 					myfile.close();
 				}
+
+		Table::Table(std::string csv_file, std::string x_col, std::string y_col, bool isCSV)
+		{
+			tableName = y_col;
+			ifstream myfile(csv_file.c_str());
+			if (!myfile.is_open())
+			{
+				cout << "Table: error opening CSV file " << csv_file << endl;
+				table = new double*[1]; table[0] = new double[2]; table[0][0] = 0; table[0][1] = 0; min = 0; max = 0; return;
+			}
+			
+			string line;
+			if (!getline(myfile, line)) {
+				table = new double*[1]; table[0] = new double[2]; table[0][0] = 0; table[0][1] = 0; min = 0; max = 0; return;
+			}
+			
+			// Parse header
+			int x_idx = -1, y_idx = -1;
+			std::vector<string> headers;
+			stringstream ss(line);
+			string cell;
+			while (getline(ss, cell, ','))
+			{
+				cell.erase(0, cell.find_first_not_of(" \r\n\t"));
+				cell.erase(cell.find_last_not_of(" \r\n\t") + 1);
+				headers.push_back(cell);
+			}
+			
+			for (size_t i = 0; i < headers.size(); i++)
+			{
+				if (headers[i] == x_col) x_idx = i;
+				if (headers[i] == y_col) y_idx = i;
+			}
+			
+			if (x_idx == -1 || y_idx == -1)
+			{
+				cout << "Table CSV Error: could not find columns " << x_col << " or " << y_col << " in " << csv_file << endl;
+				table = new double*[1]; table[0] = new double[2]; table[0][0] = 0; table[0][1] = 0; min = 0; max = 0; return;
+			}
+			
+			// Read data
+			std::vector<std::pair<double, double>> data;
+			while (getline(myfile, line))
+			{
+				if (line.empty() || line[0] == '\r') continue;
+				stringstream ss_row(line);
+				string val;
+				double x_val = 0, y_val = 0;
+				int col_idx = 0;
+				while (getline(ss_row, val, ','))
+				{
+					if (col_idx == x_idx) x_val = atof(val.c_str());
+					if (col_idx == y_idx) y_val = atof(val.c_str());
+					col_idx++;
+				}
+				data.push_back(std::make_pair(x_val, y_val));
+			}
+			myfile.close();
+			
+			int numberOfLines = data.size();
+			if (numberOfLines == 0) {
+				table = new double*[1]; table[0] = new double[2]; table[0][0] = 0; table[0][1] = 0; min = 0; max = 0; return;
+			}
+			
+			table = new double*[numberOfLines];
+			for (int i = 0; i < numberOfLines; i++)
+			{
+				table[i] = new double[2];
+				table[i][0] = data[i].first;
+				table[i][1] = data[i].second;
+			}
+			min = 0;
+			max = numberOfLines - 1;
+		}
 
 		/// Table interpolation.
 		/// \param x Value to interpolate for.

@@ -18,6 +18,7 @@ namespace dsf
 		public:
 			Table() {};
 			Table(std::string fname, std::string tabName);
+			Table(std::string csv_file, std::string x_col, std::string y_col, bool isCSV);
 			double interp(double x);
 			double operator()(double x)
 			{
