@@ -18,6 +18,7 @@ set(sim_source_files
   output.cpp
   event.h
   event.cpp
+  phase_sequencer.h
   sim.cpp
   TClassDict.h
   TRefDict.h
