@@ -1,8 +1,13 @@
+/**
+ * @file WindowsSockets.h
+ * @brief Windows-only WinSock initialization helper.
+ *
+ * Not used on Linux — included only for cross-platform compatibility.
+ */
 #pragma once
 
 #include <winsock.h>
 #include <iostream>
-// Handles all of the Windows Sockets stuff (WSAblah)
 
 void WS_Start()
 {

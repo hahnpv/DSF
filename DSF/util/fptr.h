@@ -1,46 +1,68 @@
+/**
+ * @file fptr.h
+ * @brief Legacy function pointer recursion templates (deprecated).
+ *
+ * Provides template classes for recursively invoking member functions
+ * across block tree structures. Superseded by TFunctor.h which provides
+ * the same functionality with a cleaner API.
+ *
+ * @deprecated Use dsf::util::TRecursiveFunctor from TFunctor.h instead.
+ */
+#pragma once
+
 #include <vector>
 
-	// should be able to create a TSpecificFunctor that doesn't need the *fpt until calling operator()
-	// -> this would let us instantiate one TSpecificFunctor per class and re-use it for init, update, rpt, etc.
 namespace dsf
 {
 	namespace util
 	{
-			///	Take a pointer to a (void) object member and recurse over an 
-			/// a std::vector<> using operator()
+		/**
+		 * @brief Recursive member function invoker (legacy).
+		 *
+		 * Takes a pointer to a void member function and recurses over
+		 * a std::vector<> using operator().
+		 *
+		 * @tparam TClass Class type of the block tree.
+		 * @deprecated Use TRecursiveFunctor from TFunctor.h.
+		 */
 		template <class TClass> class TSpecificFunctor
 		{
 		public:
-			TSpecificFunctor()//void(TClass::*fpt)(void))
-			{ 
-//				this->fpt = fpt; 
-			};
+			TSpecificFunctor() {};
 
 			virtual void operator()(std::vector<TClass*> &pt2Object, void(TClass::*fpt)(void))
 			{
 				for (unsigned int i=0; i < pt2Object.size(); i++)
 				{
 					this->fpt = fpt; 
-
-					(*pt2Object[i].*fpt)();			// execute member function
-
-					if (pt2Object[i]->child())		// recurse through children
+					(*pt2Object[i].*fpt)();
+					if (pt2Object[i]->child())
 						(*this)(pt2Object[i]->children, fpt);
 				}
 			};  
 			
 		private:
-			void (TClass::*fpt)(void);				// pointer to member function
+			void (TClass::*fpt)(void);      ///< Member function pointer.
 		};
 
-			///	Take a pointer to a (void) object member and recurse over an 
-			/// a std::vector<> using operator(), setting an object reference
-			/// Object reference must be valid at template instantiation.
-			/// \param TClass Class type of the graph.
-			/// \param RClass Class type of the object reference.
+		/**
+		 * @brief Recursive member function invoker with bound reference (legacy).
+		 *
+		 * Takes a pointer to a member function that accepts a reference parameter.
+		 * Reference is bound at construction time.
+		 *
+		 * @tparam TClass Class type of the block tree.
+		 * @tparam RClass Type of the bound reference parameter.
+		 * @deprecated Use TRecursiveFunctor from TFunctor.h.
+		 */
 		template <class TClass, class RClass> class TSpecificRefFunctor
 		{
 		public:
+			/**
+			 * @brief Construct with member function pointer and reference.
+			 * @param fpt Member function pointer (takes RClass*).
+			 * @param c   Reference to bind.
+			 */
 			TSpecificRefFunctor(void(TClass::*fpt)(RClass *), RClass &c)
 			{ 
 				this->fpt = fpt; 
@@ -51,31 +73,27 @@ namespace dsf
 			{
 				for (unsigned int i=0; i < pt2Object.size(); i++)
 				{
-					(*pt2Object[i].*fpt)(c);			// execute member function
-
-					if (pt2Object[i]->child())		// recurse through children
+					(*pt2Object[i].*fpt)(c);
+					if (pt2Object[i]->child())
 						(*this)(pt2Object[i]->children);
 				}
 			};  
 			
 		private:
-			void (TClass::*fpt)(RClass *c);				// pointer to member function
-			RClass *c;
+			void (TClass::*fpt)(RClass *c);     ///< Member function pointer.
+			RClass *c;                          ///< Bound reference.
 		};
 
-			//
-			//	Take a pointer to a (RClass) object member and iterate over an array using  
-			//	operator(), passing reference c of type RClass
-			//
-			//	try passing at the function level
-			//
-	
-			///	Take a pointer to a (void) object member and recurse over an 
-			/// a std::vector<> using operator(), setting an object reference
-			/// Object reference type must be known template instantiation, however \n
-			/// reference is not actually needed until operator() is invoked.
-			/// \param TClass Class type of the graph.
-			/// \param RClass Class type of the object reference.
+		/**
+		 * @brief Recursive member function invoker with deferred reference (legacy).
+		 *
+		 * Similar to TSpecificRefFunctor but the reference is passed at
+		 * invocation time rather than construction.
+		 *
+		 * @tparam TClass Class type of the block tree.
+		 * @tparam RClass Type of the reference parameter.
+		 * @deprecated Use TRecursiveFunctor from TFunctor.h.
+		 */
 		template <class TClass, class RClass> class TSpecificRefFunctor2
 		{
 		public:
@@ -88,15 +106,14 @@ namespace dsf
 			{
 				for (unsigned int i=0; i < pt2Object.size(); i++)
 				{
-					(*pt2Object[i].*fpt)(&c);			// execute member function
-
-					if (pt2Object[i]->child())		// recurse through children
+					(*pt2Object[i].*fpt)(&c);
+					if (pt2Object[i]->child())
 						(*this)(pt2Object[i]->children, c);
 				}
 			};  
 			
 		private:
-			void (TClass::*fpt)(RClass *c);				// pointer to member function
+			void (TClass::*fpt)(RClass *c);     ///< Member function pointer.
 		};
 	}
 }

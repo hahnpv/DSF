@@ -1,3 +1,7 @@
+/**
+ * @file tablend.h
+ * @brief N-dimensional regular-grid interpolation table.
+ */
 #pragma once
 
 #include <vector>

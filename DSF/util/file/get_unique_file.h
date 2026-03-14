@@ -1,7 +1,11 @@
+/**
+ * @file get_unique_file.h
+ * @brief Unique filename generator (appends numeric suffix to avoid collisions).
+ */
 #pragma once
 #include <iostream>
 #include <fstream>
-#include <sstream> // stupid string stream
+#include <sstream>
 
 namespace dsf
 {

@@ -1,6 +1,9 @@
+/**
+ * @file tbl2d.h
+ * @brief Legacy 2D interpolation table (bilinear + multi-column).
+ * @deprecated Use TableND from tablend.h instead.
+ */
 #pragma once
-// DEPRECATED: Use TableND instead (see tbl/tablend.h).
-// This class is retained for backward compatibility and will be removed in a future version.
 #include <string>
 #include <vector>
 

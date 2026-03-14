@@ -85,11 +85,8 @@ namespace dsf
             void OutputRef(Output *_o) { 
                 if (o == nullptr) {
                     o = _o; 
-                    std::cout << "[DEBUG] OutputRef set on block '" << name << "' to pointer " << _o << std::endl;
-                } else {
-                    std::cout << "[DEBUG] OutputRef ignored on block '" << name << "', already set" << std::endl;
                 }
-            };                 ///< Set output reference (called by Sim).
+            };                 ///< Set output reference (only if not already set).
             /// @}
 
             /// @name Graph Topology Functions

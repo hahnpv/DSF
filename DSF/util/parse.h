@@ -1,4 +1,12 @@
+/**
+ * @file parse.h
+ * @brief Templated string tokenizer and parser.
+ *
+ * Provides a split() function that tokenizes a delimited string and
+ * converts each token to the specified type via `operator>>`.
+ */
 #pragma once
+
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -10,10 +18,13 @@ namespace dsf
 {
 	namespace util
 	{
-			/// A templated parsing class.
-			/// \param str input string to be split.
-			/// \param delims delimeters by which the string is split.
-			/// TClass is the return type. There is no error checking.
+		/**
+		 * @brief Split a delimited string into typed tokens.
+		 * @tparam TClass Return type for each token (must support `operator>>`).
+		 * @param str    Input string to tokenize.
+		 * @param delims Delimiter characters.
+		 * @return Vector of parsed tokens.
+		 */
 		template< class TClass> std::vector<TClass> split( std::string str, std::string delims)
 		{
 		  using namespace std;

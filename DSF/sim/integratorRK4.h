@@ -1,3 +1,7 @@
+/**
+ * @file integratorRK4.h
+ * @brief Classic 4th-order Runge-Kutta integrator.
+ */
 #pragma once
 
 #include "integrator_base.h"

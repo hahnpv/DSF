@@ -1,3 +1,10 @@
+/**
+ * @file RTclock.h
+ * @brief Real-time clock for visualization (legacy, entirely commented out).
+ *
+ * Was intended for OSG-based real-time visualization. Currently unused.
+ * The digital simulation clock (clock.h) is used for all timing.
+ */
 #pragma once
 
 //#include <osg/Timer>

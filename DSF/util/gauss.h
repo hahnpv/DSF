@@ -1,20 +1,38 @@
+/**
+ * @file gauss.h
+ * @brief Random number generation utilities (Gaussian and uniform).
+ *
+ * Provides Box–Muller method Gaussian sampling and uniform distribution
+ * functions for Monte Carlo and noise injection.
+ */
 #pragma once
 
 #include <cmath>
-#include <stdlib.h>
+#include <cstdlib>
+
 namespace dsf
 {
 	namespace util
 	{
+		/**
+		 * @brief Set random seed (stub — platform-specific).
+		 * @tparam T Seed type.
+		 * @param t Seed value (unused in current implementation).
+		 */
 		template<class T>
 		void set_seed(T t)
 		{
-			// set seed to t 
-
-			// linux
-			//	srand( (unsigned)time(NULL) );
 		}
 
+		/**
+		 * @brief Generate a Gaussian-distributed random number.
+		 *
+		 * Uses the Box–Muller transform (polar form).
+		 *
+		 * @param mean  Distribution mean.
+		 * @param stdev Distribution standard deviation.
+		 * @return Random sample from N(mean, stdev²).
+		 */
 		double get_gauss(double mean, double stdev) 
 		{
 			double x1, x2, w, y1, y2;
@@ -32,10 +50,15 @@ namespace dsf
 			return mean + y1*stdev;	
 		};
 
-
+		/**
+		 * @brief Generate a uniformly-distributed random number.
+		 * @param min Lower bound.
+		 * @param max Upper bound.
+		 * @return Random sample from U[min, max].
+		 */
 		double getUniform(double min, double max) 
 		{
 			return min + (max-min) * ((double)rand()/RAND_MAX);
 		}
-	};
-};
+	}
+}

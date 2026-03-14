@@ -1,3 +1,7 @@
+/**
+ * @file demangle.h
+ * @brief GCC/Clang ABI type name demangling utility.
+ */
 #pragma once
 
 #include <cxxabi.h>

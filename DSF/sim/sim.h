@@ -1,3 +1,18 @@
+/**
+ * @file sim.h
+ * @brief Top-level simulation executive.
+ *
+ * Sim owns the main simulation loop: it advances the clock, calls the
+ * integrator, fires reports, and checks termination conditions. A single
+ * Sim instance manages one block-tree + clock + output chain.
+ *
+ * ## Usage
+ * @code{.cpp}
+ * dsf::sim::Sim sim;
+ * sim.load(root_block, 0.01, 600.0, 1.0, 0.1);
+ * sim.run();
+ * @endcode
+ */
 #pragma once
 
 #include "output.h"
@@ -6,33 +21,73 @@
 
 namespace dsf
 {
-	namespace sim 
-	{
-		class Clock;
-		class IntegratorBase;
-		class Block;
+    namespace sim 
+    {
+        class Clock;
+        class IntegratorBase;
+        class Block;
 
-		class Sim {
-		public:
-			void run();
-			void init();
-			void step();
-			void finalize();
-			void exec();
-			void load(Block * simulation, double dt, double tmax, double console, double file);
-			void load(Block * simulation, double dt, double tmax, double console, double file,
-			          const std::string& integrator_type, double atol = 1e-8, double rtol = 1e-6);
-			/// Returns the simulation vector, used by Integrator to get a handle on the sim vector for derivatives.
-			std::vector<Block*> sim()
-			{
-				return simulation;
-			};
-			Clock *clock;								///< Clock reference.
-			Output *output;                             ///< Output reference.
-		private:
-			double rptRate;								///< rpt() output rate
-			std::vector<Block*>simulation;				///< Simulation vector 
-			IntegratorBase *i;						///< Integrator object
-		};
-	}
+        /**
+         * @brief Simulation executive — owns the run loop.
+         *
+         * Manages the clock, integrator, output, and the root block tree.
+         * Provides two load() overloads: one for fixed-step RK4 and one
+         * for selectable integrator type with adaptive tolerances.
+         */
+        class Sim {
+        public:
+            /// Run the complete simulation (init → loop → finalize).
+            void run();
+
+            /// Initialize all blocks (calls Block::init on the tree).
+            void init();
+
+            /// Advance one integration step.
+            void step();
+
+            /// Finalize all blocks and close output files.
+            void finalize();
+
+            /// Execute the main simulation loop (step until tmax or end()).
+            void exec();
+
+            /**
+             * @brief Load simulation with default RK4 integrator.
+             * @param simulation Root block of the simulation tree.
+             * @param dt         Integration timestep [s].
+             * @param tmax       Maximum simulation time [s].
+             * @param console    Console output rate [s].
+             * @param file       File output rate [s].
+             */
+            void load(Block * simulation, double dt, double tmax, double console, double file);
+
+            /**
+             * @brief Load simulation with selectable integrator.
+             * @param simulation      Root block of the simulation tree.
+             * @param dt              Integration timestep [s].
+             * @param tmax            Maximum simulation time [s].
+             * @param console         Console output rate [s].
+             * @param file            File output rate [s].
+             * @param integrator_type Integrator name: "RK4", "RK45", or "Verlet".
+             * @param atol            Absolute tolerance (RK45 only).
+             * @param rtol            Relative tolerance (RK45 only).
+             */
+            void load(Block * simulation, double dt, double tmax, double console, double file,
+                      const std::string& integrator_type, double atol = 1e-8, double rtol = 1e-6);
+
+            /// Returns the simulation vector, used by Integrator to get a handle on the sim vector for derivatives.
+            std::vector<Block*> sim()
+            {
+                return simulation;
+            };
+
+            Clock *clock;                           ///< Simulation clock.
+            Output *output;                         ///< Telemetry output handler.
+
+        private:
+            double rptRate;                         ///< Console report rate [s].
+            std::vector<Block*>simulation;          ///< Root block tree.
+            IntegratorBase *i;                      ///< Active integrator.
+        };
+    }
 }

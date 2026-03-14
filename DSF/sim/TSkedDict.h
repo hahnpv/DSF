@@ -1,24 +1,31 @@
+/**
+ * @file TSkedDict.h
+ * @brief Placeholder scheduler dictionary (future use).
+ *
+ * Intended as a scheduler for ordered block execution, analogous to
+ * how TClassDict manages the factory dictionary.  Currently a stub.
+ */
 #pragma once
-	// find something more descriptive to name it ... 
+
 #include <vector>
 #include <typeinfo>
 #include <exception>
 #include <iostream>
 #include <string>
 
-#include "TIntDict.h"		// temporary, eventually make derived classes include as needed
+#include "TIntDict.h"
 using namespace std;
 
-	// scheduler
-	// work on later
 namespace dsf
 {
 	namespace sim 
 	{
-		// Prototypes
 		template<class base> class TClassBase;
 
-			/// A scheduler
+		/**
+		 * @brief Scheduler dictionary (stub — not yet implemented).
+		 * @tparam TClass Base class type.
+		 */
 		template <class TClass> class TSkedDict
 		{
 		public:

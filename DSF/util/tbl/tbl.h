@@ -1,6 +1,9 @@
+/**
+ * @file tbl.h
+ * @brief Legacy 1D interpolation table.
+ * @deprecated Use TableND from tablend.h instead.
+ */
 #pragma once
-// DEPRECATED: Use TableND instead (see tbl/tablend.h).
-// This class is retained for backward compatibility and will be removed in a future version.
 #include <string>
 	// i have no idea if the following comment applies anymore
 	//
