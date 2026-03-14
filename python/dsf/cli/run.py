@@ -174,6 +174,7 @@ def main():
         try:
             new_block = dsf.make_block(class_to_use)
             if new_block:
+                new_block.setName(child_id)
                 sim_root.addChild(new_block)
                 blocks.append(new_block)
                 children_nodes.append(child)

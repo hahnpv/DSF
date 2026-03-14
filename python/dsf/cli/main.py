@@ -108,5 +108,13 @@ def globe(h5_file):
     from dsf.cli.globe_view import run_globe
     run_globe(h5_file)
 
+@cli.command()
+@click.argument('input_file', type=click.Path(exists=True))
+@click.option('--port', default=8000, help="Port to run the local server on.")
+def cesium(input_file, port):
+    """Open an HDF5 output file or XML config in the 4D CesiumJS web visualizer."""
+    from dsf.cli.cesium_view import run_cesium
+    run_cesium(input_file, port=port)
+
 if __name__ == '__main__':
     cli()

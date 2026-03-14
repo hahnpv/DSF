@@ -16,21 +16,33 @@ public:
     using Block::Block; // Inherit constructors
 
     void configure(dsf::xml::xmlnode n) override {
+        std::cout << "[PyBlock::configure] " << this << std::endl;
+        pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, configure, n);
     }
     void init() override {
+        std::cout << "[PyBlock::init] " << this << std::endl;
+        pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, init, );
     }
     void update() override {
+        std::cout << "[PyBlock::update] " << this << std::endl;
+        pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, update, );
     }
     void rpt() override {
+        std::cout << "[PyBlock::rpt] " << this << std::endl;
+        pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, rpt, );
     }
     void rptSim() override {
+        std::cout << "[PyBlock::rptSim] " << this << std::endl;
+        pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, rptSim, );
     }
     void finalize() override {
+        std::cout << "[PyBlock::finalize] " << this << std::endl;
+        pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, finalize, );
     }
 };
