@@ -14,6 +14,7 @@
 #include "block.h"
 #include "../util/math/vec3.h"
 #include "../util/math/mat3.h"
+#include "../util/math/quat.h"
 #include "../util/file/get_unique_file.h"
 
 #include "log_level.h"
@@ -92,8 +93,19 @@ namespace dsf
             /** @brief Open output file and write headers. */
             void open()
             {
+                std::string bname_file = h5_group_name;
+                if (bname_file.empty()) {
+                    for (Block* b = getParent(); b != nullptr; b = b->getParent()) {
+                        std::string n = b->getName();
+                        if (!n.empty()) { bname_file = n; break; }
+                    }
+                }
+                
                 // CSV: find a unique "outputN.csv" base
-                string filename = "output.csv";
+                string filename = "output";
+                if (!bname_file.empty()) filename += "_" + bname_file;
+                filename += ".csv";
+                
                 std::string unique_csv = dsf::util::get_unique_file(filename).filename;
                 std::string csv_base = unique_csv.substr(0, unique_csv.find_last_of("."));
 
@@ -118,7 +130,10 @@ namespace dsf
                      if (!bname.empty()) h5->setGroup(bname);
 
                      // Get a unique HDF5 filename independently (avoids re-using stale .h5 files)
-                     std::string unique_h5 = dsf::util::get_unique_file("output.h5").filename;
+                     std::string base_h5_name = "output";
+                     if (!bname.empty()) base_h5_name += "_" + bname;
+                     base_h5_name += ".h5";
+                     std::string unique_h5 = dsf::util::get_unique_file(base_h5_name).filename;
                      std::string h5_base = unique_h5.substr(0, unique_h5.find_last_of("."));
                      h5->open(h5_base);
                 }
@@ -146,6 +161,9 @@ namespace dsf
             }
             void add(dsf::util::Mat3 &m, std::string title, std::string units, double conversion=1.0) {
                 add(m, title, units, LOG_NORMAL, conversion);
+            }
+            void add(dsf::util::Quaternion &q, string title, string units, double conversion=1.0) {
+                add(q, title, units, LOG_NORMAL, conversion);
             }
 
             // Priority Overloads
@@ -185,6 +203,14 @@ namespace dsf
                 }
                 if (h5_enabled && h5 && p <= h5_level) {
                     h5->add(m, t, u, c);
+                }
+            }
+
+            void add(dsf::util::Quaternion &q, string t, string u, LogLevel p, double c=1.0)
+            {
+                // Quaternions are currently only exported to HDF5 streams
+                if (h5_enabled && h5 && p <= h5_level) {
+                    h5->add(q, t, u, c);
                 }
             }
             /// @}

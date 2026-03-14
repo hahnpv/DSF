@@ -12,6 +12,7 @@
 #include "log_level.h"
 #include "../util/math/vec3.h"
 #include "../util/math/mat3.h"
+#include "../util/math/quat.h"
 #include <unistd.h>  // for access()
 
 namespace dsf
@@ -69,6 +70,13 @@ namespace dsf
                     createDataset(vec_titles[i] + "_z", H5::PredType::NATIVE_DOUBLE);
                 }
 
+                for (size_t i = 0; i < quat_titles.size(); i++) {
+                    createDataset(quat_titles[i] + "_x", H5::PredType::NATIVE_DOUBLE);
+                    createDataset(quat_titles[i] + "_y", H5::PredType::NATIVE_DOUBLE);
+                    createDataset(quat_titles[i] + "_z", H5::PredType::NATIVE_DOUBLE);
+                    createDataset(quat_titles[i] + "_w", H5::PredType::NATIVE_DOUBLE);
+                }
+
                 for (size_t k = 0; k < mat_titles.size(); k++)
                     for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++)
                         createDataset(mat_titles[k] + "_" + std::to_string(i) + std::to_string(j),
@@ -101,6 +109,18 @@ namespace dsf
                 createDataset(title + "_x", H5::PredType::NATIVE_DOUBLE, units);
                 createDataset(title + "_y", H5::PredType::NATIVE_DOUBLE, units);
                 createDataset(title + "_z", H5::PredType::NATIVE_DOUBLE, units);
+            }
+
+            void add(dsf::util::Quaternion &q, std::string title, std::string units, double conversion=1.0)
+            {
+                quats.push_back(&q);
+                quat_titles.push_back(title);
+                quat_conversions.push_back(conversion);
+                
+                createDataset(title + "_x", H5::PredType::NATIVE_DOUBLE, units);
+                createDataset(title + "_y", H5::PredType::NATIVE_DOUBLE, units);
+                createDataset(title + "_z", H5::PredType::NATIVE_DOUBLE, units);
+                createDataset(title + "_w", H5::PredType::NATIVE_DOUBLE, units);
             }
             
             // Matrices omitted for brevity unless needed (can add later)
@@ -136,6 +156,14 @@ namespace dsf
                     appendToDataset(vec_titles[i] + "_x", vectors[i]->x * vec_conversions[i]);
                     appendToDataset(vec_titles[i] + "_y", vectors[i]->y * vec_conversions[i]);
                     appendToDataset(vec_titles[i] + "_z", vectors[i]->z * vec_conversions[i]);
+                }
+
+                // Write Quaternions
+                for (size_t i=0; i < quats.size(); i++) {
+                    appendToDataset(quat_titles[i] + "_x", quats[i]->x * quat_conversions[i]);
+                    appendToDataset(quat_titles[i] + "_y", quats[i]->y * quat_conversions[i]);
+                    appendToDataset(quat_titles[i] + "_z", quats[i]->z * quat_conversions[i]);
+                    appendToDataset(quat_titles[i] + "_w", quats[i]->w * quat_conversions[i]);
                 }
                 
                  // Write Matrices
@@ -205,6 +233,10 @@ namespace dsf
             std::vector<dsf::util::Vec3*> vectors;
             std::vector<std::string> vec_titles;
             std::vector<double> vec_conversions;
+            
+            std::vector<dsf::util::Quaternion*> quats;
+            std::vector<std::string> quat_titles;
+            std::vector<double> quat_conversions;
             
             std::vector<dsf::util::Mat3*> matrices;
             std::vector<std::string> mat_titles;

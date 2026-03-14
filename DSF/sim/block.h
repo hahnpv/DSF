@@ -51,7 +51,7 @@ namespace dsf
         class Block 
         {
         public:
-            Block()                 { parent = 0; };            ///< Default constructor; null parent pointer.
+            Block()                 { parent = nullptr; clock = nullptr; o = nullptr; rptRate = 0.0; };            ///< Default constructor; null pointers.
             virtual ~Block()        {};                         ///< Destructor.
             
             /**
@@ -81,8 +81,15 @@ namespace dsf
 
             /// @name Reference Functions
             /// @{
-            void ClockRef(Clock *_clock) { clock = _clock; };   ///< Set clock reference (called by Sim).
-            void OutputRef(Output *_o) { o = _o; };             ///< Set output reference (called by Sim).
+            void ClockRef(Clock *_clock) { if (clock == nullptr) clock = _clock; };   ///< Set clock reference (called by Sim).
+            void OutputRef(Output *_o) { 
+                if (o == nullptr) {
+                    o = _o; 
+                    std::cout << "[DEBUG] OutputRef set on block '" << name << "' to pointer " << _o << std::endl;
+                } else {
+                    std::cout << "[DEBUG] OutputRef ignored on block '" << name << "', already set" << std::endl;
+                }
+            };                 ///< Set output reference (called by Sim).
             /// @}
 
             /// @name Graph Topology Functions

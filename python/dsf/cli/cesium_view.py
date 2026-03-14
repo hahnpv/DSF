@@ -12,8 +12,8 @@ HTML_CONTENT = """<!DOCTYPE html>
   <meta charset="utf-8">
   <title>DSF Cesium View</title>
   <!-- CesiumJS library from CDN -->
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
       html, body, #cesiumContainer {
           width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
@@ -43,9 +43,7 @@ HTML_CONTENT = """<!DOCTYPE html>
     // Initialize Cesium Viewer WITHOUT Ion WorldTerrain to prevent auth hangs
     // Use OpenStreetMap for the base texture since Ion default Bing Maps are suppressed
     const viewer = new Cesium.Viewer('cesiumContainer', {
-      imageryProvider: new Cesium.OpenStreetMapImageryProvider({
-        url : 'https://a.tile.openstreetmap.org/'
-      }),
+      baseLayer: false,
       animation: true,
       timeline: true,
       infoBox: false,
@@ -55,12 +53,38 @@ HTML_CONTENT = """<!DOCTYPE html>
       homeButton: false,
       sceneModePicker: false
     });
+    // Add ArcGIS satellite imagery asynchronously (required for CesiumJS 1.114+)
+    Cesium.ArcGisMapServerImageryProvider.fromUrl(
+      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
+    ).then(function(provider) {
+      viewer.imageryLayers.addImageryProvider(provider);
+    }).catch(function(err) {
+      console.warn('ArcGIS imagery failed, using default:', err);
+    });
+
+    // Monkey-patch render to catch tile frustum RangeError without halting
+    const _origRender = viewer.scene.primitives.update;
+    viewer.scene.primitives.update = function() {
+      try { return _origRender.apply(this, arguments); }
+      catch(e) { console.warn('Render error suppressed:', e.message); }
+    };
 
     // Load the CZML stream from our local Python server
     const dataSourcePromise = Cesium.CzmlDataSource.load('/data.czml');
     viewer.dataSources.add(dataSourcePromise).then(function(ds) {
         document.getElementById('loading').style.display = 'none';
-        viewer.trackedEntity = ds.entities.values[0]; // Track the first vehicle automatically
+        // Fly to a safe overhead view instead of auto-tracking
+        var entities = ds.entities.values;
+        if (entities.length > 0) {
+            var pos = entities[0].position.getValue(viewer.clock.startTime);
+            if (pos) {
+                var carto = Cesium.Cartographic.fromCartesian(pos);
+                viewer.camera.flyTo({
+                    destination: Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, 200000),
+                    duration: 2
+                });
+            }
+        }
         viewer.clock.multiplier = 1.0;
     }).catch(function(error) {
         console.error(error);
@@ -297,6 +321,14 @@ def generate_czml(input_file):
                             "material": {"solidColor": {"color": {"rgba": color}}}
                         }
                     
+                # Validate: skip entities with positions near Earth's center (crash Cesium)
+                if len(cartesian) >= 4:
+                    import math
+                    mag = math.sqrt(cartesian[1]**2 + cartesian[2]**2 + cartesian[3]**2)
+                    if mag < 1000000:  # < 1000 km from center = inside Earth = invalid
+                        print(f"  Skipping {group_name}: ECEF position too close to origin ({mag:.0f} m)")
+                        continue
+                
                 czml.append(entity)
                 
     # Update clock bound

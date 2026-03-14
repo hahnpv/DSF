@@ -71,7 +71,9 @@ int main(int argc, char *argv[])
 		child_node.child(i);
 		std::string child_id = child_node.attrAsString("id");
 		if (child_id.empty()) continue;  // skip non-block nodes like <events>
-		root->addChild( TRefUnique<Block>( child_id.c_str()));
+		std::string model = child_node.attrAsString("class");
+		if (model == "") model = child_id;
+		root->addChild( TRefUnique<Block>( model.c_str()));
 	}
 	for ( int i = 0, bi = 0; i < nx; i++)
 	{

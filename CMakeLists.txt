@@ -13,7 +13,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Find Dependencies
 find_package(Boost 1.56 COMPONENTS program_options system serialization REQUIRED)
-find_package(OpenSceneGraph 2.0.0 REQUIRED osgDB osgUtil)
 # find_package(pybind11 CONFIG REQUIRED)
 include(FetchContent)
 FetchContent_Declare(
@@ -77,7 +76,6 @@ target_include_directories(DSF PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
     ${Boost_INCLUDE_DIRS}
-    ${OPENSCENEGRAPH_INCLUDE_DIRS}
 )
 
 target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
@@ -94,7 +92,6 @@ pybind11_add_module(dsf_core
 target_link_libraries(dsf_core PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
  target_include_directories(dsf_core PRIVATE 
     ${Boost_INCLUDE_DIRS}
-    ${OPENSCENEGRAPH_INCLUDE_DIRS}
 )
 target_compile_options(dsf_core PRIVATE -fpermissive)
 
