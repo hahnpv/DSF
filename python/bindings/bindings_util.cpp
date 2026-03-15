@@ -42,22 +42,40 @@ void init_util(py::module_ &m) {
             return "<dsf.Vec3 (" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ")>";
         });
 
-    // Quaternion (needed for Mat4)
+    // Quaternion
     py::class_<dsf::util::Quaternion>(m, "Quaternion")
         .def(py::init<>())
-        .def(py::init<double, double, double>())
-        .def(py::init<double, double, double, double>())
-        .def_readwrite("x", &dsf::util::Quaternion::x)
-        .def_readwrite("y", &dsf::util::Quaternion::y)
-        .def_readwrite("z", &dsf::util::Quaternion::z)
-        .def_readwrite("w", &dsf::util::Quaternion::w)
+        .def(py::init<double, double, double>())       // from Euler (phi, theta, psi)
+        .def(py::init<double, double, double, double>()) // from components (q0, q1, q2, q3)
+        // Raw components (scalar-first: q0=scalar, q1/q2/q3=vector)
+        .def_readwrite("q0", &dsf::util::Quaternion::q0)
+        .def_readwrite("q1", &dsf::util::Quaternion::q1)
+        .def_readwrite("q2", &dsf::util::Quaternion::q2)
+        .def_readwrite("q3", &dsf::util::Quaternion::q3)
+        // Standard named accessors (read-only)
+        .def_property_readonly("w", &dsf::util::Quaternion::w)
+        .def_property_readonly("x", &dsf::util::Quaternion::x)
+        .def_property_readonly("y", &dsf::util::Quaternion::y)
+        .def_property_readonly("z", &dsf::util::Quaternion::z)
+        // Euler extraction
         .def("phi", &dsf::util::Quaternion::phi)
         .def("theta", &dsf::util::Quaternion::theta)
         .def("psi", &dsf::util::Quaternion::psi)
-        .def("Teb", &dsf::util::Quaternion::Teb)
+        // Rotation operations
+        .def("dcm", &dsf::util::Quaternion::dcm)
+        .def("Teb", &dsf::util::Quaternion::Teb)  // deprecated alias
+        .def("quat_mult", &dsf::util::Quaternion::quat_mult)
+        // Normalization
         .def("normalize", &dsf::util::Quaternion::normalize)
+        .def("magnitude", &dsf::util::Quaternion::magnitude)
+        // Operators
         .def("__mul__", &dsf::util::Quaternion::operator*, py::is_operator())
-        .def("__call__", &dsf::util::Quaternion::operator(), py::is_operator()) // set euler
+        .def("__add__", &dsf::util::Quaternion::operator+, py::is_operator())
+        .def("__call__", &dsf::util::Quaternion::operator(), py::is_operator())
+        .def("__repr__", [](const dsf::util::Quaternion &q) {
+            return "<dsf.Quaternion (q0=" + std::to_string(q.q0) + ", q1=" + std::to_string(q.q1)
+                 + ", q2=" + std::to_string(q.q2) + ", q3=" + std::to_string(q.q3) + ")>";
+        })
         ;
 
     // Mat3

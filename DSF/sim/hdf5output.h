@@ -158,12 +158,12 @@ namespace dsf
                     appendToDataset(vec_titles[i] + "_z", vectors[i]->z * vec_conversions[i]);
                 }
 
-                // Write Quaternions
+                // Write Quaternions (dataset names: _w=scalar, _x/_y/_z=vector)
                 for (size_t i=0; i < quats.size(); i++) {
-                    appendToDataset(quat_titles[i] + "_x", quats[i]->x * quat_conversions[i]);
-                    appendToDataset(quat_titles[i] + "_y", quats[i]->y * quat_conversions[i]);
-                    appendToDataset(quat_titles[i] + "_z", quats[i]->z * quat_conversions[i]);
-                    appendToDataset(quat_titles[i] + "_w", quats[i]->w * quat_conversions[i]);
+                    appendToDataset(quat_titles[i] + "_x", quats[i]->q1 * quat_conversions[i]);
+                    appendToDataset(quat_titles[i] + "_y", quats[i]->q2 * quat_conversions[i]);
+                    appendToDataset(quat_titles[i] + "_z", quats[i]->q3 * quat_conversions[i]);
+                    appendToDataset(quat_titles[i] + "_w", quats[i]->q0 * quat_conversions[i]);
                 }
                 
                  // Write Matrices

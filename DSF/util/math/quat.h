@@ -2,35 +2,51 @@
  * @file quat.h
  * @brief Quaternion class for attitude representation.
  *
- * Provides a 4-component quaternion (x, y, z, w) with construction
- * from Euler angles, normalization, and Earth-to-body DCM extraction.
+ * Provides a unit quaternion with Hamilton product, DCM extraction,
+ * Euler angle conversion, and integrator-compatible arithmetic.
+ *
+ * ## Convention
+ * Internal storage is (q0, q1, q2, q3) where q0 is the **scalar** part.
+ * Named accessors follow the x/y/z/w convention used by Eigen and most
+ * graphics libraries: w() = scalar, x()/y()/z() = vector.
+ *
+ * ## Kinematic Equation
+ * @code{.cpp}
+ * // Quaternion derivative from angular velocity [rad/s]:
+ * Quaternion omega_q(0, pqr.x, pqr.y, pqr.z);  // pure quaternion
+ * dq = q.quat_mult(omega_q) * 0.5;
+ * @endcode
  */
 #pragma once
 
 #include <iostream>
+#include <cmath>
 #include "mat3.h"
-#include "mat4.h"
 
 namespace dsf
 {
     namespace util
     {
+        // Forward declare Mat4 for legacy operator
+        class Mat4;
+
         /**
-         * @brief Quaternion for 3D rotation representation.
+         * @brief Unit quaternion for 3D rotation representation.
          *
-         * Components stored in (x, y, z, w) order where w is the scalar part.
-         * Supports construction from Euler angles (phi, theta, psi) and
-         * extraction of the Earth-to-body direction cosine matrix.
+         * Storage order: q0 (scalar), q1, q2, q3 (vector).
+         * The Hamilton product convention is used: p ⊗ q.
          */
         class Quaternion
         {
         public:
             /// @name Constructors
             /// @{
-            Quaternion() {};                                    ///< Default constructor.
+
+            /// Default constructor (identity quaternion: q0=1, q1=q2=q3=0).
+            Quaternion() : q0(1), q1(0), q2(0), q3(0) {}
 
             /**
-             * @brief Construct from Euler angles.
+             * @brief Construct from Euler angles (3-2-1 / ZYX rotation).
              * @param phi   Roll angle [rad].
              * @param theta Pitch angle [rad].
              * @param psi   Yaw/heading angle [rad].
@@ -38,46 +54,92 @@ namespace dsf
             Quaternion(double phi, double theta, double psi);
 
             /**
-             * @brief Construct from quaternion components.
-             * @param x X component (vector part).
-             * @param y Y component (vector part).
-             * @param z Z component (vector part).
-             * @param w W component (scalar part).
+             * @brief Construct from components.
+             * @param q0 Scalar part (w).
+             * @param q1 Vector-x part.
+             * @param q2 Vector-y part.
+             * @param q3 Vector-z part.
              */
-            Quaternion(double x, double y, double z, double w);
+            Quaternion(double q0, double q1, double q2, double q3);
             /// @}
 
-            ~Quaternion() {};                                   ///< Destructor.
+            ~Quaternion() {}
 
-            /// @name Euler Angle Accessors
+            /// @name Component Accessors (standard x/y/z/w names)
             /// @{
-            inline double phi()   { return 1.0; };  ///< Roll angle [rad] (stub — not yet implemented).
-            inline double theta() { return 1.0; };  ///< Pitch angle [rad] (stub — not yet implemented).
-            inline double psi()   { return 1.0; };  ///< Yaw angle [rad] (stub — not yet implemented).
+            inline double w() const { return q0; }   ///< Scalar part.
+            inline double x() const { return q1; }   ///< Vector-x.
+            inline double y() const { return q2; }   ///< Vector-y.
+            inline double z() const { return q3; }   ///< Vector-z.
+            inline double scalar() const { return q0; } ///< Scalar part (alias).
             /// @}
 
-            /// Compute Earth-to-body direction cosine matrix.
-            Mat3 Teb();
+            /// @name Euler Angle Extraction
+            /// @{
 
-            /// Normalize to unit quaternion.
+            /** @brief Roll angle from quaternion [rad]. */
+            double phi() const;
+
+            /** @brief Pitch angle from quaternion [rad]. */
+            double theta() const;
+
+            /** @brief Yaw/heading angle from quaternion [rad]. */
+            double psi() const;
+            /// @}
+
+            /// @name Rotation Operations
+            /// @{
+
+            /**
+             * @brief Body-to-inertial direction cosine matrix.
+             * @return 3×3 DCM derived from the quaternion.
+             */
+            Mat3 dcm() const;
+
+            /** @deprecated Use dcm() instead. */
+            Mat3 Teb() { return dcm(); }
+
+            /**
+             * @brief Hamilton quaternion product: this ⊗ rhs.
+             * @param rhs Right-hand quaternion.
+             * @return Product quaternion (not normalized).
+             */
+            Quaternion quat_mult(const Quaternion& rhs) const;
+            /// @}
+
+            /// @name Normalization
+            /// @{
+
+            /** @brief Normalize to unit quaternion in-place. */
             void normalize();
 
-            /// @name Operator Overloads
-            /// @{
-            Quaternion operator*(double c);                                 ///< Scalar multiplication.
-            Quaternion operator()(double phi, double theta, double psi);    ///< Set from Euler angles.
+            /** @brief Euclidean magnitude. */
+            double magnitude() const
+            {
+                return std::sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3);
+            }
             /// @}
 
-            /// @name Quaternion Components
+            /// @name Arithmetic Operators (integrator support)
             /// @{
-            double x;   ///< X component (vector part).
-            double y;   ///< Y component (vector part).
-            double z;   ///< Z component (vector part).
-            double w;   ///< W component (scalar part).
+            Quaternion operator*(double c) const;               ///< Scalar multiply.
+            Quaternion operator+(const Quaternion& rhs) const;  ///< Component-wise add.
+            Quaternion& operator+=(const Quaternion& rhs);      ///< Component-wise add-assign.
+            /// @}
+
+            /** @brief Set from Euler angles (mutating). */
+            Quaternion operator()(double phi, double theta, double psi);
+
+            /// @name Quaternion Components (scalar-first: q0=scalar, q1/q2/q3=vector)
+            /// @{
+            double q0;  ///< Scalar part (w).
+            double q1;  ///< Vector-x part.
+            double q2;  ///< Vector-y part.
+            double q3;  ///< Vector-z part.
             /// @}
         };
 
-        /// Stream output operator for Quaternion.
+        /// Stream output: "q0 q1 q2 q3"
         std::ostream &operator<<(std::ostream &stream, Quaternion quat);
     }
 }

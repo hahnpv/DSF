@@ -152,13 +152,13 @@ namespace dsf
 			return m1;
 		}
 		*/
-		Quaternion Mat4::operator*( Quaternion q0)
+		Quaternion Mat4::operator*( Quaternion q0_in)
 		{
 			Quaternion q1;
-			q1.x = this->a00 * q0.x + this->a01 * q0.y + this->a02 * q0.z + this->a03 * q0.w;
-			q1.y = this->a10 * q0.x + this->a11 * q0.y + this->a12 * q0.z + this->a13 * q0.w;
-			q1.z = this->a20 * q0.x + this->a21 * q0.y + this->a22 * q0.z + this->a23 * q0.w;
-			q1.w = this->a30 * q0.x + this->a31 * q0.y + this->a32 * q0.z + this->a33 * q0.w;
+			q1.q0 = this->a00 * q0_in.q0 + this->a01 * q0_in.q1 + this->a02 * q0_in.q2 + this->a03 * q0_in.q3;
+			q1.q1 = this->a10 * q0_in.q0 + this->a11 * q0_in.q1 + this->a12 * q0_in.q2 + this->a13 * q0_in.q3;
+			q1.q2 = this->a20 * q0_in.q0 + this->a21 * q0_in.q1 + this->a22 * q0_in.q2 + this->a23 * q0_in.q3;
+			q1.q3 = this->a30 * q0_in.q0 + this->a31 * q0_in.q1 + this->a32 * q0_in.q2 + this->a33 * q0_in.q3;
 			return q1;
 
 		}

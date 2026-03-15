@@ -13,6 +13,7 @@
 #include <iostream>
 #include <string>
 #include "integrator_base.h"  // for IntegrandType
+#include "../util/math/quat.h"   // for Quaternion integrand support
 
 using namespace std;
 
@@ -80,6 +81,22 @@ namespace dsf
                 for (int i=0; i<3; i++)
                     for (int j=0; j<3; j++)
                         addToIntegrator(in, m[i][j], dm[i][j], type);
+            }
+
+            /**
+             * @brief Register a Quaternion state-derivative pair.
+             * @param in Owner block.
+             * @param q  State quaternion.
+             * @param dq Derivative quaternion.
+             * @param type IntegrandType tag (default GENERIC).
+             */
+            void add(TClassBase<TClass > *in, dsf::util::Quaternion &q, dsf::util::Quaternion &dq,
+                     dsf::sim::IntegrandType type = dsf::sim::IntegrandType::GENERIC)
+            {
+                addToIntegrator(in, q.q0, dq.q0, type);
+                addToIntegrator(in, q.q1, dq.q1, type);
+                addToIntegrator(in, q.q2, dq.q2, type);
+                addToIntegrator(in, q.q3, dq.q3, type);
             }
 
             /**
