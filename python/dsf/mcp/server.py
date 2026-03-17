@@ -1254,6 +1254,120 @@ def patch_run_xml(
         return json.dumps({"error": str(e)})
 
 # =========================================================================
+# Build Tools
+# =========================================================================
+
+_BUILD_DIRS = {
+    "sixdof": "/home/philip/git/sixdof/build",
+    "dsf":    "/home/philip/git/DSF/build",
+}
+
+@mcp.tool(name="dsf_build")
+def build(
+    project: Annotated[str, Field(description="Project to build: 'sixdof' (default), 'dsf', or 'both'")] = "sixdof",
+    action: Annotated[str, Field(description="Build action: 'build' (default), 'clean', 'rebuild' (clean+build), 'cmake' (reconfigure+build)")] = "build",
+    build_dir: Annotated[str, Field(description="Override build directory. Empty = use project default.")] = "",
+) -> str:
+    """Build the sixdof or DSF shared libraries.
+
+    Projects:
+      - sixdof: builds libsixdof.so (vehicle models, EOM, aero, hydro)
+      - dsf:    builds DSF core (sim engine, integrators, I/O)
+      - both:   builds DSF first, then sixdof (dependency order)
+
+    Actions:
+      - build:   Incremental build (make -j)
+      - clean:   Remove build artifacts (make clean)
+      - rebuild: Clean then build
+      - cmake:   Re-run cmake then build
+
+    Example:
+        dsf_build()                              # incremental sixdof build
+        dsf_build(project="dsf", action="cmake") # reconfigure DSF
+        dsf_build(project="both")                # build everything
+    """
+    import multiprocessing
+    nproc = multiprocessing.cpu_count()
+
+    # Determine which project(s) to build
+    if build_dir:
+        targets = [("custom", Path(build_dir).resolve())]
+    elif project == "both":
+        targets = [("dsf", Path(_BUILD_DIRS["dsf"])), ("sixdof", Path(_BUILD_DIRS["sixdof"]))]
+    elif project in _BUILD_DIRS:
+        targets = [(project, Path(_BUILD_DIRS[project]))]
+    else:
+        return json.dumps({"error": f"Unknown project '{project}'. Use 'sixdof', 'dsf', or 'both'."})
+
+    all_results = {}
+    overall_success = True
+    t0 = _time.time()
+
+    for proj_name, build_path in targets:
+        if not build_path.exists():
+            all_results[proj_name] = {"error": f"Build directory not found: {build_path}"}
+            overall_success = False
+            continue
+
+        # Build the step list
+        steps = []
+        if action == "clean":
+            steps = [["make", "clean"]]
+        elif action == "rebuild":
+            steps = [["make", "clean"], ["make", f"-j{nproc}"]]
+        elif action == "cmake":
+            src_dir = str(build_path.parent)
+            steps = [["cmake", src_dir], ["make", f"-j{nproc}"]]
+        else:
+            steps = [["make", f"-j{nproc}"]]
+
+        step_results = []
+        for cmd in steps:
+            try:
+                proc = subprocess.run(
+                    cmd, cwd=str(build_path),
+                    capture_output=True, text=True, timeout=120
+                )
+                step_result = {
+                    "cmd": " ".join(cmd),
+                    "exit_code": proc.returncode,
+                }
+                if proc.stdout:
+                    step_result["stdout_tail"] = proc.stdout[-2000:]
+                if proc.stderr:
+                    step_result["stderr_tail"] = proc.stderr[-2000:]
+                step_results.append(step_result)
+
+                if proc.returncode != 0:
+                    overall_success = False
+                    break
+            except subprocess.TimeoutExpired:
+                step_results.append({"cmd": " ".join(cmd), "error": "Timed out after 120s"})
+                overall_success = False
+                break
+            except Exception as e:
+                step_results.append({"cmd": " ".join(cmd), "error": str(e)})
+                overall_success = False
+                break
+
+        all_results[proj_name] = {"steps": step_results}
+
+        # Stop building further projects if one failed
+        if not overall_success:
+            break
+
+    elapsed = round(_time.time() - t0, 2)
+
+    return json.dumps({
+        "success": overall_success,
+        "action": action,
+        "wall_clock_seconds": elapsed,
+        "projects": all_results,
+    }, indent=2)
+
+
+
+# =========================================================================
 # Entry point
 # =========================================================================
 
