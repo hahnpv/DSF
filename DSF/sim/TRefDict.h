@@ -86,6 +86,7 @@ namespace dsf
          */
         template<class BClass, class DClass> DClass * TRefSim(BClass * b, std::string id)
         {
+            // Pass 1: match by class name (original behavior — backward compatible)
             for ( unsigned int i = 0; i < b->getChildren().size(); i++)
             {
                 std::string classid   = dsf::util::demangle( typeid(*(b->getChild(i))).name() );
@@ -93,6 +94,18 @@ namespace dsf
                 if ( classid.compare(compareid) == 0)
                 {
                     return dynamic_cast<DClass*>( b->getChild(i));
+                }
+            }
+
+            // Pass 2: match by instance name (XML "id" attribute) with type check
+            // This handles cases where id != class name, e.g.
+            //   <aero id="CapsuleAero" class="ReentryAero" />
+            for ( unsigned int i = 0; i < b->getChildren().size(); i++)
+            {
+                if ( b->getChild(i)->getName() == id )
+                {
+                    DClass* result = dynamic_cast<DClass*>( b->getChild(i) );
+                    if (result) return result;
                 }
             }
 

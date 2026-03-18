@@ -61,6 +61,46 @@ namespace dsf
              * @param q3 Vector-z part.
              */
             Quaternion(double q0, double q1, double q2, double q3);
+
+            /**
+             * @brief Construct quaternion from a Direction Cosine Matrix.
+             * Uses Shepperd's method for numerical stability.
+             * @param R 3×3 rotation matrix (e.g. T_b_i from geodesy).
+             * @return Unit quaternion representing the same rotation.
+             */
+            static Quaternion fromDCM(const Mat3& R)
+            {
+                double tr = R[0][0] + R[1][1] + R[2][2];
+                double s;
+                Quaternion q;
+                if (tr > 0) {
+                    s = 2.0 * std::sqrt(tr + 1.0);
+                    q.q0 = 0.25 * s;
+                    q.q1 = (R[1][2] - R[2][1]) / s;
+                    q.q2 = (R[2][0] - R[0][2]) / s;
+                    q.q3 = (R[0][1] - R[1][0]) / s;
+                } else if (R[0][0] > R[1][1] && R[0][0] > R[2][2]) {
+                    s = 2.0 * std::sqrt(1.0 + R[0][0] - R[1][1] - R[2][2]);
+                    q.q0 = (R[1][2] - R[2][1]) / s;
+                    q.q1 = 0.25 * s;
+                    q.q2 = (R[0][1] + R[1][0]) / s;
+                    q.q3 = (R[2][0] + R[0][2]) / s;
+                } else if (R[1][1] > R[2][2]) {
+                    s = 2.0 * std::sqrt(1.0 + R[1][1] - R[0][0] - R[2][2]);
+                    q.q0 = (R[2][0] - R[0][2]) / s;
+                    q.q1 = (R[0][1] + R[1][0]) / s;
+                    q.q2 = 0.25 * s;
+                    q.q3 = (R[1][2] + R[2][1]) / s;
+                } else {
+                    s = 2.0 * std::sqrt(1.0 + R[2][2] - R[0][0] - R[1][1]);
+                    q.q0 = (R[0][1] - R[1][0]) / s;
+                    q.q1 = (R[2][0] + R[0][2]) / s;
+                    q.q2 = (R[1][2] + R[2][1]) / s;
+                    q.q3 = 0.25 * s;
+                }
+                q.normalize();
+                return q;
+            }
             /// @}
 
             ~Quaternion() {}
