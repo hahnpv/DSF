@@ -99,20 +99,8 @@ namespace dsf
             /** @brief Open output file and write headers. */
             void open()
             {
-                std::string bname_file = h5_group_name;
-                if (bname_file.empty()) {
-                    for (Block* b = getParent(); b != nullptr; b = b->getParent()) {
-                        std::string n = b->getName();
-                        if (!n.empty()) { bname_file = n; break; }
-                    }
-                }
-                
-                // CSV: find a unique "outputN.csv" base
-                string filename = "output";
-                if (!bname_file.empty()) filename += "_" + bname_file;
-                filename += ".csv";
-                
-                std::string unique_csv = dsf::util::get_unique_file(filename).filename;
+                // Single file per simulation — find unique filenames to avoid clobbering
+                std::string unique_csv = dsf::util::get_unique_file("output.csv").filename;
                 std::string csv_base = unique_csv.substr(0, unique_csv.find_last_of("."));
 
                 if (csv_enabled) {
@@ -124,11 +112,7 @@ namespace dsf
                 }
 
                 if (h5_enabled && h5) {
-                     // Use h5_group_name to differentiate vehicle-specific files
-                     std::string base_h5_name = "output";
-                     if (!h5_group_name.empty()) base_h5_name += "_" + h5_group_name;
-                     base_h5_name += ".h5";
-                     std::string unique_h5 = dsf::util::get_unique_file(base_h5_name).filename;
+                     std::string unique_h5 = dsf::util::get_unique_file("output.h5").filename;
                      std::string h5_base = unique_h5.substr(0, unique_h5.find_last_of("."));
                      h5->open(h5_base);
                 }
@@ -165,7 +149,8 @@ namespace dsf
             {
                 if (p <= csv_level) {
                     doubles.push_back(&d);
-                    this->title[0].push_back(t);
+                    std::string csv_title = h5_group_name.empty() ? t : h5_group_name + "_" + t;
+                    this->title[0].push_back(csv_title);
                     this->units[0].push_back(u);
                     this->conversion[0].push_back(c);
                 }
@@ -178,7 +163,8 @@ namespace dsf
             {
                 if (p <= csv_level) {
                     vectors.push_back(&v);
-                    this->title[1].push_back(t);
+                    std::string csv_title = h5_group_name.empty() ? t : h5_group_name + "_" + t;
+                    this->title[1].push_back(csv_title);
                     this->units[1].push_back(u);
                     this->conversion[1].push_back(c);
                 }
@@ -191,7 +177,8 @@ namespace dsf
             {
                 if (p <= csv_level) {
                     matrices.push_back(&m);
-                    this->title[2].push_back(t);
+                    std::string csv_title = h5_group_name.empty() ? t : h5_group_name + "_" + t;
+                    this->title[2].push_back(csv_title);
                     this->units[2].push_back(u);
                     this->conversion[2].push_back(c);
                 }

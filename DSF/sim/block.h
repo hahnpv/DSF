@@ -82,11 +82,7 @@ namespace dsf
             /// @name Reference Functions
             /// @{
             void ClockRef(Clock *_clock) { if (clock == nullptr) clock = _clock; };   ///< Set clock reference (called by Sim).
-            void OutputRef(Output *_o) { 
-                if (o == nullptr) {
-                    o = _o; 
-                }
-            };                 ///< Set output reference (only if not already set).
+            void OutputRef(Output *_o) { o = _o; };  ///< Set output reference.
             /// @}
 
             /// @name Graph Topology Functions
