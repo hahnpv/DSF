@@ -75,16 +75,9 @@ int main(int argc, char *argv[])
 		if (model == "") model = child_id;
 		root->addChild( TRefUnique<Block>( model.c_str()));
 	}
-	for ( int i = 0, bi = 0; i < nx; i++)
-	{
-		xmlnode child_node = n;
-		child_node.child(i);
-		if (std::string(child_node.attrAsString("id")).empty()) continue;
-		root->getChild(bi)->configure( child_node);
-		bi++;
-	}
 
-    // Map XML LogLevel
+    // Map XML LogLevel — must be set BEFORE Vehicle::configure() because
+    // vehicles with rpt= create per-vehicle Output objects that read these defaults.
     auto mapLevel = [](int l) {
         if (l == 0) return dsf::sim::LOG_CRITICAL;
         if (l == 2) return dsf::sim::LOG_VERBOSE;
@@ -94,11 +87,20 @@ int main(int argc, char *argv[])
     dsf::sim::LogLevel csv_lvl = mapLevel(input.getCSVLogLevel());
     dsf::sim::LogLevel h5_lvl = mapLevel(input.getHDF5LogLevel());
 
-    // Set Global Defaults (Ensures all blocks created by load() inherit config)
     dsf::sim::Output::defaultCSV() = input.isCSV();
     dsf::sim::Output::defaultHDF5() = input.isHDF5();
     dsf::sim::Output::defaultCSVLevel() = csv_lvl;
     dsf::sim::Output::defaultHDF5Level() = h5_lvl;
+
+	for ( int i = 0, bi = 0; i < nx; i++)
+	{
+		xmlnode child_node = n;
+		child_node.child(i);
+		if (std::string(child_node.attrAsString("id")).empty()) continue;
+		root->getChild(bi)->configure( child_node);
+		bi++;
+	}
+
 
 		// Instantiate simulation
 	Sim *sim = new Sim();

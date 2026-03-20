@@ -7,6 +7,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <set>
+#include <map>
 
 #include "H5Cpp.h"
 #include "log_level.h"
@@ -23,11 +25,12 @@ namespace dsf
          * @brief HDF5 Logger.
          * Writes simulation variables to HDF5 datasets.
          * Each variable gets its own dataset (Time Series).
+         * Variables are organized into named groups set via setGroup().
          */
         class HDF5Output
         {
         public:
-            HDF5Output() : file(nullptr), group(nullptr), frame_count(0)
+            HDF5Output() : file(nullptr), frame_count(0), file_ready(false)
             {
             }
 
@@ -36,68 +39,94 @@ namespace dsf
                 finalize();
             }
 
-            /** @brief Set the HDF5 group name (block ID). Must be called before open(). */
+            /** @brief Set the current group name for subsequent add() calls. */
             void setGroup(const std::string& name)
             {
-                group_name = name;
+                current_group = name;
             }
 
             void finalize()
             {
-                if (group) { delete group; group = nullptr; }
-                if (file)  { file->close(); delete file; file = nullptr; }
+                // Close all open groups
+                for (auto& kv : groups) {
+                    if (kv.second) { delete kv.second; kv.second = nullptr; }
+                }
+                groups.clear();
+                if (file) { file->close(); delete file; file = nullptr; }
             }
 
             void open(std::string filename)
             {
-                try {
+                // Defer actual file creation to first report().
+                // At open() time, not all blocks may have registered variables yet.
                 if (filename.find(".h5") == std::string::npos) filename += ".h5";
+                deferred_filename = filename;
+                file_ready = false;
+            }
 
-                // Always create fresh — each Output block has its own unique filename
-                file = new H5::H5File(filename, H5F_ACC_TRUNC);
+            /// Actually create the HDF5 file (called on first report)
+            void createFile()
+            {
+                if (file_ready || deferred_filename.empty()) return;
+                try {
+                file = new H5::H5File(deferred_filename, H5F_ACC_TRUNC);
 
-                // Write into a named group (set via setGroup before open)
-                if (!group_name.empty())
-                    group = new H5::Group(file->createGroup(group_name));
+                // Create groups for all unique group names
+                for (const auto& gname : used_groups) {
+                    if (!gname.empty() && groups.find(gname) == groups.end()) {
+                        groups[gname] = new H5::Group(file->createGroup(gname));
+                    }
+                }
 
-                // Pre-create datasets for variables registered before open()
+                // Create Time dataset at file root
+                createDatasetAt("Time", H5::PredType::NATIVE_DOUBLE, nullptr);
+
+                // Create datasets for all registered variables
                 for (size_t i = 0; i < titles.size(); i++)
-                    createDataset(titles[i], H5::PredType::NATIVE_DOUBLE);
+                    createDatasetAt(titles[i], H5::PredType::NATIVE_DOUBLE, groupFor(var_groups[i]));
 
+                size_t vg_idx = 0;
                 for (size_t i = 0; i < vec_titles.size(); i++) {
-                    createDataset(vec_titles[i] + "_x", H5::PredType::NATIVE_DOUBLE);
-                    createDataset(vec_titles[i] + "_y", H5::PredType::NATIVE_DOUBLE);
-                    createDataset(vec_titles[i] + "_z", H5::PredType::NATIVE_DOUBLE);
+                    H5::Group* g = groupFor(vec_var_groups[i]);
+                    createDatasetAt(vec_titles[i] + "_x", H5::PredType::NATIVE_DOUBLE, g);
+                    createDatasetAt(vec_titles[i] + "_y", H5::PredType::NATIVE_DOUBLE, g);
+                    createDatasetAt(vec_titles[i] + "_z", H5::PredType::NATIVE_DOUBLE, g);
                 }
 
                 for (size_t i = 0; i < quat_titles.size(); i++) {
-                    createDataset(quat_titles[i] + "_x", H5::PredType::NATIVE_DOUBLE);
-                    createDataset(quat_titles[i] + "_y", H5::PredType::NATIVE_DOUBLE);
-                    createDataset(quat_titles[i] + "_z", H5::PredType::NATIVE_DOUBLE);
-                    createDataset(quat_titles[i] + "_w", H5::PredType::NATIVE_DOUBLE);
+                    H5::Group* g = groupFor(quat_var_groups[i]);
+                    createDatasetAt(quat_titles[i] + "_x", H5::PredType::NATIVE_DOUBLE, g);
+                    createDatasetAt(quat_titles[i] + "_y", H5::PredType::NATIVE_DOUBLE, g);
+                    createDatasetAt(quat_titles[i] + "_z", H5::PredType::NATIVE_DOUBLE, g);
+                    createDatasetAt(quat_titles[i] + "_w", H5::PredType::NATIVE_DOUBLE, g);
                 }
 
-                for (size_t k = 0; k < mat_titles.size(); k++)
+                for (size_t k = 0; k < mat_titles.size(); k++) {
+                    H5::Group* g = groupFor(mat_var_groups[k]);
                     for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++)
-                        createDataset(mat_titles[k] + "_" + std::to_string(i) + std::to_string(j),
-                                      H5::PredType::NATIVE_DOUBLE);
+                        createDatasetAt(mat_titles[k] + "_" + std::to_string(i) + std::to_string(j),
+                                      H5::PredType::NATIVE_DOUBLE, g);
+                }
 
+                file_ready = true;
+                } catch (H5::Exception& e) {
+                    std::cerr << "HDF5 Open Failed for: " << deferred_filename 
+                              << " (" << e.getDetailMsg() << ")" << std::endl;
+                    if (file) { delete file; file = nullptr; }
                 } catch (...) {
-                    std::cerr << "HDF5 Open Failed for: " << filename << std::endl;
+                    std::cerr << "HDF5 Open Failed for: " << deferred_filename << std::endl;
                     if (file) { delete file; file = nullptr; }
                 }
             }
             
-            /// Registration Methods
+            /// Registration: just store pointers, titles, and group tags.
             void add(double &d, std::string title, std::string units, double conversion=1.0)
             {
                 doubles.push_back(&d);
                 titles.push_back(title);
-                // units unused in dataset layout effectively unless attributes
                 conversions.push_back(conversion);
-                
-                // Create Dataset
-                createDataset(title, H5::PredType::NATIVE_DOUBLE, units);
+                var_groups.push_back(current_group);
+                used_groups.insert(current_group);
             }
 
             void add(dsf::util::Vec3 &v, std::string title, std::string units, double conversion=1.0)
@@ -105,10 +134,8 @@ namespace dsf
                 vectors.push_back(&v);
                 vec_titles.push_back(title);
                 vec_conversions.push_back(conversion);
-                
-                createDataset(title + "_x", H5::PredType::NATIVE_DOUBLE, units);
-                createDataset(title + "_y", H5::PredType::NATIVE_DOUBLE, units);
-                createDataset(title + "_z", H5::PredType::NATIVE_DOUBLE, units);
+                vec_var_groups.push_back(current_group);
+                used_groups.insert(current_group);
             }
 
             void add(dsf::util::Quaternion &q, std::string title, std::string units, double conversion=1.0)
@@ -116,62 +143,57 @@ namespace dsf
                 quats.push_back(&q);
                 quat_titles.push_back(title);
                 quat_conversions.push_back(conversion);
-                
-                createDataset(title + "_x", H5::PredType::NATIVE_DOUBLE, units);
-                createDataset(title + "_y", H5::PredType::NATIVE_DOUBLE, units);
-                createDataset(title + "_z", H5::PredType::NATIVE_DOUBLE, units);
-                createDataset(title + "_w", H5::PredType::NATIVE_DOUBLE, units);
+                quat_var_groups.push_back(current_group);
+                used_groups.insert(current_group);
             }
             
-            // Matrices omitted for brevity unless needed (can add later)
-            // Mat3 support:
-             void add(dsf::util::Mat3 &m, std::string title, std::string units, double conversion=1.0)
+            void add(dsf::util::Mat3 &m, std::string title, std::string units, double conversion=1.0)
             {
                 matrices.push_back(&m);
                 mat_titles.push_back(title);
                 mat_conversions.push_back(conversion);
-                // Mat3 is 9 doubles.
-                // Could be 9 datasets or 1 dataset of array[9].
-                // For simplicity: 9 datasets.
-                for(int i=0; i<3; i++) for(int j=0; j<3; j++) {
-                     createDataset(title + "_" + std::to_string(i) + std::to_string(j), H5::PredType::NATIVE_DOUBLE, units);
-                }
+                mat_var_groups.push_back(current_group);
+                used_groups.insert(current_group);
             }
 
             void report(double t)
             {
+                // Lazy file creation on first report
+                if (!file_ready) createFile();
                 if (!file) return;
                 
-                // Write Time
-                if (frame_count == 0) createDataset("Time", H5::PredType::NATIVE_DOUBLE);
-                appendToDataset("Time", t);
+                // Write Time (always at root)
+                appendAt("Time", t, nullptr);
 
                 // Write Doubles
                 for (size_t i=0; i < doubles.size(); i++) {
-                    appendToDataset(titles[i], *doubles[i] * conversions[i]);
+                    appendAt(titles[i], *doubles[i] * conversions[i], groupFor(var_groups[i]));
                 }
                 
                 // Write Vectors
                 for (size_t i=0; i < vectors.size(); i++) {
-                    appendToDataset(vec_titles[i] + "_x", vectors[i]->x * vec_conversions[i]);
-                    appendToDataset(vec_titles[i] + "_y", vectors[i]->y * vec_conversions[i]);
-                    appendToDataset(vec_titles[i] + "_z", vectors[i]->z * vec_conversions[i]);
+                    H5::Group* g = groupFor(vec_var_groups[i]);
+                    appendAt(vec_titles[i] + "_x", vectors[i]->x * vec_conversions[i], g);
+                    appendAt(vec_titles[i] + "_y", vectors[i]->y * vec_conversions[i], g);
+                    appendAt(vec_titles[i] + "_z", vectors[i]->z * vec_conversions[i], g);
                 }
 
-                // Write Quaternions (dataset names: _w=scalar, _x/_y/_z=vector)
+                // Write Quaternions
                 for (size_t i=0; i < quats.size(); i++) {
-                    appendToDataset(quat_titles[i] + "_x", quats[i]->q1 * quat_conversions[i]);
-                    appendToDataset(quat_titles[i] + "_y", quats[i]->q2 * quat_conversions[i]);
-                    appendToDataset(quat_titles[i] + "_z", quats[i]->q3 * quat_conversions[i]);
-                    appendToDataset(quat_titles[i] + "_w", quats[i]->q0 * quat_conversions[i]);
+                    H5::Group* g = groupFor(quat_var_groups[i]);
+                    appendAt(quat_titles[i] + "_x", quats[i]->q1 * quat_conversions[i], g);
+                    appendAt(quat_titles[i] + "_y", quats[i]->q2 * quat_conversions[i], g);
+                    appendAt(quat_titles[i] + "_z", quats[i]->q3 * quat_conversions[i], g);
+                    appendAt(quat_titles[i] + "_w", quats[i]->q0 * quat_conversions[i], g);
                 }
                 
-                 // Write Matrices
+                // Write Matrices
                 for (size_t k=0; k < matrices.size(); k++) {
                     dsf::util::Mat3& m = *matrices[k];
                     double c = mat_conversions[k];
+                    H5::Group* g = groupFor(mat_var_groups[k]);
                     for(int i=0; i<3; i++) for(int j=0; j<3; j++) {
-                         appendToDataset(mat_titles[k] + "_" + std::to_string(i) + std::to_string(j), m[i][j] * c);
+                         appendAt(mat_titles[k] + "_" + std::to_string(i) + std::to_string(j), m[i][j] * c, g);
                     }
                 }
                 
@@ -180,12 +202,45 @@ namespace dsf
 
         private:
             H5::H5File* file;
-            H5::Group*  group;       ///< Non-null when writing into a named group
-            std::string group_name;  ///< Block ID used as group name
+            std::map<std::string, H5::Group*> groups;  ///< Named groups (one per vehicle/block)
+            std::string current_group;                   ///< Group name for current add() calls
             long frame_count = 0;
+            std::string deferred_filename;
+            bool file_ready;
 
-            // Helper: create a dataset in the right location (file root or group)
-            void createDatasetIn(const std::string& name, const H5::DataType& type, const std::string& units)
+            std::set<std::string> used_groups;          ///< All group names seen during registration
+            
+            // Per-variable data
+            std::vector<double*> doubles;
+            std::vector<std::string> titles;
+            std::vector<double> conversions;
+            std::vector<std::string> var_groups;        ///< Group name for each double
+            
+            std::vector<dsf::util::Vec3*> vectors;
+            std::vector<std::string> vec_titles;
+            std::vector<double> vec_conversions;
+            std::vector<std::string> vec_var_groups;    ///< Group name for each Vec3
+            
+            std::vector<dsf::util::Quaternion*> quats;
+            std::vector<std::string> quat_titles;
+            std::vector<double> quat_conversions;
+            std::vector<std::string> quat_var_groups;
+            
+            std::vector<dsf::util::Mat3*> matrices;
+            std::vector<std::string> mat_titles;
+            std::vector<double> mat_conversions;
+            std::vector<std::string> mat_var_groups;
+
+            /// Get group pointer for a group name (nullptr = file root)
+            H5::Group* groupFor(const std::string& gname) {
+                if (gname.empty()) return nullptr;
+                auto it = groups.find(gname);
+                if (it != groups.end()) return it->second;
+                return nullptr;
+            }
+
+            /// Create a dataset in a specific location
+            void createDatasetAt(const std::string& name, const H5::DataType& type, H5::Group* grp)
             {
                 hsize_t dims[1]    = {0};
                 hsize_t maxdims[1] = {H5S_UNLIMITED};
@@ -194,72 +249,32 @@ namespace dsf
                 hsize_t chunk_dims[1] = {1000};
                 prop.setChunk(1, chunk_dims);
 
-                H5::DataSet ds;
-                if (group) ds = group->createDataSet(name, type, dataspace, prop);
-                else       ds = file->createDataSet(name, type, dataspace, prop);
-
-                if (!units.empty()) {
-                    H5::StrType stype(H5::PredType::C_S1, units.length() + 1);
-                    H5::DataSpace attr_space(H5S_SCALAR);
-                    H5::Attribute attr = ds.createAttribute("units", stype, attr_space);
-                    attr.write(stype, units.c_str());
-                }
+                try {
+                    if (grp) grp->createDataSet(name, type, dataspace, prop);
+                    else     file->createDataSet(name, type, dataspace, prop);
+                } catch (...) {}
             }
 
-            // Helper: open a dataset and append one double
-            void appendIn(const std::string& name, double value)
+            /// Append a value to a dataset in a specific location
+            void appendAt(const std::string& name, double value, H5::Group* grp)
             {
-                H5::DataSet ds;
-                if (group) ds = group->openDataSet(name);
-                else       ds = file->openDataSet(name);
+                try {
+                    H5::DataSet ds;
+                    if (grp) ds = grp->openDataSet(name);
+                    else     ds = file->openDataSet(name);
 
-                hsize_t size[1]   = {(hsize_t)frame_count + 1};
-                ds.extend(size);
+                    hsize_t size[1]   = {(hsize_t)frame_count + 1};
+                    ds.extend(size);
 
-                H5::DataSpace filespace = ds.getSpace();
-                hsize_t offset[1] = {(hsize_t)frame_count};
-                hsize_t dim1[1]   = {1};
-                filespace.selectHyperslab(H5S_SELECT_SET, dim1, offset);
+                    H5::DataSpace filespace = ds.getSpace();
+                    hsize_t offset[1] = {(hsize_t)frame_count};
+                    hsize_t dim1[1]   = {1};
+                    filespace.selectHyperslab(H5S_SELECT_SET, dim1, offset);
 
-                hsize_t memdims[1] = {1};
-                H5::DataSpace memspace(1, memdims);
-                ds.write(&value, H5::PredType::NATIVE_DOUBLE, memspace, filespace);
-            }
-            
-            std::vector<double*> doubles;
-            std::vector<std::string> titles;
-            std::vector<double> conversions;
-            
-            std::vector<dsf::util::Vec3*> vectors;
-            std::vector<std::string> vec_titles;
-            std::vector<double> vec_conversions;
-            
-            std::vector<dsf::util::Quaternion*> quats;
-            std::vector<std::string> quat_titles;
-            std::vector<double> quat_conversions;
-            
-            std::vector<dsf::util::Mat3*> matrices;
-            std::vector<std::string> mat_titles;
-            std::vector<double> mat_conversions;
-
-            bool nameExists(const std::string& name)
-            {
-                if (group) return group->nameExists(name);
-                if (file)  return file->nameExists(name);
-                return false;
-            }
-
-            void createDataset(std::string name, const H5::DataType& type, std::string units = "")
-            {
-                if (!file) return;
-                if (nameExists(name)) return;  // idempotent — skip if already created
-                try { createDatasetIn(name, type, units); } catch (...) {}
-            }
-
-            void appendToDataset(std::string name, double value)
-            {
-                if (!file) return;
-                try { appendIn(name, value); } catch (...) {}
+                    hsize_t memdims[1] = {1};
+                    H5::DataSpace memspace(1, memdims);
+                    ds.write(&value, H5::PredType::NATIVE_DOUBLE, memspace, filespace);
+                } catch (...) {}
             }
         };
     }

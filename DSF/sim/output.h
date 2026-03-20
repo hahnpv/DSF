@@ -69,7 +69,10 @@ namespace dsf
             void setLogLevel(LogLevel csv, LogLevel h5v) { csv_level = csv; h5_level = h5v; }
 
             /** @brief Set the HDF5 group name (block/vehicle ID) for hierarchical output. */
-            void setGroupName(const std::string& gname) { h5_group_name = gname; }
+            void setGroupName(const std::string& gname) { 
+                h5_group_name = gname;
+                if (h5) h5->setGroup(gname);
+            }
 
             void report()
             {
@@ -121,20 +124,9 @@ namespace dsf
                 }
 
                 if (h5_enabled && h5) {
-                     // Use explicitly-set group name (e.g. from setGroupName()) first.
-                     // Fall back to parent-chain walk for blocks that live in the block tree.
-                     std::string bname = h5_group_name;
-                     if (bname.empty()) {
-                         for (Block* b = getParent(); b != nullptr; b = b->getParent()) {
-                             std::string n = b->getName();
-                             if (!n.empty()) { bname = n; break; }
-                         }
-                     }
-                     if (!bname.empty()) h5->setGroup(bname);
-
-                     // Get a unique HDF5 filename independently (avoids re-using stale .h5 files)
+                     // Use h5_group_name to differentiate vehicle-specific files
                      std::string base_h5_name = "output";
-                     if (!bname.empty()) base_h5_name += "_" + bname;
+                     if (!h5_group_name.empty()) base_h5_name += "_" + h5_group_name;
                      base_h5_name += ".h5";
                      std::string unique_h5 = dsf::util::get_unique_file(base_h5_name).filename;
                      std::string h5_base = unique_h5.substr(0, unique_h5.find_last_of("."));
