@@ -71,10 +71,13 @@ namespace dsf
             /** @brief Set the HDF5 group name (block/vehicle ID) for hierarchical output. */
             void setGroupName(const std::string& gname) { h5_group_name = gname; }
 
-            /** @brief Write all registered values to file. */
             void report()
             {
                 if (csv_enabled && out) {
+                    if (!header_written) {
+                        writeHeader();
+                        header_written = true;
+                    }
                     *out << t();
                     for (unsigned int i=0; i < doubles.size(); i++)
                         *out << ", " << *doubles[i] * conversion[0][i];
@@ -114,7 +117,7 @@ namespace dsf
                     out = new ofstream(f.c_str(), ios::out);
                     out->precision(10);
                     out->width(10);
-                    writeHeader();
+                    header_written = false;  // Defer header to first report()
                 }
 
                 if (h5_enabled && h5) {
@@ -141,7 +144,6 @@ namespace dsf
 
             void init()     {
                 if ( out == NULL) open();
-                report();
             }
             void rpt()      { report(); };                          
             void finalize() { 
@@ -317,6 +319,7 @@ namespace dsf
             bool h5_enabled;
             LogLevel csv_level;
             LogLevel h5_level;
+            bool header_written;    ///< True after CSV header has been written (deferred to first report).
             std::string h5_group_name; ///< Explicit group name for HDF5 hierarchy (set via setGroupName)
         };
 
