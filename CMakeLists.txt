@@ -52,15 +52,12 @@ else()
 endif()
 
 add_subdirectory(DSF/sim)
-add_subdirectory(DSF/net)
 add_subdirectory(DSF/util)
 
 # Create Main Library
 add_library(DSF SHARED
     DSF/sim/integratorRK4.cpp
     DSF/sim/sim.cpp
-    DSF/net/NetClient.cpp
-    DSF/net/NetServer.cpp
     DSF/util/math/mat3.cpp
     DSF/util/math/mat4.cpp
     DSF/util/math/quat.cpp
@@ -74,11 +71,12 @@ add_library(DSF SHARED
 # Target Properties
 target_include_directories(DSF PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/DSF>
     $<INSTALL_INTERFACE:include>
     ${Boost_INCLUDE_DIRS}
 )
 
-target_link_libraries(DSF PUBLIC sim net util ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
+target_link_libraries(DSF PUBLIC sim util ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
 target_compile_options(DSF PRIVATE -fpermissive)
 set_target_properties(DSF PROPERTIES LINKER_LANGUAGE CXX)
 
@@ -87,7 +85,6 @@ pybind11_add_module(dsf_core
     python/bindings/bindings_main.cpp
     python/bindings/bindings_util.cpp
     python/bindings/bindings_sim.cpp
-    python/bindings/bindings_net.cpp
 )
 target_link_libraries(dsf_core PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
  target_include_directories(dsf_core PRIVATE 

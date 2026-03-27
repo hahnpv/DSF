@@ -74,6 +74,21 @@ namespace dsf
                 if (h5) h5->setGroup(gname);
             }
 
+            /** @brief Set output base filename (derived from XML name). 
+             *  Affects both CSV and H5 filenames: {basename}.csv, {basename}.h5
+             */
+            void setBaseName(const std::string& name) {
+                output_base_name = name;
+                if (h5) h5->setBaseName(name);
+            }
+
+            /** @brief Store simulation metadata (written as HDF5 root attributes). */
+            void setMetadata(const std::string& xml_file,
+                             const std::string& xml_content,
+                             double dt, double tmax) {
+                if (h5) h5->setMetadata(xml_file, xml_content, dt, tmax);
+            }
+
             void report()
             {
                 if (csv_enabled && out) {
@@ -99,20 +114,19 @@ namespace dsf
             /** @brief Open output file and write headers. */
             void open()
             {
-                // Single file per simulation — find unique filenames to avoid clobbering
-                std::string unique_csv = dsf::util::get_unique_file("output.csv").filename;
-                std::string csv_base = unique_csv.substr(0, unique_csv.find_last_of("."));
+                // Determine base filename: use XML-derived name if set, else "output"
+                std::string base = output_base_name.empty() ? "output" : output_base_name;
 
                 if (csv_enabled) {
-                    string f = csv_base + ".csv";
-                    out = new ofstream(f.c_str(), ios::out);
+                    std::string unique_csv = dsf::util::get_unique_file(base + ".csv").filename;
+                    out = new ofstream(unique_csv.c_str(), ios::out);
                     out->precision(10);
                     out->width(10);
                     header_written = false;  // Defer header to first report()
                 }
 
                 if (h5_enabled && h5) {
-                     std::string unique_h5 = dsf::util::get_unique_file("output.h5").filename;
+                     std::string unique_h5 = dsf::util::get_unique_file(base + ".h5").filename;
                      std::string h5_base = unique_h5.substr(0, unique_h5.find_last_of("."));
                      h5->open(h5_base);
                 }
@@ -300,6 +314,7 @@ namespace dsf
             LogLevel h5_level;
             bool header_written;    ///< True after CSV header has been written (deferred to first report).
             std::string h5_group_name; ///< Explicit group name for HDF5 hierarchy (set via setGroupName)
+            std::string output_base_name; ///< Base filename from XML (e.g. "submarine_terrain_follow")
         };
 
     }

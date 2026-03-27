@@ -1,7 +1,6 @@
 #pragma once
 
 #include "util/xml/xml.h"
-// #include "../util/xml/xml.h"
 #include <string>
 //
 //	Input an XML file, parse it, get relevant bits

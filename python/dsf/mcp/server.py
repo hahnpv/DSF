@@ -1372,4 +1372,21 @@ def build(
 # =========================================================================
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    import argparse
+    parser = argparse.ArgumentParser(description="DSF MCP Server")
+    parser.add_argument("--transport", default="stdio", choices=["stdio", "sse"],
+                        help="Transport mode: stdio (default) or sse")
+    parser.add_argument("--host", default="0.0.0.0", help="SSE host (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=9100, help="SSE port (default: 9100)")
+    args = parser.parse_args()
+
+    if args.transport == "sse":
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+        # Allow cross-network access (e.g. from DGX Spark)
+        from mcp.server.transport_security import TransportSecuritySettings
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        )
+    mcp.run(transport=args.transport)
+

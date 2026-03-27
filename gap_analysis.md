@@ -7,26 +7,29 @@ Comprehensive assessment of both codebases against the expectations of a product
 ### DSF Framework
 | Module | Capabilities |
 |--------|-------------|
-| **sim** | Block lifecycle, `dt`/`tmax`, RK4 integrator, CSV + HDF5 output, real-time clock |
-| **util** | Vec3/Mat3, Table (1D interp), XML parser (TinyXML), Gaussian RNG |
+| **sim** | Block lifecycle, `dt`/`tmax`, RK4/RK45/Verlet integrators, CSV + HDF5 output, real-time clock, EventBus, PhaseSequencer |
+| **util** | Vec3/Mat3, Table/Table2d/TableND (N-D interp), XML parser (boost::property_tree), Gaussian RNG |
 | **vis** | OpenSceneGraph 3D viewer, orbit/static cameras, network callbacks |
-| **net** | TCP client/server for distributed sim |
-| **python** | pybind11 bindings, Qt5 GUI, MCP server, CLI (run/plot/watch/globe), JAX models |
+| **net** | TCP client/server for distributed sim (⚠️ stubbed — all methods are TODO) |
+| **python** | pybind11 bindings, Qt5 GUI, MCP server, CLI (run/watch/plot/map/globe/terrain/cesium), JAX models, `.dsf` project format |
 
 ### sixdof Models
 | Subsystem | Implementations |
 |-----------|----------------|
-| **EOM** | 6DOF, 3DOF, FlatEarth, Equinoctial, ScriptedEOM |
-| **Geodesy** | WGS84, Spherical, EquinoctialMultibody (stub) |
-| **Aero** | F16Aero, AirplaneAero, MissileAero, MissileFin, ReentryAero, SimpleAero, AeroDamping |
-| **Control** | F16FCS (TECS), AirplaneAutopilot, PerfectControl |
-| **Guidance** | ReferenceTrajectory, GravityTurn, LinearTangent, Linear, SimpleGuidance |
-| **Propulsion** | RocketProp, TurbofanEngine, PistonEngine, Squib |
-| **Navigation** | PerfectNav (only) |
-| **Mass** | Tank, Mass, StageMass, VehicleConfig, MassBase |
+| **EOM** | 6DOF, 3DOF, FlatEarth, Equinoctial, HydroEOM, PointMassEOM, KinematicTarget, ScriptedEOM |
+| **Geodesy** | WGS84, Spherical, EquinoctialMultibody (stub), MarsGeodesyBlock |
+| **Aero** | F16Aero, AirplaneAero, MissileAero, MissileFin, ReentryAero, SpaceplaneAero, SimpleAero, AeroDamping, ParachuteAero, ParafoilAero, HelicopterFuselage |
+| **Control** | F16FCS, AirplaneAutopilot, RotorcraftFCS, HelicopterFCS, TandemRotorFCS, ShipFCS, SubmarineFCS, SailFCS, PerfectControl, Actuator |
+| **Guidance** | ReferenceTrajectory, GravityTurn, LinearTangent, Linear, SimpleGuidance, WaypointGuidance, ProNavGuidance, JPADSGuidance, BankAngleGuidance, EntryGuidance, SpacecraftGuidance, BoosterLandingGuidance |
+| **Propulsion** | RocketProp, TurbofanEngine, TurbopropEngine, TurboshaftEngine, PistonEngine, ScramjetEngine, ElectricPropulsion, Squib |
+| **Navigation** | PerfectNav, IMUSensor, GPSSensor, NavFilter, NavEKF (15-state), Seeker, Datalink, WaypointNav |
+| **Mass** | Tank, Mass, StageMass, VehicleConfig, MassBase, BallastTank |
 | **Ground** | LandingGear (spring-damper) |
-| **Other** | Cable, StageManager, GroundStation, GroundVehicle, SteadyFlightAirplane, Sphere |
-| **Atmosphere** | US Standard 1976 |
+| **Marine** | BargeHydro, HydroBody, ShipMMG, SailboatForces, WaterMedium |
+| **Rotor** | RotorDisk (BET + momentum theory) |
+| **Terrain** | TerrainModel (DTED/HGT multi-tile) |
+| **Other** | Cable, StageManager, GroundStation, GroundVehicle, SteadyFlightAirplane, Sphere, OrbitalTelemetry, ColdGasRCS |
+| **Atmosphere** | US Standard 1976 (7-layer + upper), MarsAtmosphere |
 
 ---
 
@@ -45,15 +48,16 @@ Comprehensive assessment of both codebases against the expectations of a product
 - F16 Dryden test: survived 60s moderate turbulence, correct ±3σ statistics
 
 #### 2. ~~No Sensor Models (Navigation is PerfectNav-only)~~ ✅ DONE
-**Resolved**: Implemented discrete-sampled dynamic sensor models and sensor fusion to provide realistic, noisy navigation states.
+**Resolved**: Full sensor suite with fusion.
 
-- **IMU model (`IMUSensor`)**: Implemented with Zero-Order Hold specific force and angular rate discretization to satisfy DAG requirements. Supports bias, cross-coupling, and continuous additive noise.
-- **GPS model (`GPSSensor`)**: Implemented with Gaussian noise and Gauss-Markov random walk processes.
-- **INS/GPS Filter**: 
-  - `NavFilter`: Pass-through direct GPS replacement blending.
-  - `NavEKF`: 15-state Extended Kalman Filter (Position, Velocity, Attitude, Accel Biases, Gyro Biases). Integrates using `Eigen` matrix math and continuous/discrete time updates separated from physical simulation timestep.
+- `IMUSensor` — ZOH specific force/angular rate, bias, cross-coupling, additive noise
+- `GPSSensor` — Gaussian noise, Gauss-Markov random walk
+- `NavFilter` — pass-through GPS blending
+- `NavEKF` — 15-state EKF (pos/vel/att/accel-bias/gyro-bias), Eigen matrix math
+- `Seeker` — RF/IR LOS angles/rates/range with Gaussian noise, FOV/gimbal limits
+- `Datalink` — configurable ZOH uplink frequency
 
-All validated via `F16FCS` running a 220-second dynamic routing maneuver using noisy navigation state estimates exclusively.
+Validated via F16FCS 220s routing maneuver with noisy nav state exclusively.
 
 #### ~~3. Only RK4 Integrator~~ ✅ DONE
 **Resolved**: Integrator strategy pattern with XML selection.
@@ -86,13 +90,8 @@ All validated via `F16FCS` running a 220-second dynamic routing maneuver using n
 - Used by `ReferenceTrajectoryGuidance` for trajectory table lookups
 
 #### 6. ~~No Actuator / Servo Dynamics~~ ✅ DONE
-**Resolved**: Implemented a continuous `Actuator` component evaluated natively within the RK4 ODE solver.
-
-- **Kinetics**: First-order lag model parameterized by time constant `tau` (e.g. `tau="0.05"` for ~3Hz bandwidth)
-- **Constraints**: Enforces physical boundaries (`pos_min`/`pos_max`) and mechanical rate limits (`rate_limit`)
-- **Integration**: `pos_dot` derivative is injected into the global simulation integration system (`TClassIntegrandDict`) for flawless calculation alongside 6DOF kinematics
-- **Wiring (XML)**: Standalone generic blocks instantiated via `<actuator id="..." />` that can be mapped directly to aero surfaces (`F16Aero`) or TVC gimbals (`RocketProp`)
-- Verified via `F16FCS` stabilization with delayed surfaces, and F-9 `RocketProp` TVC tracking lag producing 55km altitude deviation against instantaneous optimal guidance.
+**Resolved**: `Actuator` component — first-order lag (`tau`), position limits, rate limits, integrated via `TClassIntegrandDict`. XML: `<actuator id="..." />`.
+Verified: F16FCS with delayed surfaces, F-9 TVC tracking lag (55km altitude deviation vs instantaneous).
 
 #### 7. ~~Atmosphere Model Incomplete~~ ✅ DONE
 **Resolved**: Full 7-layer US Standard Atmosphere 1976 (0–86 km) with tabulated upper atmosphere (86–1000 km, cubic interpolation). Hot/cold day perturbation (MIL-STD-210C).
@@ -157,13 +156,14 @@ All validated via `F16FCS` running a 220-second dynamic routing maneuver using n
 - Automatic conversion at XML parse time
 - At minimum, a convention document
 
-#### 14. Visualization Modernization
-**Impact**: OSG viewer is functional but aging. No web-based or lightweight option.
-
-**What's needed**:
-- Cesium / web-based 3D globe visualization
-- Or lightweight VTK/matplotlib-based replay
-- Integration with the existing `dsf globe-view` CLI command
+#### ~~14. Visualization Modernization~~ ✅ DONE
+**Resolved**: Full visualization suite:
+- `dsf globe` — PyVista 3D orbit globe
+- `dsf map` — 2D ground-track map
+- `dsf terrain` — GPU-accelerated 3D terrain + trajectory (PyVista/VTK), SRTM/DTED/GEBCO tiles, `--cull` (bbox crop), `--z-scale` (vertical exaggeration)
+- `dsf cesium` — CesiumJS 4D web visualizer with local server
+- `dsf plot` — interactive strip-chart viewer
+- Qt5 GUI with introspection-based variable tree
 
 #### 15. Missing `NavigationBase` Accessors
 **Impact**: As discovered during ref-traj work — no Earth-relative velocity, no geodetic altitude accessor, `position()` contract is violated by PerfectNav.
@@ -174,6 +174,27 @@ All validated via `F16FCS` running a 220-second dynamic routing maneuver using n
 - `flight_path_angle()` — γ
 - Fix `PerfectNav::position()` to return actual inertial position
 
+#### 16. Hardcoded Earth Constants (Code Consolidation)
+**Impact**: `mu = 3.986004418e14` is hardcoded in both `Equinoctial.cpp:80` and `LinearTangentGuidance.cpp:133`. `Re = 6378137.0` is hardcoded in `Equinoctial.cpp:318` and `BoosterLandingGuidance.cpp:516`. `9.81` appears in `WaypointGuidance.cpp:549` instead of querying the gravity model.
+
+**What's needed**:
+- Central `EarthConstants.h` header with `constexpr` values (mu, Re, J2, g0, omega_e)
+- Subsystems should query the geodesy model or use the central constants
+
+#### 17. DSF Net Module is Entirely Stubbed
+**Impact**: `NetClient.cpp` and `NetServer.cpp` contain only TODO comments — zero networking is implemented. Module compiles and links but does nothing.
+
+**Decision needed**:
+- Delete the net module (dead code)
+- Or implement TCP state streaming for distributed/HLA-style sim federation
+
+#### 18. Duplicate Python Data Loaders
+**Impact**: Two separate `data_loader.py` files exist:
+- `dsf/utils/data_loader.py` — structured H5 loader with Vec3 reassembly, used by GUI
+- `dsf/visualization/data_loader.py` — CSV/H5 trajectory loader with column guessing, used by globe
+
+Overlapping H5 reading logic should be consolidated into one canonical loader.
+
 ---
 
 ## Comparison vs Industry Tools
@@ -182,16 +203,17 @@ All validated via `F16FCS` running a 220-second dynamic routing maneuver using n
 |---------|--------|-------|------------|
 | Variable-step integrator | ✅ | ✅ | ✅ (RK4, RK45, Verlet) |
 | Wind/turbulence | ✅ | ✅ | ✅ (WindProfile, Dryden, gust) |
-| Sensor models | ✅ | ✅ | ❌ (PerfectNav only) |
+| Sensor models | ✅ | ✅ | ✅ (IMU, GPS, EKF, Seeker, Datalink) |
 | Multi-dim tables | ✅ | ✅ | ✅ (TableND, N-D) |
-| Actuator dynamics | ✅ | ✅ | ❌ |
-| Monte Carlo | ✅ | ✅ | ❌ |
+| Actuator dynamics | ✅ | ✅ | ✅ (first-order lag, rate/pos limits) |
+| Monte Carlo | ✅ | ✅ | ✅ (JAX vmap batch, C++ pending) |
 | Event detection | ✅ | ✅ | ✅ (EventBus + PhaseSequencer) |
 | Flex-body | ❌ | ✅ | ❌ |
-| Python scripting | ❌ | ✅ | ✅ |
+| Python scripting | ❌ | ✅ | ✅ (PythonBlock, PythonModel, JAX) |
+| Web visualization | ❌ | ❌ | ✅ (CesiumJS 4D, terrain, globe) |
 | MCP / AI integration | ❌ | ❌ | ✅ |
 | JAX differentiable models | ❌ | ❌ | ✅ |
 | Trajectory optimization link | ❌ | ❌ | ✅ (Dymos) |
 
 > [!TIP]
-> DSF/sixdof's **unique strengths** (MCP integration, JAX differentiable models, Dymos trajectory coupling) are not found in any competitor. The gaps are mostly in classical simulation infrastructure that's well-understood and straightforward to implement.
+> DSF/sixdof's **unique strengths** (MCP integration, JAX differentiable models, Dymos trajectory coupling, CesiumJS 4D visualization) are not found in any competitor. Remaining gaps are limited to C++ Monte Carlo (JAX covers GPU batching) and flex-body / structural dynamics.

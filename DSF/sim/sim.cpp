@@ -99,5 +99,22 @@ namespace dsf
 			TFunctor<Block, Output>(&Block::OutputRef, simulation, *output);			// set Output reference in each Block
 			TFunctor<Block, Clock>(&Block::ClockRef,   simulation, *clock);				// Set the Clock reference in each Block
 		}
+
+		void Sim::setXmlInfo(const std::string& xml_file, const std::string& xml_content)
+		{
+			if (!output) return;
+
+			// Extract basename without extension for output filenames
+			std::string basename = xml_file;
+			// Strip path
+			auto pos = basename.find_last_of("/\\");
+			if (pos != std::string::npos) basename = basename.substr(pos + 1);
+			// Strip .xml extension
+			pos = basename.rfind(".xml");
+			if (pos != std::string::npos) basename = basename.substr(0, pos);
+
+			output->setBaseName(basename);
+			output->setMetadata(xml_file, xml_content, clock->dt(), clock->tmax());
+		}
 	}
 }

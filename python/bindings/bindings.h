@@ -5,4 +5,3 @@ namespace py = pybind11;
 
 void init_util(py::module_ &m);
 void init_sim(py::module_ &m);
-void init_net(py::module_ &m);

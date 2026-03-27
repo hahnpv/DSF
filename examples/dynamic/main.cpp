@@ -1,5 +1,6 @@
 #include <time.h>
 #include <dlfcn.h>
+#include <fstream>
 
 #include "SimInput.h"
 #include "sim/sim.h"
@@ -106,7 +107,16 @@ int main(int argc, char *argv[])
 	Sim *sim = new Sim();
 	sim->load(root, input.dt(), input.tmax(), input.rateConsole(), input.rateFile(),
 	          input.integrator(), input.atol(), input.rtol());
-    
+
+	// Pass XML file info for HDF5 metadata and filename convention
+	{
+		std::string xml_path = vm["fname"].as<std::string>();
+		std::ifstream ifs(xml_path);
+		std::string xml_content((std::istreambuf_iterator<char>(ifs)),
+		                         std::istreambuf_iterator<char>());
+		sim->setXmlInfo(xml_path, xml_content);
+	}
+
 	// init first — blocks register output variables during init()
 	sim->init();
 

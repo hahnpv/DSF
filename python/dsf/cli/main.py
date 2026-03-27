@@ -110,11 +110,26 @@ def globe(h5_file):
 
 @cli.command()
 @click.argument('input_file', type=click.Path(exists=True))
+@click.option('--terrain-dir', default='', help='Path to terrain/bathymetry tile directory.')
+@click.option('--decimation', default=4, help='Terrain grid decimation (lower = finer, default 4).')
+@click.option('--cull', default=None, type=float, is_flag=False, flag_value=50.0,
+              help='Cull terrain to trajectory bbox grown by percentage. Bare --cull = 50%%. --cull 75 = 75%%.')
+@click.option('--z-scale', default=1.0, type=float,
+              help='Vertical exaggeration factor (default: 1.0).')
+def terrain(input_file, terrain_dir, decimation, cull, z_scale):
+    """3D terrain + trajectory visualizer (GPU-accelerated)."""
+    from dsf.cli.terrain_view import run_terrain
+    run_terrain(input_file, terrain_dir=terrain_dir, decimation=decimation,
+                cull_pct=cull, z_scale=z_scale)
+
+@cli.command()
+@click.argument('input_file', type=click.Path(exists=True))
 @click.option('--port', default=8000, help="Port to run the local server on.")
-def cesium(input_file, port):
+@click.option('--terrain', default='', help="Path to HGT/DTED terrain data directory.")
+def cesium(input_file, port, terrain):
     """Open an HDF5 output file or XML config in the 4D CesiumJS web visualizer."""
     from dsf.cli.cesium_view import run_cesium
-    run_cesium(input_file, port=port)
+    run_cesium(input_file, port=port, terrain_dir=terrain)
 
 if __name__ == '__main__':
     cli()

@@ -48,6 +48,9 @@ namespace dsf
             /// Finalize all blocks and close output files.
             void finalize();
 
+            /// Set XML file info for HDF5 metadata and filename convention.
+            void setXmlInfo(const std::string& xml_file, const std::string& xml_content);
+
             /// Execute the main simulation loop (step until tmax or end()).
             void exec();
 

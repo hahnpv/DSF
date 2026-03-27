@@ -95,6 +95,15 @@ class SimSession:
                            integrator_type, atol, rtol)
         else:
             self._sim.load(self._sim_root, self.dt, self.tmax, 0, 1.0)
+
+        # Pass XML info for HDF5 metadata and filename convention
+        try:
+            with open(self.xml_path, 'r') as f:
+                xml_content = f.read()
+            self._sim.set_xml_info(self.xml_path, xml_content)
+        except Exception:
+            pass  # Non-fatal: metadata is nice-to-have
+
         self._sim.init()
 
         # Build prefixed headers

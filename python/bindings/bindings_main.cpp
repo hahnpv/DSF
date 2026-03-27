@@ -7,5 +7,4 @@ PYBIND11_MODULE(dsf_core, m) {
     // Expose core types/functions
     init_util(m);
     init_sim(m);
-    init_net(m);
 }

@@ -142,6 +142,8 @@ void init_sim(py::module_ &m) {
         .def("finalize", &Output::finalize)
         .def("get_header_names", &Output::get_header_names)
         .def("get_current_values", &Output::get_current_values)
+        .def("set_base_name", &Output::setBaseName)
+        .def("set_metadata", &Output::setMetadata)
         // add() methods store pointers to variables, unsafe for Python types safely without wrapper
         //.def("add", ...) 
         .def_property_static("defaultCSV", 
@@ -166,6 +168,8 @@ void init_sim(py::module_ &m) {
              py::arg("root"), py::arg("dt"), py::arg("tmax"),
              py::arg("console"), py::arg("file"),
              py::arg("integrator_type"), py::arg("atol") = 1e-8, py::arg("rtol") = 1e-6)
+        .def("set_xml_info", &Sim::setXmlInfo,
+             py::arg("xml_file"), py::arg("xml_content"))
         .def("run", &Sim::run, py::call_guard<py::gil_scoped_release>()) // Release GIL!
         .def("exec", &Sim::exec, py::call_guard<py::gil_scoped_release>()) // Release GIL!
         .def("step", &Sim::step, py::call_guard<py::gil_scoped_release>()) // Release GIL!

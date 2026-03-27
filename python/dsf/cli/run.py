@@ -4,15 +4,37 @@ import argparse
 import ctypes
 import os
 
-# Add build directory to path so we can import dsf
-sys.path.append(os.path.join(os.path.dirname(__file__), "../build"))
+# The C++ pybind11 module is also called 'dsf' but lives in the build directory.
+# Since this file is inside the Python 'dsf' package, `import dsf` resolves to
+# the package itself, not the C++ module. We must load it explicitly.
+import importlib.util
+_dsf_build_dir = os.path.join(os.path.dirname(__file__), "../../../build")
+_dsf_so = None
+for _candidate in [os.path.join(_dsf_build_dir, f) for f in os.listdir(_dsf_build_dir)
+                   if f.startswith("dsf") and f.endswith(".so")] if os.path.isdir(_dsf_build_dir) else []:
+    _dsf_so = _candidate
+    break
+
+if _dsf_so is None:
+    # Fallback: try the DSF project build directory
+    _dsf_build_dir2 = os.path.join(os.path.dirname(__file__), "../../build")
+    for _candidate in [os.path.join(_dsf_build_dir2, f) for f in os.listdir(_dsf_build_dir2)
+                       if f.startswith("dsf") and f.endswith(".so")] if os.path.isdir(_dsf_build_dir2) else []:
+        _dsf_so = _candidate
+        break
 
 try:
-    # Force symbols to be global so singletons (TClassDict) are shared with loaded libraries
     sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)
-    import dsf
-except ImportError as e:
-    print(f"Error: Could not import dsf module: {e}")
+    if _dsf_so:
+        _spec = importlib.util.spec_from_file_location("dsf_core", _dsf_so)
+        dsf = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(dsf)
+    else:
+        # Last resort: maybe it's installed in site-packages
+        import dsf as dsf
+except (ImportError, FileNotFoundError) as e:
+    print(f"Error: Could not import dsf C++ module: {e}")
+    print(f"  Searched: {_dsf_build_dir}")
     sys.exit(1)
 
 def parse_args():
@@ -220,6 +242,15 @@ def main():
     sim = dsf.Sim()
     sim.load(sim_root, dt, tmax, rate_console, rate_file, integrator_type, atol, rtol)
     
+    # Pass XML info for HDF5 metadata and filename convention
+    try:
+        xml_path = os.path.abspath(target_xml_path)
+        with open(xml_path, 'r') as f:
+            xml_content = f.read()
+        sim.set_xml_info(xml_path, xml_content)
+    except Exception:
+        pass  # Non-fatal: metadata is nice-to-have
+
     if hasattr(sim, 'init') and hasattr(sim, 'exec'):
         print("Starting simulation (init/exec)...")
         sim.init()

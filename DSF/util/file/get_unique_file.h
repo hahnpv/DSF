@@ -1,56 +1,71 @@
 /**
  * @file get_unique_file.h
- * @brief Unique filename generator (appends numeric suffix to avoid collisions).
+ * @brief Log-rotation style filename manager.
+ *
+ * Implements true log rotation: the newest file is always the bare name,
+ * and existing files are bumped to higher numbers before writing.
+ *
+ * Given "foo.h5", on successive calls:
+ *   Run 1:  foo.h5
+ *   Run 2:  foo.h5 (new), foo.0.h5 (was foo.h5)
+ *   Run 3:  foo.h5 (new), foo.0.h5 (was foo.h5), foo.1.h5 (was foo.0.h5)
  */
 #pragma once
-#include <iostream>
 #include <fstream>
-#include <sstream>
+#include <string>
+#include <cstdio>    // std::rename
 
 namespace dsf
 {
 	namespace util
 	{
-		/// Obtain a unique file name.
-		/// This class takes a file name, string searches for the last dot, and inserts 
-		/// numbers until a unique filename is found.
 		class get_unique_file
 		{
 		public:
-			/// Custom constructor.
-			/// \param filename Filename to use.
-			get_unique_file(std::string filename) 
+			/// Rotate existing files and return the bare filename for new output.
+			get_unique_file(std::string candidate)
 			{
-				ofstream out(filename.c_str(), ios::in);
+				// Split at last dot: stem + ext
+				auto dot = candidate.find_last_of('.');
+				std::string stem = (dot != std::string::npos) ? candidate.substr(0, dot) : candidate;
+				std::string ext  = (dot != std::string::npos) ? candidate.substr(dot)    : "";
 
-				int i = 0;
-				while (out.is_open())
-				{
-					out.close();
-
-					int offset = filename.find_last_of('.');
-					stringstream s;
-					string str;
-					s << i;
-					s >> str;
-
-					if ( i == 0)
-						filename.insert(offset,str);
-					else
-					{
-						stringstream s_prev;
-						s_prev << (i - 1);
-						int lastsize = s_prev.str().length();
-						filename.erase(offset-lastsize,lastsize);
-						filename.insert(offset-lastsize,str);
+				// If the bare file exists, rotate everything up
+				if (file_exists(candidate)) {
+					// Find the highest existing rotation number
+					int max_n = -1;
+					for (int i = 0; ; i++) {
+						if (file_exists(stem + "." + std::to_string(i) + ext))
+							max_n = i;
+						else
+							break;
 					}
-					out.open(filename.c_str(), ios::in);
-					i++;
+
+					// Rename in reverse order to avoid collisions:
+					//   foo.1.h5 → foo.2.h5
+					//   foo.0.h5 → foo.1.h5
+					//   foo.h5   → foo.0.h5
+					for (int i = max_n; i >= 0; i--) {
+						std::string src = stem + "." + std::to_string(i) + ext;
+						std::string dst = stem + "." + std::to_string(i + 1) + ext;
+						std::rename(src.c_str(), dst.c_str());
+					}
+					// Rotate the bare file to .0
+					std::string dst0 = stem + ".0" + ext;
+					std::rename(candidate.c_str(), dst0.c_str());
 				}
-				out.close();		// unique file name found
-				this->filename = filename;
-			};
+
+				// The bare filename is now available for the new run
+				filename = candidate;
+			}
+
 			std::string filename;
+
+		private:
+			static bool file_exists(const std::string& path) {
+				std::ifstream f(path);
+				return f.good();
+			}
 		};
 	}
 }

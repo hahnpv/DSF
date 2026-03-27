@@ -120,3 +120,95 @@ def load_h5(path: str) -> Tuple[np.ndarray, Dict[str, Dict[str, np.ndarray]]]:
                 times = np.arange(len(next(iter(block_data.values()))))
 
             return times, {"simulation": block_data}
+
+
+# =========================================================================
+#  Trajectory Loaders (migrated from dsf.visualization.data_loader)
+# =========================================================================
+
+def load_csv_trajectory(filepath, x_col='xyz_e_0', y_col='xyz_e_1', z_col='xyz_e_2'):
+    """
+    Load trajectory position data from a CSV file.
+
+    Auto-detects common column name patterns if defaults are not found.
+
+    Args:
+        filepath: Path to CSV.
+        x_col, y_col, z_col: Column names for position.
+
+    Returns:
+        np.ndarray: Nx3 array of points, or None on error.
+    """
+    import pandas as pd
+
+    try:
+        df = pd.read_csv(filepath)
+
+        if x_col not in df.columns:
+            candidates = [['x', 'y', 'z'],
+                          ['X', 'Y', 'Z'],
+                          ['xyz_i_0', 'xyz_i_1', 'xyz_i_2'],
+                          ['xe', 'ye', 'ze'],
+                          ['Earth XYZ (x)', 'Earth XYZ (y)', 'Earth XYZ (z)'],
+                          ['Earth XYZ (x) ', 'Earth XYZ (y) ', 'Earth XYZ (z) ']]
+
+            for c in candidates:
+                df_cols_stripped = [col.strip() for col in df.columns]
+                c_stripped = [col.strip() for col in c]
+
+                if all(col in df.columns for col in c):
+                    x_col, y_col, z_col = c
+                    break
+
+                if all(col in df_cols_stripped for col in c_stripped):
+                    x_col = df.columns[df_cols_stripped.index(c_stripped[0])]
+                    y_col = df.columns[df_cols_stripped.index(c_stripped[1])]
+                    z_col = df.columns[df_cols_stripped.index(c_stripped[2])]
+                    break
+
+        if x_col not in df.columns:
+            raise ValueError(f"Could not find position columns. Defaults: {x_col}, {y_col}, {z_col}")
+
+        subset = df[[x_col, y_col, z_col]].copy()
+        subset = subset.apply(pd.to_numeric, errors='coerce')
+        subset = subset.dropna()
+        return subset.to_numpy()
+
+    except Exception as e:
+        print(f"Error loading CSV {filepath}: {e}")
+        return None
+
+
+def load_h5_trajectory(filepath, dataset_path='trajectory'):
+    """
+    Load trajectory position data from an HDF5 file.
+
+    Args:
+        filepath: Path to H5 file.
+        dataset_path: Path to the dataset within the H5 file.
+
+    Returns:
+        np.ndarray: Nx3 array, or None on error.
+    """
+    import h5py
+
+    try:
+        with h5py.File(filepath, 'r') as f:
+            if dataset_path in f:
+                data = f[dataset_path][:]
+                if data.shape[0] == 3 and data.shape[1] > 3:
+                    data = data.T
+                return data
+            else:
+                for key in f.keys():
+                    d = f[key]
+                    if hasattr(d, 'shape') and (d.shape[1] == 3 or d.shape[0] == 3):
+                        data = d[:]
+                        if data.shape[0] == 3:
+                            data = data.T
+                        return data
+                print(f"Dataset {dataset_path} not found in {filepath}")
+                return None
+    except Exception as e:
+        print(f"Error loading H5 {filepath}: {e}")
+        return None
