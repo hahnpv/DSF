@@ -6,6 +6,7 @@
 #include "sim/sim.h"
 #include "sim/event.h"
 #include "sim/TRefDict.h"
+#include "sim/monte_carlo.h"
 #include "util/xml/xml.h"
 
 #include "boost/program_options.hpp"
@@ -102,6 +103,14 @@ int main(int argc, char *argv[])
 		bi++;
 	}
 
+
+		// ── Monte Carlo: parse dispersions ──
+	dsf::sim::MonteCarloCase mc = dsf::sim::parse_mc_xml(n);
+	mc.case_id = input.caseId();
+	mc.case_seed = input.seed();
+
+		// ── Monte Carlo: apply dispersions (after configure, before init) ──
+	dsf::sim::apply_dispersions(root, mc);
 
 		// Instantiate simulation
 	Sim *sim = new Sim();

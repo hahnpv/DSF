@@ -14,15 +14,14 @@ namespace dsf
 {
 	namespace util
 	{
-		/**
-		 * @brief Set random seed (stub — platform-specific).
-		 * @tparam T Seed type.
-		 * @param t Seed value (unused in current implementation).
-		 */
-		template<class T>
-		void set_seed(T t)
-		{
-		}
+	/**
+	 * @brief Set random seed for reproducible Monte Carlo runs.
+	 * @param seed Seed value for srand().
+	 */
+	void set_seed(unsigned int seed)
+	{
+		srand(seed);
+	}
 
 		/**
 		 * @brief Generate a Gaussian-distributed random number.

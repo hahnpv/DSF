@@ -131,5 +131,9 @@ def cesium(input_file, port, terrain):
     from dsf.cli.cesium_view import run_cesium
     run_cesium(input_file, port=port, terrain_dir=terrain)
 
+# ── Monte Carlo subcommand group ──
+from dsf.cli.mc_cli import mc
+cli.add_command(mc)
+
 if __name__ == '__main__':
     cli()

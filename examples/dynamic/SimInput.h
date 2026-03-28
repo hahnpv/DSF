@@ -32,6 +32,12 @@ public:
         std::string rtol_s = n.attrAsString("rtol");
         aTol = atol_s.empty() ? 1e-8 : std::stod(atol_s);
         rTol = rtol_s.empty() ? 1e-6 : std::stod(rtol_s);
+
+        // Monte Carlo parameters (set by Python dispatcher)
+        std::string seed_s = n.attrAsString("seed");
+        std::string case_s = n.attrAsString("case_id");
+        mcSeed = seed_s.empty() ? 0 : (unsigned int)std::stoul(seed_s);
+        mcCaseId = case_s.empty() ? -1 : std::stoi(case_s);
 	}
 
 	double tmax()	     { return time;       };
@@ -41,6 +47,8 @@ public:
         std::string library(){ return lib;        };
 
     std::string integrator() { return integratorType; }
+    unsigned int seed() { return mcSeed; }
+    int caseId() { return mcCaseId; }
     double atol() { return aTol; }
     double rtol() { return rTol; }
 
@@ -81,4 +89,6 @@ private:
     std::string integratorType;
     double aTol;
     double rTol;
+    unsigned int mcSeed;
+    int mcCaseId;
 };
