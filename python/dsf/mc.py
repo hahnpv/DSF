@@ -147,6 +147,9 @@ class MonteCarlo:
 
         Adds seed and case_id attributes to <sim> so the C++ MC engine
         knows which case this is and can reproduce the RNG state.
+
+        Also symlinks sibling data files (aero tables, terrain, etc.)
+        into the case directory so relative paths resolve correctly.
         """
         case_dir = self.output_dir / f"case_{case_id:04d}"
         case_dir.mkdir(parents=True, exist_ok=True)
@@ -161,9 +164,16 @@ class MonteCarlo:
         sim_node.set('seed', str(case_seed))
         sim_node.set('case_id', str(case_id))
 
-        # Remove monte_carlo block from per-case XML (not needed by C++)
-        # Actually, keep it — the C++ parser reads dispersions from it
-        # Just don't remove it.
+        # Symlink sibling data files so relative paths work from case dir
+        src_dir = self.xml_path.parent
+        for f in src_dir.iterdir():
+            if f.is_file() and f.suffix in ('.dat', '.dt2', '.tbl'):
+                link = case_dir / f.name
+                if not link.exists():
+                    try:
+                        link.symlink_to(f.resolve())
+                    except OSError:
+                        pass
 
         # Write patched XML
         xml_path = case_dir / 'case.xml'
@@ -238,7 +248,7 @@ class MonteCarlo:
                 future = pool.submit(
                     subprocess.run,
                     [self.dynamic_bin, case['xml_path']],
-                    cwd=str(self.xml_path.parent),  # run from original XML dir for relative paths
+                    cwd=case['case_dir'],  # each case writes output to its own dir
                     env=env,
                     capture_output=True,
                     text=True,

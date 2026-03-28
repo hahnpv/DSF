@@ -133,6 +133,59 @@ def extremes(output_dir, threshold):
 
 
 @mc.command()
+@click.argument('output_dir', type=click.Path(exists=True))
+@click.option('--type', '-t', 'plot_type', default='summary',
+              type=click.Choice(['summary', 'spaghetti', 'envelope', 'histogram', 'scatter']),
+              help='Plot type')
+@click.option('--var', '-v', 'variables', multiple=True, help='Variable name(s) to plot')
+@click.option('--time', 'at_time', default=-1.0, help='Time for histogram/scatter (-1 = final)')
+@click.option('--max-cases', '-n', default=None, type=int, help='Limit number of cases to load')
+def plot(output_dir, plot_type, variables, at_time, max_cases):
+    """Generate Monte Carlo analysis plots.
+
+    Plot types:
+      summary    - Multi-panel overview (spaghetti + envelope + histogram)
+      spaghetti  - All cases overlaid on one plot
+      envelope   - Mean with percentile bands
+      histogram  - Distribution at a specific time
+      scatter    - Two variables plotted against each other
+    """
+    from dsf.mc_plot import MCPlotter
+
+    plotter = MCPlotter(output_dir, max_cases=max_cases)
+
+    if plot_type == 'summary':
+        vlist = list(variables) if variables else None
+        plotter.summary_panel(variables=vlist)
+
+    elif plot_type == 'spaghetti':
+        if not variables:
+            click.echo("Error: --var required for spaghetti plot")
+            return
+        for v in variables:
+            plotter.spaghetti(v)
+
+    elif plot_type == 'envelope':
+        if not variables:
+            click.echo("Error: --var required for envelope plot")
+            return
+        for v in variables:
+            plotter.envelope(v)
+
+    elif plot_type == 'histogram':
+        if not variables:
+            click.echo("Error: --var required for histogram plot")
+            return
+        for v in variables:
+            plotter.histogram(v, t=at_time)
+
+    elif plot_type == 'scatter':
+        if len(variables) < 2:
+            click.echo("Error: --var X --var Y required for scatter plot")
+            return
+        plotter.scatter(variables[0], variables[1], t=at_time)
+
+@mc.command()
 @click.argument('xml_file', type=click.Path(exists=True))
 def template(xml_file):
     """Auto-generate a <monte_carlo> XML template from introspection.

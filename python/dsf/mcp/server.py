@@ -1366,6 +1366,381 @@ def build(
     }, indent=2)
 
 
+# =========================================================================
+# Report Tool
+# =========================================================================
+
+def _select_plot_variables(headers: List[str], data: Dict) -> List[str]:
+    """Auto-select interesting variables to plot from available headers.
+
+    Priority order:
+    1. Altitude / height-like variables
+    2. Velocity / speed / Mach
+    3. Angular rates / attitudes
+    4. Position components
+    5. Miss distance / range
+    Falls back to first N non-time numeric columns.
+    """
+    priority_patterns = [
+        # altitude / height
+        ['altitude', 'alt', 'height', 'h_msl', 'h_agl', 'z_geo'],
+        # velocity / speed / mach
+        ['velocity', 'speed', 'mach', 'v_mag', 'vt', 'airspeed'],
+        # acceleration / load factor
+        ['accel', 'load_factor', 'nz', 'g_load', 'az'],
+        # angles / attitudes
+        ['alpha', 'beta', 'gamma', 'theta', 'phi', 'psi', 'aoa',
+         'flight_path', 'heading'],
+        # position / range
+        ['range', 'miss_distance', 'downrange', 'crossrange'],
+    ]
+
+    selected = []
+    used = set()
+    lc_headers = {h.lower().strip(): h for h in headers}
+
+    for pattern_group in priority_patterns:
+        for pat in pattern_group:
+            for lc_name, orig_name in lc_headers.items():
+                if pat in lc_name and orig_name not in used:
+                    # Check it has real data
+                    vals = data.get(orig_name, [])
+                    clean = [v for v in vals if v is not None]
+                    if clean and max(clean) != min(clean):  # non-constant
+                        selected.append(orig_name)
+                        used.add(orig_name)
+                        break  # one per pattern group
+            if any(h in used for h in [lc_headers.get(p) for p in pattern_group if p in lc_headers]):
+                break
+
+    # If we didn't find enough, grab first non-time varying columns
+    if len(selected) < 3:
+        time_names = {'time', 't', 'time (s)', 'time(s)'}
+        for h in headers:
+            if h.lower().strip() in time_names or h in used:
+                continue
+            vals = data.get(h, [])
+            clean = [v for v in vals if v is not None]
+            if clean and len(clean) > 1 and max(clean) != min(clean):
+                selected.append(h)
+                used.add(h)
+            if len(selected) >= 6:
+                break
+
+    return selected[:6]  # max 6 subplots
+
+
+def _generate_report_plot(output_path: str, plot_path: str,
+                          variables: List[str] = None) -> str:
+    """Generate a multi-panel timeseries plot for the report.
+
+    Supports both CSV and HDF5 output files. Auto-selects variables
+    if none are specified.
+
+    Returns the path to the saved plot image.
+    """
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    fpath = Path(output_path).resolve()
+    suffix = fpath.suffix.lower()
+
+    if suffix in ('.h5', '.hdf5'):
+        from dsf.utils.data_loader import load_h5
+        times_arr, raw = load_h5(str(fpath))
+        # Flatten to {name: array}
+        flat_data = {}
+        for block, props in raw.items():
+            for name, arr in props.items():
+                key = f"{block}.{name}" if len(raw) > 1 else name
+                if arr.ndim == 2:
+                    for i, sfx in enumerate(['_x', '_y', '_z']):
+                        flat_data[f"{key}{sfx}"] = arr[:, i].tolist()
+                else:
+                    flat_data[key] = arr.tolist()
+        times = times_arr.tolist()
+        all_headers = list(flat_data.keys())
+        data_dict = flat_data
+        data_dict['time'] = times
+    else:
+        all_headers = _parse_csv_headers(str(fpath))
+        data_dict = _read_csv_data(str(fpath))
+        time_col = all_headers[0] if all_headers else 'time'
+        times = data_dict.get(time_col, [])
+
+    if variables:
+        # Substring match
+        cols_to_plot = []
+        for v in variables:
+            matched = [h for h in all_headers
+                       if v.lower() in h.lower() and h.lower() not in ('time', 't')]
+            cols_to_plot.extend(matched)
+        cols_to_plot = list(dict.fromkeys(cols_to_plot))
+    else:
+        cols_to_plot = _select_plot_variables(all_headers, data_dict)
+
+    if not cols_to_plot:
+        return ""
+
+    n = len(cols_to_plot)
+    fig, axs = plt.subplots(n, 1, figsize=(12, 2.8 * n), sharex=True)
+    if n == 1:
+        axs = [axs]
+
+    colors = plt.cm.tab10.colors
+
+    for i, (ax, col) in enumerate(zip(axs, cols_to_plot)):
+        vals = data_dict.get(col, [])
+        ax.plot(times[:len(vals)], vals, color=colors[i % len(colors)],
+                linewidth=1.2, label=col)
+        ax.set_ylabel(col, fontsize=9)
+        ax.grid(True, alpha=0.3)
+        ax.legend(loc='upper right', fontsize=8)
+        ax.tick_params(labelsize=8)
+
+    axs[-1].set_xlabel('Time (s)', fontsize=10)
+    fig.suptitle(f'DSF Simulation Report: {fpath.name}', fontsize=12, fontweight='bold')
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+
+    out = Path(plot_path).resolve()
+    fig.savefig(str(out), dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    return str(out)
+
+
+@mcp.tool(name="dsf_report")
+def build_report(
+    xml_file: Annotated[str, Field(description="Absolute path to the DSF XML configuration file")],
+    output_file: Annotated[str, Field(description="Path to the output CSV or HDF5 file. Empty = auto-detect most recent output next to XML.")] = "",
+) -> str:
+    """Generate a comprehensive simulation report with plots from a DSF run.
+
+    Aggregates XML configuration, per-vehicle/block statistics, key events,
+    and generates a multi-panel timeseries plot. Returns structured JSON
+    with a workflow_hint for formatting as a markdown report.
+
+    Example:
+        dsf_report(xml_file="/path/to/sim.xml")
+        dsf_report(xml_file="/path/to/sim.xml", output_file="/path/to/output1.csv")
+    """
+    import xml.etree.ElementTree as ET
+    import glob
+
+    xml_path = Path(xml_file).resolve()
+    if not xml_path.exists():
+        return json.dumps({"error": f"XML file not found: {xml_file}"})
+
+    # ── Parse XML configuration ──
+    try:
+        tree = ET.parse(str(xml_path))
+        root = tree.getroot()
+    except Exception as e:
+        return json.dumps({"error": f"Failed to parse XML: {e}"})
+
+    sim_node = root if root.tag == 'sim' else root.find('.//sim')
+    if sim_node is None:
+        return json.dumps({"error": "No <sim> element found in XML"})
+
+    # Extract sim settings
+    sim_settings = dict(sim_node.attrib)
+    dt = float(sim_settings.get('dt', '0.01'))
+    tmax = float(sim_settings.get('tmax', '0'))
+    library = sim_settings.get('library', '')
+    output_format = sim_settings.get('output', 'csv')
+
+    # Extract block hierarchy
+    vehicles = []
+    blocks_flat = []
+    for child in sim_node:
+        block_info = {
+            "tag": child.tag,
+            "id": child.get("id", ""),
+            "class": child.get("class", ""),
+        }
+        params = {k: v for k, v in child.attrib.items() if k not in ("id", "class")}
+        if params:
+            block_info["params"] = params
+
+        # Count sub-blocks
+        sub_blocks = []
+        for sub in child:
+            sub_info = {
+                "tag": sub.tag,
+                "id": sub.get("id", ""),
+                "class": sub.get("class", ""),
+            }
+            sub_params = {k: v for k, v in sub.attrib.items() if k not in ("id", "class")}
+            if sub_params:
+                sub_info["params"] = sub_params
+            sub_blocks.append(sub_info)
+
+        block_info["sub_blocks"] = sub_blocks
+
+        if child.tag == "vehicle":
+            vehicles.append(block_info)
+        blocks_flat.append(block_info)
+
+    # ── Locate output file ──
+    xml_dir = xml_path.parent
+    out_path = None
+
+    if output_file:
+        out_path = Path(output_file).resolve()
+        if not out_path.exists():
+            return json.dumps({"error": f"Output file not found: {output_file}"})
+    else:
+        # Auto-detect: look for most recent output file next to XML
+        for pattern in ['output*.h5', 'output*.hdf5', 'output*.csv']:
+            candidates = sorted(
+                glob.glob(str(xml_dir / pattern)),
+                key=lambda f: os.path.getmtime(f), reverse=True
+            )
+            if candidates:
+                out_path = Path(candidates[0])
+                break
+
+    if out_path is None or not out_path.exists():
+        return json.dumps({"error": "No output file found. Run the simulation first."})
+
+    # ── Read output data and build per-block summary ──
+    suffix = out_path.suffix.lower()
+    block_summaries = {}
+    all_variables = {}
+    n_samples = 0
+    t_start = 0.0
+    t_end = 0.0
+
+    try:
+        if suffix in ('.h5', '.hdf5'):
+            from dsf.utils.data_loader import load_h5
+            times, data = load_h5(str(out_path))
+            n_samples = len(times)
+            t_start = round(float(times[0]), 4) if len(times) > 0 else 0
+            t_end = round(float(times[-1]), 4) if len(times) > 0 else 0
+
+            for block_id, props in data.items():
+                block_vars = {}
+                for name, arr in props.items():
+                    if arr.ndim == 2:
+                        # Vec3 — summarize magnitude
+                        mag = np.linalg.norm(arr, axis=1)
+                        block_vars[name] = {
+                            "initial": [round(float(arr[0, i]), 4) for i in range(3)],
+                            "final": [round(float(arr[-1, i]), 4) for i in range(3)],
+                            "mag_min": round(float(np.nanmin(mag)), 4),
+                            "mag_max": round(float(np.nanmax(mag)), 4),
+                        }
+                        # Also add to flat all_variables for plotting
+                        for i, sfx in enumerate(['_x', '_y', '_z']):
+                            key = f"{block_id}.{name}{sfx}" if len(data) > 1 else f"{name}{sfx}"
+                            all_variables[key] = arr[:, i].tolist()
+                    else:
+                        block_vars[name] = {
+                            "min": round(float(np.nanmin(arr)), 4),
+                            "max": round(float(np.nanmax(arr)), 4),
+                            "mean": round(float(np.nanmean(arr)), 4),
+                            "initial": round(float(arr[0]), 4),
+                            "final": round(float(arr[-1]), 4),
+                        }
+                        key = f"{block_id}.{name}" if len(data) > 1 else name
+                        all_variables[key] = arr.tolist()
+                block_summaries[block_id] = block_vars
+        else:
+            # CSV
+            headers = _parse_csv_headers(str(out_path))
+            data_dict = _read_csv_data(str(out_path))
+            time_col = headers[0] if headers else "time"
+            time_vals = data_dict.get(time_col, [])
+            n_samples = len(time_vals)
+            t_start = round(time_vals[0], 4) if time_vals else 0
+            t_end = round(time_vals[-1], 4) if time_vals else 0
+
+            # Group by block prefix (dot notation: Block.Property)
+            for name, values in data_dict.items():
+                clean = [v for v in values if v is not None]
+                if not clean:
+                    continue
+                all_variables[name] = values
+
+                parts = name.split('.')
+                if len(parts) >= 2:
+                    block_id = parts[0]
+                    prop_name = '.'.join(parts[1:])
+                else:
+                    block_id = "simulation"
+                    prop_name = name
+
+                if block_id not in block_summaries:
+                    block_summaries[block_id] = {}
+
+                block_summaries[block_id][prop_name] = {
+                    "min": round(min(clean), 4),
+                    "max": round(max(clean), 4),
+                    "mean": round(sum(clean) / len(clean), 4),
+                    "initial": round(clean[0], 4),
+                    "final": round(clean[-1], 4),
+                }
+
+    except Exception as e:
+        return json.dumps({"error": f"Failed to read output file: {e}"})
+
+    # ── Generate report plot ──
+    plot_path = out_path.parent / f"{xml_path.stem}_report.png"
+    try:
+        generated_plot = _generate_report_plot(str(out_path), str(plot_path))
+    except Exception as e:
+        generated_plot = ""
+
+    # ── Extract description from XML comments ──
+    description = ""
+    try:
+        with open(str(xml_path), 'r') as f:
+            content = f.read()
+        # Find first XML comment block
+        import re
+        match = re.search(r'<!--\s*(.*?)\s*-->', content, re.DOTALL)
+        if match:
+            desc_lines = match.group(1).strip().split('\n')
+            description = '\n'.join(line.strip() for line in desc_lines)
+    except Exception:
+        pass
+
+    # ── Assemble report ──
+    result = {
+        "_workflow_hint": (
+            "Format this data into a simulation analysis report using the "
+            "dsf-report workflow at .agents/workflows/dsf-report.md"
+        ),
+        "simulation": {
+            "name": xml_path.stem,
+            "description": description,
+            "xml_file": str(xml_path),
+            "output_file": str(out_path),
+            "output_format": output_format,
+            "dt": dt,
+            "tmax": tmax,
+            "library": library,
+        },
+        "configuration": {
+            "num_vehicles": len(vehicles),
+            "num_blocks": len(blocks_flat),
+            "vehicles": vehicles,
+            "blocks": blocks_flat,
+        },
+        "results": {
+            "n_samples": n_samples,
+            "t_start": t_start,
+            "t_end": t_end,
+            "t_actual_vs_tmax": "complete" if abs(t_end - tmax) < dt * 2 else f"early_termination (t_end={t_end}, tmax={tmax})",
+        },
+        "block_summaries": block_summaries,
+        "plot_file": generated_plot,
+    }
+
+    return json.dumps(_np_to_python(result), indent=2)
+
+
 
 # =========================================================================
 # Entry point
