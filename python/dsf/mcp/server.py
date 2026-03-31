@@ -27,6 +27,44 @@ import numpy as np
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
+import functools
+from pathlib import Path
+import json as _json_builtin
+
+FILE_ROOT = Path('/home/philip/git/sixdof').resolve()
+
+def safe_dumps(*args, **kwargs):
+    s = _json_builtin.dumps(*args, **kwargs)
+    s = s.replace(str(FILE_ROOT) + '/', '')
+    s = s.replace(str(FILE_ROOT), '')
+    return s
+
+def resolve_path(rel_path: str) -> str:
+    if not rel_path:
+        return ""
+    p = Path(rel_path)
+    if not p.is_absolute():
+        p = (FILE_ROOT / p).resolve()
+    else:
+        p = p.resolve()
+        
+    if not str(p).startswith(str(FILE_ROOT)):
+        raise ValueError(f"Security error: path '{rel_path}' ({p}) attempts to escape FILE_ROOT '{FILE_ROOT}'")
+    return str(p)
+
+def enforce_relative_paths(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        new_kwargs = {}
+        for k, v in kwargs.items():
+            if (k.endswith('_file') or k in ['csv_file1', 'csv_file2', 'library']) and isinstance(v, str):
+                new_kwargs[k] = resolve_path(v)
+            else:
+                new_kwargs[k] = v
+        return func(*args, **new_kwargs)
+    return wrapper
+
+
 mcp = FastMCP("dsf", instructions="DSF simulation framework tools for running sims, reading output, and live introspection")
 
 # =========================================================================
@@ -180,8 +218,9 @@ def _build_run_command(xml_file: str, library: str = None) -> tuple:
 # =========================================================================
 
 @mcp.tool(name="dsf_run_sim")
+@enforce_relative_paths
 def run_sim(
-    xml_file: Annotated[str, Field(description="Absolute path to a DSF XML configuration file")],
+    xml_file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
     library: Annotated[str, Field(description="Path to shared library (e.g. libsixdof.so). Empty = read from XML.")] = "",
     tmax: Annotated[float, Field(description="Override simulation end time in seconds. 0 = use XML value.")] = 0,
 ) -> str:
@@ -192,12 +231,12 @@ def run_sim(
     """
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
-        return json.dumps({"error": f"XML file not found: {xml_file}"})
+        return safe_dumps({"error": f"XML file not found: {xml_file}"})
 
     try:
         cmd, env, cwd = _build_run_command(str(xml_path), library or None)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
     t0 = _time.time()
     try:
@@ -206,9 +245,9 @@ def run_sim(
             capture_output=True, text=True, timeout=600  # 10 min timeout
         )
     except subprocess.TimeoutExpired:
-        return json.dumps({"error": "Simulation timed out after 600 seconds"})
+        return safe_dumps({"error": "Simulation timed out after 600 seconds"})
     except Exception as e:
-        return json.dumps({"error": f"Failed to run simulation: {e}"})
+        return safe_dumps({"error": f"Failed to run simulation: {e}"})
 
     elapsed = round(_time.time() - t0, 2)
 
@@ -265,12 +304,13 @@ def run_sim(
     if output_h5 and output_h5.exists():
         result["output_h5"] = str(output_h5)
 
-    return json.dumps(result, indent=2)
+    return safe_dumps(result, indent=2)
 
 
 @mcp.tool(name="dsf_run_sim_async")
+@enforce_relative_paths
 def run_sim_async(
-    xml_file: Annotated[str, Field(description="Absolute path to a DSF XML configuration file")],
+    xml_file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
     library: Annotated[str, Field(description="Path to shared library. Empty = read from XML.")] = "",
 ) -> str:
     """Start a DSF simulation in the background and return immediately.
@@ -282,12 +322,12 @@ def run_sim_async(
     """
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
-        return json.dumps({"error": f"XML file not found: {xml_file}"})
+        return safe_dumps({"error": f"XML file not found: {xml_file}"})
 
     try:
         cmd, env, cwd = _build_run_command(str(xml_path), library or None)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
     job_id = str(uuid.uuid4())[:8]
     log_path = cwd / f"sim_{job_id}.log"
@@ -307,7 +347,7 @@ def run_sim_async(
         "start_time": _time.time(),
     }
 
-    return json.dumps({
+    return safe_dumps({
         "job_id": job_id,
         "pid": proc.pid,
         "log_path": str(log_path),
@@ -315,6 +355,7 @@ def run_sim_async(
 
 
 @mcp.tool(name="dsf_run_status")
+@enforce_relative_paths
 def run_status(
     job_id: Annotated[str, Field(description="Job ID returned by dsf_run_sim_async")],
     tail_lines: Annotated[int, Field(description="Number of recent log lines to return")] = 30,
@@ -325,7 +366,7 @@ def run_status(
         dsf_run_status(job_id="abc12345")
     """
     if job_id not in _running_jobs:
-        return json.dumps({"error": f"Unknown job_id: {job_id}"})
+        return safe_dumps({"error": f"Unknown job_id: {job_id}"})
 
     job = _running_jobs[job_id]
     proc = job["proc"]
@@ -351,10 +392,11 @@ def run_status(
     except Exception:
         result["log_tail"] = "(could not read log)"
 
-    return json.dumps(result, indent=2)
+    return safe_dumps(result, indent=2)
 
 
 @mcp.tool(name="dsf_stop_run")
+@enforce_relative_paths
 def stop_run(
     job_id: Annotated[str, Field(description="Job ID returned by dsf_run_sim_async")],
 ) -> str:
@@ -364,7 +406,7 @@ def stop_run(
         dsf_stop_run(job_id="abc12345")
     """
     if job_id not in _running_jobs:
-        return json.dumps({"error": f"Unknown job_id: {job_id}"})
+        return safe_dumps({"error": f"Unknown job_id: {job_id}"})
 
     job = _running_jobs[job_id]
     proc = job["proc"]
@@ -375,9 +417,9 @@ def stop_run(
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
-        return json.dumps({"job_id": job_id, "status": "terminated"})
+        return safe_dumps({"job_id": job_id, "status": "terminated"})
     else:
-        return json.dumps({"job_id": job_id, "status": "already_done", "exit_code": proc.returncode})
+        return safe_dumps({"job_id": job_id, "status": "already_done", "exit_code": proc.returncode})
 
 
 # =========================================================================
@@ -385,8 +427,9 @@ def stop_run(
 # =========================================================================
 
 @mcp.tool(name="dsf_get_headers_csv")
+@enforce_relative_paths
 def get_headers_csv(
-    csv_file: Annotated[str, Field(description="Absolute path to a DSF CSV output file")],
+    csv_file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
 ) -> str:
     """List all column headers from a CSV output file.
 
@@ -395,7 +438,7 @@ def get_headers_csv(
     """
     csv_path = Path(csv_file).resolve()
     if not csv_path.exists():
-        return json.dumps({"error": f"File not found: {csv_file}"})
+        return safe_dumps({"error": f"File not found: {csv_file}"})
 
     try:
         headers = _parse_csv_headers(str(csv_path))
@@ -404,19 +447,20 @@ def get_headers_csv(
         with open(csv_path, 'r') as f:
             n_rows = sum(1 for _ in f) - 1  # subtract header
 
-        return json.dumps({
+        return safe_dumps({
             "file": str(csv_path),
             "n_columns": len(headers),
             "n_rows": n_rows,
             "headers": headers,
         }, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 @mcp.tool(name="dsf_get_timeseries_csv")
+@enforce_relative_paths
 def get_timeseries_csv(
-    csv_file: Annotated[str, Field(description="Absolute path to a DSF CSV output file")],
+    csv_file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
     variables: Annotated[str, Field(description="Comma-separated column names (substring match). Empty = all columns.")] = "",
     t_start: Annotated[float, Field(description="Start time filter. -1 = no filter.")] = -1,
     t_end: Annotated[float, Field(description="End time filter. -1 = no filter.")] = -1,
@@ -429,7 +473,7 @@ def get_timeseries_csv(
     """
     csv_path = Path(csv_file).resolve()
     if not csv_path.exists():
-        return json.dumps({"error": f"File not found: {csv_file}"})
+        return safe_dumps({"error": f"File not found: {csv_file}"})
 
     try:
         var_list = [v.strip() for v in variables.split(',') if v.strip()] if variables else None
@@ -458,9 +502,9 @@ def get_timeseries_csv(
                     entry["last_10"] = [round(v, 6) for v in clean[-10:]]
             result["variables"][name] = entry
 
-        return json.dumps(result, indent=2)
+        return safe_dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 # =========================================================================
@@ -468,8 +512,9 @@ def get_timeseries_csv(
 # =========================================================================
 
 @mcp.tool(name="dsf_get_headers_h5")
+@enforce_relative_paths
 def get_headers_h5(
-    h5_file: Annotated[str, Field(description="Absolute path to a DSF HDF5 output file")],
+    h5_file: Annotated[str, Field(description="Relative path to a DSF HDF5 output file")],
 ) -> str:
     """List all dataset names from an HDF5 output file.
 
@@ -478,7 +523,7 @@ def get_headers_h5(
     """
     h5_path = Path(h5_file).resolve()
     if not h5_path.exists():
-        return json.dumps({"error": f"File not found: {h5_file}"})
+        return safe_dumps({"error": f"File not found: {h5_file}"})
 
     try:
         import h5py
@@ -508,14 +553,15 @@ def get_headers_h5(
             result["datasets"] = sorted(flat_datasets)
             result["total_datasets"] = len(flat_datasets)
 
-        return json.dumps(result, indent=2)
+        return safe_dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 @mcp.tool(name="dsf_get_timeseries_h5")
+@enforce_relative_paths
 def get_timeseries_h5(
-    h5_file: Annotated[str, Field(description="Absolute path to a DSF HDF5 output file")],
+    h5_file: Annotated[str, Field(description="Relative path to a DSF HDF5 output file")],
     variables: Annotated[str, Field(description="Comma-separated dataset names (substring match). Empty = all.")] = "",
     group: Annotated[str, Field(description="HDF5 group name (e.g. vehicle name). Empty = auto-detect.")] = "",
     t_start: Annotated[float, Field(description="Start time filter. -1 = no filter.")] = -1,
@@ -529,7 +575,7 @@ def get_timeseries_h5(
     """
     h5_path = Path(h5_file).resolve()
     if not h5_path.exists():
-        return json.dumps({"error": f"File not found: {h5_file}"})
+        return safe_dumps({"error": f"File not found: {h5_file}"})
 
     try:
         from dsf.utils.data_loader import load_h5
@@ -539,7 +585,7 @@ def get_timeseries_h5(
         # Select group
         if group:
             if group not in data:
-                return json.dumps({"error": f"Group '{group}' not found",
+                return safe_dumps({"error": f"Group '{group}' not found",
                                    "available_groups": list(data.keys())})
             block_data = data[group]
         else:
@@ -586,9 +632,9 @@ def get_timeseries_h5(
                     entry = _build_ts_entry(comp)
                     result["variables"][name] = entry
 
-        return json.dumps(result, indent=2)
+        return safe_dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 def _build_ts_entry(arr: np.ndarray) -> dict:
@@ -613,8 +659,9 @@ def _build_ts_entry(arr: np.ndarray) -> dict:
 # =========================================================================
 
 @mcp.tool(name="dsf_inspect_xml")
+@enforce_relative_paths
 def inspect_xml(
-    xml_file: Annotated[str, Field(description="Absolute path to a DSF XML configuration file")],
+    xml_file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
 ) -> str:
     """Parse a DSF XML configuration file and return its structure.
 
@@ -625,7 +672,7 @@ def inspect_xml(
     """
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
-        return json.dumps({"error": f"File not found: {xml_file}"})
+        return safe_dumps({"error": f"File not found: {xml_file}"})
 
     try:
         import xml.etree.ElementTree as ET
@@ -637,7 +684,7 @@ def inspect_xml(
         # Find <sim> node
         sim_node = root if root.tag == 'sim' else root.find('.//sim')
         if sim_node is None:
-            return json.dumps({"error": "No <sim> element found"})
+            return safe_dumps({"error": "No <sim> element found"})
 
         # Sim settings
         result["sim_settings"] = {
@@ -672,9 +719,9 @@ def inspect_xml(
 
         result["blocks"] = [parse_block(child) for child in sim_node]
 
-        return json.dumps(result, indent=2)
+        return safe_dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 # =========================================================================
@@ -682,8 +729,9 @@ def inspect_xml(
 # =========================================================================
 
 @mcp.tool(name="dsf_get_summary")
+@enforce_relative_paths
 def get_summary(
-    output_file: Annotated[str, Field(description="Absolute path to a CSV or HDF5 output file")],
+    output_file: Annotated[str, Field(description="Relative path to a CSV or HDF5 output file")],
 ) -> str:
     """Get a compact statistical summary of a simulation output file.
 
@@ -694,7 +742,7 @@ def get_summary(
     """
     fpath = Path(output_file).resolve()
     if not fpath.exists():
-        return json.dumps({"error": f"File not found: {output_file}"})
+        return safe_dumps({"error": f"File not found: {output_file}"})
 
     result = {"file": str(fpath), "format": fpath.suffix, "variables": {}}
 
@@ -739,9 +787,9 @@ def get_summary(
                         "final": round(clean[-1], 4),
                     }
 
-        return json.dumps(result, indent=2)
+        return safe_dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 # =========================================================================
@@ -807,9 +855,10 @@ def _watch_worker(job_id: str, xml_path: str, lib_path: str,
 
 
 @mcp.tool(name="dsf_watch_sim")
+@enforce_relative_paths
 def watch_sim(
-    xml_file: Annotated[str, Field(description="Absolute path to a DSF XML configuration file")],
-    library: Annotated[str, Field(description="Absolute path to shared library (required)")],
+    xml_file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
+    library: Annotated[str, Field(description="Relative path to shared library (required)")],
     watch: Annotated[str, Field(description="Comma-separated variable name patterns to track. Empty = all.")] = "",
     dt: Annotated[float, Field(description="Timestep in seconds. 0 = read from XML.")] = 0,
     tmax: Annotated[float, Field(description="End time in seconds. 0 = read from XML.")] = 0,
@@ -823,11 +872,11 @@ def watch_sim(
     """
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
-        return json.dumps({"error": f"XML file not found: {xml_file}"})
+        return safe_dumps({"error": f"XML file not found: {xml_file}"})
 
     lib_path = Path(library).resolve()
     if not lib_path.exists():
-        return json.dumps({"error": f"Library not found: {library}"})
+        return safe_dumps({"error": f"Library not found: {library}"})
 
     # Parse dt/tmax from XML if not provided
     if dt <= 0 or tmax <= 0:
@@ -865,7 +914,7 @@ def watch_sim(
     with _watch_lock:
         _watch_sessions[job_id]["thread"] = thread
 
-    return json.dumps({
+    return safe_dumps({
         "job_id": job_id,
         "xml_file": str(xml_path),
         "dt": dt,
@@ -875,6 +924,7 @@ def watch_sim(
 
 
 @mcp.tool(name="dsf_get_watch_state")
+@enforce_relative_paths
 def get_watch_state(
     job_id: Annotated[str, Field(description="Job ID returned by dsf_watch_sim")],
     variables: Annotated[str, Field(description="Comma-separated variable names to return. Empty = all watched.")] = "",
@@ -886,7 +936,7 @@ def get_watch_state(
     """
     with _watch_lock:
         if job_id not in _watch_sessions:
-            return json.dumps({"error": f"Unknown job_id: {job_id}"})
+            return safe_dumps({"error": f"Unknown job_id: {job_id}"})
 
         session_info = _watch_sessions[job_id]
         result = {
@@ -919,10 +969,11 @@ def get_watch_state(
         if session_info.get("headers"):
             result["n_watched"] = len(session_info["headers"])
 
-        return json.dumps(result, indent=2)
+        return safe_dumps(result, indent=2)
 
 
 @mcp.tool(name="dsf_stop_watch")
+@enforce_relative_paths
 def stop_watch(
     job_id: Annotated[str, Field(description="Job ID returned by dsf_watch_sim")],
 ) -> str:
@@ -933,10 +984,10 @@ def stop_watch(
     """
     with _watch_lock:
         if job_id not in _watch_sessions:
-            return json.dumps({"error": f"Unknown job_id: {job_id}"})
+            return safe_dumps({"error": f"Unknown job_id: {job_id}"})
         _watch_sessions[job_id]["stop"] = True
 
-    return json.dumps({"job_id": job_id, "status": "stop_signaled"})
+    return safe_dumps({"job_id": job_id, "status": "stop_signaled"})
 
 
 # =========================================================================
@@ -944,6 +995,7 @@ def stop_watch(
 # =========================================================================
 
 @mcp.tool(name="dsf_list_jobs")
+@enforce_relative_paths
 def list_jobs() -> str:
     """List all known DSF simulation jobs (running and completed).
 
@@ -968,7 +1020,7 @@ def list_jobs() -> str:
                 "elapsed": round(_time.time() - session["start_time"], 1),
             }
 
-    return json.dumps(result, indent=2)
+    return safe_dumps(result, indent=2)
 
 
 # =========================================================================
@@ -976,8 +1028,9 @@ def list_jobs() -> str:
 # =========================================================================
 
 @mcp.tool(name="dsf_plot_timeseries_csv")
+@enforce_relative_paths
 def plot_timeseries_csv(
-    csv_file: Annotated[str, Field(description="Absolute path to a DSF CSV output file")],
+    csv_file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
     variables: Annotated[str, Field(description="Comma-separated column names (substring match) to plot")],
     out_file: Annotated[str, Field(description="Path to save the plot image (e.g. 'plot.png'). Empty = auto-generate.")] = "",
 ) -> str:
@@ -995,21 +1048,21 @@ def plot_timeseries_csv(
     
     fpath = Path(csv_file).resolve()
     if not fpath.exists():
-        return json.dumps({"error": f"File not found: {csv_file}"})
+        return safe_dumps({"error": f"File not found: {csv_file}"})
         
     try:
         headers = _parse_csv_headers(str(fpath))
         data_dict = _read_csv_data(str(fpath))
         
         if not headers or not data_dict:
-            return json.dumps({"error": "No data found or empty CSV"})
+            return safe_dumps({"error": "No data found or empty CSV"})
             
         time_col = headers[0]
         times = data_dict.get(time_col, [])
         
         var_list = [v.strip() for v in variables.split(',') if v.strip()]
         if not var_list:
-            return json.dumps({"error": "No variables provided to plot"})
+            return safe_dumps({"error": "No variables provided to plot"})
             
         # Find matching columns
         cols_to_plot = []
@@ -1021,7 +1074,7 @@ def plot_timeseries_csv(
         cols_to_plot = list(dict.fromkeys(cols_to_plot))
         
         if not cols_to_plot:
-            return json.dumps({"error": f"No matching columns found for variables: {variables}", "available": headers})
+            return safe_dumps({"error": f"No matching columns found for variables: {variables}", "available": headers})
             
         fig, axs = plt.subplots(len(cols_to_plot), 1, figsize=(10, 3 * len(cols_to_plot)), sharex=True)
         if len(cols_to_plot) == 1:
@@ -1047,10 +1100,10 @@ def plot_timeseries_csv(
         fig.savefig(str(out_path))
         plt.close(fig)
         
-        return json.dumps({"file": str(out_path), "plotted_variables": cols_to_plot})
+        return safe_dumps({"file": str(out_path), "plotted_variables": cols_to_plot})
         
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 # =========================================================================
@@ -1058,9 +1111,10 @@ def plot_timeseries_csv(
 # =========================================================================
 
 @mcp.tool(name="dsf_compare_runs_csv")
+@enforce_relative_paths
 def compare_runs_csv(
-    csv_file1: Annotated[str, Field(description="Absolute path to the first (baseline) CSV output file")],
-    csv_file2: Annotated[str, Field(description="Absolute path to the second (modified) CSV output file")],
+    csv_file1: Annotated[str, Field(description="Relative path to the first (baseline) CSV output file")],
+    csv_file2: Annotated[str, Field(description="Relative path to the second (modified) CSV output file")],
     variables: Annotated[str, Field(description="Comma-separated column names (substring match) to compare")],
 ) -> str:
     """Compare two simulation CSV outputs and return min/max/RMS differences.
@@ -1074,9 +1128,9 @@ def compare_runs_csv(
     fpath2 = Path(csv_file2).resolve()
     
     if not fpath1.exists():
-        return json.dumps({"error": f"File not found: {csv_file1}"})
+        return safe_dumps({"error": f"File not found: {csv_file1}"})
     if not fpath2.exists():
-        return json.dumps({"error": f"File not found: {csv_file2}"})
+        return safe_dumps({"error": f"File not found: {csv_file2}"})
         
     try:
         headers1 = _parse_csv_headers(str(fpath1))
@@ -1086,7 +1140,7 @@ def compare_runs_csv(
         
         var_list = [v.strip() for v in variables.split(',') if v.strip()]
         if not var_list:
-            return json.dumps({"error": "No variables provided"})
+            return safe_dumps({"error": "No variables provided"})
             
         result = {"file1": str(fpath1), "file2": str(fpath2), "comparisons": {}}
         
@@ -1122,14 +1176,15 @@ def compare_runs_csv(
                     "delta (mod-base)": diffs
                 }
                 
-        return json.dumps(result, indent=2)
+        return safe_dumps(result, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 @mcp.tool(name="dsf_extract_events")
+@enforce_relative_paths
 def extract_events(
-    csv_file: Annotated[str, Field(description="Absolute path to a DSF CSV output file")],
+    csv_file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
     variable: Annotated[str, Field(description="Column name (or substring) to evaluate")],
     operator_str: Annotated[str, Field(description="Comparison operator: '>', '<', '>=', '<=', '==', '!=', or 'crosses'")],
     threshold: Annotated[float, Field(description="Numeric threshold value to compare against")],
@@ -1143,21 +1198,21 @@ def extract_events(
     import json
     fpath = Path(csv_file).resolve()
     if not fpath.exists():
-        return json.dumps({"error": f"File not found: {csv_file}"})
+        return safe_dumps({"error": f"File not found: {csv_file}"})
         
     try:
         headers = _parse_csv_headers(str(fpath))
         data = _read_csv_data(str(fpath))
         
         if not headers:
-            return json.dumps({"error": "Empty CSV / No headers"})
+            return safe_dumps({"error": "Empty CSV / No headers"})
             
         time_col = headers[0]
         times = data.get(time_col, [])
         
         col = next((h for h in headers if variable.lower() in h.lower() and h != time_col), None)
         if not col or col not in data:
-            return json.dumps({"error": f"Variable matching '{variable}' not found."})
+            return safe_dumps({"error": f"Variable matching '{variable}' not found."})
             
         vals = data[col]
         events = []
@@ -1191,7 +1246,7 @@ def extract_events(
             if triggered:
                 events.append({"time": t_curr, "value": v_curr, "type": "transition"})
                 
-        return json.dumps({
+        return safe_dumps({
             "file": str(fpath),
             "variable": col,
             "operator": operator_str,
@@ -1200,12 +1255,13 @@ def extract_events(
             "events": events
         }, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 
 @mcp.tool(name="dsf_patch_run_xml")
+@enforce_relative_paths
 def patch_run_xml(
-    xml_file: Annotated[str, Field(description="Absolute path to the baseline DSF XML configuration file")],
+    xml_file: Annotated[str, Field(description="Relative path to the baseline DSF XML configuration file")],
     xpath: Annotated[str, Field(description="ElementTree XPath to the node to modify, e.g. './/block[@id=\"AltHold\"]'")],
     attributes: Annotated[str, Field(description="JSON string of attribute key-value pairs to set, e.g. '{\"Kp\": \"0.5\"}'")],
     out_file: Annotated[str, Field(description="Path to save patched XML. Empty = <stem>_patched.xml.")] = "",
@@ -1223,7 +1279,7 @@ def patch_run_xml(
     
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
-        return json.dumps({"error": f"File not found: {xml_file}"})
+        return safe_dumps({"error": f"File not found: {xml_file}"})
         
     try:
         tree = ET.parse(str(xml_path))
@@ -1231,12 +1287,12 @@ def patch_run_xml(
         
         node = root.find(xpath)
         if node is None:
-            return json.dumps({"error": f"Node not found for xpath: {xpath}"})
+            return safe_dumps({"error": f"Node not found for xpath: {xpath}"})
             
         try:
             attrs = json.loads(attributes)
         except json.JSONDecodeError as e:
-            return json.dumps({"error": f"Failed to parse attributes JSON: {e}"})
+            return safe_dumps({"error": f"Failed to parse attributes JSON: {e}"})
             
         for k, v in attrs.items():
             node.set(k, str(v))
@@ -1251,7 +1307,7 @@ def patch_run_xml(
         # We process the simulation synchronously
         return run_sim(str(out_path), library, tmax)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return safe_dumps({"error": str(e)})
 
 # =========================================================================
 # Build Tools
@@ -1263,6 +1319,7 @@ _BUILD_DIRS = {
 }
 
 @mcp.tool(name="dsf_build")
+@enforce_relative_paths
 def build(
     project: Annotated[str, Field(description="Project to build: 'sixdof' (default), 'dsf', or 'both'")] = "sixdof",
     action: Annotated[str, Field(description="Build action: 'build' (default), 'clean', 'rebuild' (clean+build), 'cmake' (reconfigure+build)")] = "build",
@@ -1297,7 +1354,7 @@ def build(
     elif project in _BUILD_DIRS:
         targets = [(project, Path(_BUILD_DIRS[project]))]
     else:
-        return json.dumps({"error": f"Unknown project '{project}'. Use 'sixdof', 'dsf', or 'both'."})
+        return safe_dumps({"error": f"Unknown project '{project}'. Use 'sixdof', 'dsf', or 'both'."})
 
     all_results = {}
     overall_success = True
@@ -1358,7 +1415,7 @@ def build(
 
     elapsed = round(_time.time() - t0, 2)
 
-    return json.dumps({
+    return safe_dumps({
         "success": overall_success,
         "action": action,
         "wall_clock_seconds": elapsed,
@@ -1510,8 +1567,9 @@ def _generate_report_plot(output_path: str, plot_path: str,
 
 
 @mcp.tool(name="dsf_report")
+@enforce_relative_paths
 def build_report(
-    xml_file: Annotated[str, Field(description="Absolute path to the DSF XML configuration file")],
+    xml_file: Annotated[str, Field(description="Relative path to the DSF XML configuration file")],
     output_file: Annotated[str, Field(description="Path to the output CSV or HDF5 file. Empty = auto-detect most recent output next to XML.")] = "",
 ) -> str:
     """Generate a comprehensive simulation report with plots from a DSF run.
@@ -1529,18 +1587,18 @@ def build_report(
 
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
-        return json.dumps({"error": f"XML file not found: {xml_file}"})
+        return safe_dumps({"error": f"XML file not found: {xml_file}"})
 
     # ── Parse XML configuration ──
     try:
         tree = ET.parse(str(xml_path))
         root = tree.getroot()
     except Exception as e:
-        return json.dumps({"error": f"Failed to parse XML: {e}"})
+        return safe_dumps({"error": f"Failed to parse XML: {e}"})
 
     sim_node = root if root.tag == 'sim' else root.find('.//sim')
     if sim_node is None:
-        return json.dumps({"error": "No <sim> element found in XML"})
+        return safe_dumps({"error": "No <sim> element found in XML"})
 
     # Extract sim settings
     sim_settings = dict(sim_node.attrib)
@@ -1588,7 +1646,7 @@ def build_report(
     if output_file:
         out_path = Path(output_file).resolve()
         if not out_path.exists():
-            return json.dumps({"error": f"Output file not found: {output_file}"})
+            return safe_dumps({"error": f"Output file not found: {output_file}"})
     else:
         # Auto-detect: look for most recent output file next to XML
         for pattern in ['output*.h5', 'output*.hdf5', 'output*.csv']:
@@ -1601,7 +1659,7 @@ def build_report(
                 break
 
     if out_path is None or not out_path.exists():
-        return json.dumps({"error": "No output file found. Run the simulation first."})
+        return safe_dumps({"error": "No output file found. Run the simulation first."})
 
     # ── Read output data and build per-block summary ──
     suffix = out_path.suffix.lower()
@@ -1683,7 +1741,7 @@ def build_report(
                 }
 
     except Exception as e:
-        return json.dumps({"error": f"Failed to read output file: {e}"})
+        return safe_dumps({"error": f"Failed to read output file: {e}"})
 
     # ── Generate report plot ──
     plot_path = out_path.parent / f"{xml_path.stem}_report.png"
@@ -1738,9 +1796,55 @@ def build_report(
         "plot_file": generated_plot,
     }
 
-    return json.dumps(_np_to_python(result), indent=2)
+    return safe_dumps(_np_to_python(result), indent=2)
 
 
+
+# =========================================================================
+# File System Operations
+# =========================================================================
+
+@mcp.tool()
+def dsf_read_file(relative_path: Annotated[str, Field(description="Relative path from the sixdof workspace root")]) -> str:
+    """Read a text file, script, or XML deck from the DSF repository."""
+    try:
+        p = Path(resolve_path(relative_path))
+        if not p.exists():
+            return f"Error: File '{relative_path}' does not exist."
+        if not p.is_file():
+            return f"Error: '{relative_path}' is a directory, not a file."
+        return p.read_text(encoding='utf-8')
+    except Exception as e:
+        return f"Error: {e}"
+
+@mcp.tool()
+def dsf_write_file(relative_path: Annotated[str, Field(description="Relative path from the sixdof workspace root")], content: str) -> str:
+    """Create a new file or completely overwrite an existing file on DSF.
+    If directories in the path do not exist, they will be created."""
+    try:
+        p = Path(resolve_path(relative_path))
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding='utf-8')
+        return f"Successfully wrote {relative_path}"
+    except Exception as e:
+        return f"Error: {e}"
+
+@mcp.tool()
+def dsf_search_replace(relative_path: Annotated[str, Field(description="Relative path from the sixdof workspace root")], target: str, replacement: str) -> str:
+    """Find a specific string in a file on DSF and replace it. 
+    The target string must match exactly, including leading spaces/tabs."""
+    try:
+        p = Path(resolve_path(relative_path))
+        if not p.exists():
+            return f"Error: File '{relative_path}' does not exist."
+        file_str = p.read_text(encoding='utf-8')
+        if target not in file_str:
+            return "Error: Target string not found exactly"
+        file_str = file_str.replace(target, replacement)
+        p.write_text(file_str, encoding='utf-8')
+        return f"Successfully replaced target in {relative_path}"
+    except Exception as e:
+        return f"Error: {e}"
 
 # =========================================================================
 # Entry point
