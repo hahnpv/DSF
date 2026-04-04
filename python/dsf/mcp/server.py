@@ -56,8 +56,12 @@ def enforce_relative_paths(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         new_kwargs = {}
+        # Match the new canonical param names + old names for backward compat
+        path_params = {'file', 'file_a', 'file_b', 'library', 'output',
+                       'xml_file', 'csv_file', 'h5_file', 'csv_file1', 'csv_file2',
+                       'output_file', 'out_file'}
         for k, v in kwargs.items():
-            if (k.endswith('_file') or k in ['csv_file1', 'csv_file2', 'library']) and isinstance(v, str):
+            if k in path_params and isinstance(v, str):
                 new_kwargs[k] = resolve_path(v)
             else:
                 new_kwargs[k] = v
@@ -65,7 +69,115 @@ def enforce_relative_paths(func):
     return wrapper
 
 
+# ── Parameter alias map ─────────────────────────────────────────
+import inspect
+
+PARAM_ALIASES = {
+    # xml/csv/h5 file aliases → "file"
+    "xml_file": "file",
+    "csv_file": "file",
+    "h5_file": "file",
+    "output_file": "file",
+    "path": "file",
+    "file_path": "file",
+    # comparison aliases
+    "csv_file1": "file_a",
+    "csv_file2": "file_b",
+    # output aliases
+    "out_file": "output",
+    "output_path": "output",
+    # operator alias
+    "operator_str": "operator",
+    # variable aliases
+    "vars": "variables",
+    "variable_names": "variables",
+}
+
+
+def normalize_args(func):
+    """Decorator that maps common LLM parameter name mistakes to correct names.
+
+    If an alias maps successfully, proceeds silently. If a parameter can't be
+    resolved at all, returns a helpful JSON error with expected parameter names.
+    """
+    sig = inspect.signature(func)
+    expected_params = set(sig.parameters.keys())
+
+    # Build help dict from annotations for error messages
+    param_help = {}
+    for name, param in sig.parameters.items():
+        desc = ""
+        if hasattr(param.annotation, '__metadata__'):
+            for meta in param.annotation.__metadata__:
+                if hasattr(meta, 'description'):
+                    desc = meta.description
+        required = param.default is inspect.Parameter.empty
+        param_help[name] = f"({'required' if required else 'optional'}) {desc}"
+
+    @functools.wraps(func)
+    def wrapper(**kwargs):
+        normalized = {}
+        unknown_keys = []
+
+        for key, value in kwargs.items():
+            if key in expected_params:
+                normalized[key] = value
+            elif key in PARAM_ALIASES and PARAM_ALIASES[key] in expected_params:
+                canonical = PARAM_ALIASES[key]
+                if canonical not in normalized:
+                    normalized[canonical] = value
+            else:
+                unknown_keys.append(key)
+
+        # Check for missing required params
+        missing = [
+            name for name, param in sig.parameters.items()
+            if param.default is inspect.Parameter.empty and name not in normalized
+        ]
+
+        if missing:
+            import json as _json
+            hints = []
+            for uk in unknown_keys:
+                if uk in PARAM_ALIASES:
+                    hints.append(f"'{uk}' -> use '{PARAM_ALIASES[uk]}' instead")
+                else:
+                    hints.append(f"'{uk}' is not a recognized parameter")
+
+            return _json.dumps({
+                "error": f"Parameter error calling {func.__name__}",
+                "missing_required": missing,
+                "unknown_parameters": unknown_keys,
+                "hints": hints,
+                "expected_parameters": param_help,
+            })
+
+        return func(**normalized)
+
+    wrapper.__annotations__ = func.__annotations__
+    return wrapper
+
+
 mcp = FastMCP("dsf", instructions="DSF simulation framework tools for running sims, reading output, and live introspection")
+
+# Monkey-patch mcp.tool to auto-apply normalize_args to every tool
+_original_tool = mcp.tool
+
+
+def _robust_tool(*args, **kwargs):
+    """Wraps mcp.tool to add parameter alias normalization."""
+    decorator = _original_tool(*args, **kwargs)
+
+    def wrapping_decorator(func):
+        wrapped = normalize_args(func)
+        wrapped.__annotations__ = func.__annotations__
+        wrapped.__doc__ = func.__doc__
+        return decorator(wrapped)
+
+    return wrapping_decorator
+
+
+mcp.tool = _robust_tool
 
 # =========================================================================
 # State
@@ -220,7 +332,7 @@ def _build_run_command(xml_file: str, library: str = None) -> tuple:
 @mcp.tool(name="dsf_run_sim")
 @enforce_relative_paths
 def run_sim(
-    xml_file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
+    file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
     library: Annotated[str, Field(description="Path to shared library (e.g. libsixdof.so). Empty = read from XML.")] = "",
     tmax: Annotated[float, Field(description="Override simulation end time in seconds. 0 = use XML value.")] = 0,
 ) -> str:
@@ -229,6 +341,7 @@ def run_sim(
     Example:
         dsf_run_sim(xml_file="/path/to/sim.xml", library="/path/to/libsixdof.so")
     """
+    xml_file = file
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
         return safe_dumps({"error": f"XML file not found: {xml_file}"})
@@ -310,7 +423,7 @@ def run_sim(
 @mcp.tool(name="dsf_run_sim_async")
 @enforce_relative_paths
 def run_sim_async(
-    xml_file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
+    file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
     library: Annotated[str, Field(description="Path to shared library. Empty = read from XML.")] = "",
 ) -> str:
     """Start a DSF simulation in the background and return immediately.
@@ -320,6 +433,7 @@ def run_sim_async(
     Example:
         dsf_run_sim_async(xml_file="/path/to/sim.xml")
     """
+    xml_file = file
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
         return safe_dumps({"error": f"XML file not found: {xml_file}"})
@@ -429,13 +543,14 @@ def stop_run(
 @mcp.tool(name="dsf_get_headers_csv")
 @enforce_relative_paths
 def get_headers_csv(
-    csv_file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
+    file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
 ) -> str:
     """List all column headers from a CSV output file.
 
     Example:
         dsf_get_headers_csv(csv_file="/path/to/output1.csv")
     """
+    csv_file = file
     csv_path = Path(csv_file).resolve()
     if not csv_path.exists():
         return safe_dumps({"error": f"File not found: {csv_file}"})
@@ -460,7 +575,7 @@ def get_headers_csv(
 @mcp.tool(name="dsf_get_timeseries_csv")
 @enforce_relative_paths
 def get_timeseries_csv(
-    csv_file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
+    file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
     variables: Annotated[str, Field(description="Comma-separated column names (substring match). Empty = all columns.")] = "",
     t_start: Annotated[float, Field(description="Start time filter. -1 = no filter.")] = -1,
     t_end: Annotated[float, Field(description="End time filter. -1 = no filter.")] = -1,
@@ -471,6 +586,7 @@ def get_timeseries_csv(
     Example:
         dsf_get_timeseries_csv(csv_file="/path/to/output1.csv", variables="Altitude,Mach", decimation=10)
     """
+    csv_file = file
     csv_path = Path(csv_file).resolve()
     if not csv_path.exists():
         return safe_dumps({"error": f"File not found: {csv_file}"})
@@ -514,13 +630,14 @@ def get_timeseries_csv(
 @mcp.tool(name="dsf_get_headers_h5")
 @enforce_relative_paths
 def get_headers_h5(
-    h5_file: Annotated[str, Field(description="Relative path to a DSF HDF5 output file")],
+    file: Annotated[str, Field(description="Relative path to a DSF HDF5 output file")],
 ) -> str:
     """List all dataset names from an HDF5 output file.
 
     Example:
         dsf_get_headers_h5(h5_file="/path/to/output1.h5")
     """
+    h5_file = file
     h5_path = Path(h5_file).resolve()
     if not h5_path.exists():
         return safe_dumps({"error": f"File not found: {h5_file}"})
@@ -561,7 +678,7 @@ def get_headers_h5(
 @mcp.tool(name="dsf_get_timeseries_h5")
 @enforce_relative_paths
 def get_timeseries_h5(
-    h5_file: Annotated[str, Field(description="Relative path to a DSF HDF5 output file")],
+    file: Annotated[str, Field(description="Relative path to a DSF HDF5 output file")],
     variables: Annotated[str, Field(description="Comma-separated dataset names (substring match). Empty = all.")] = "",
     group: Annotated[str, Field(description="HDF5 group name (e.g. vehicle name). Empty = auto-detect.")] = "",
     t_start: Annotated[float, Field(description="Start time filter. -1 = no filter.")] = -1,
@@ -573,6 +690,7 @@ def get_timeseries_h5(
     Example:
         dsf_get_timeseries_h5(h5_file="/path/to/output1.h5", variables="Altitude,Mach")
     """
+    h5_file = file
     h5_path = Path(h5_file).resolve()
     if not h5_path.exists():
         return safe_dumps({"error": f"File not found: {h5_file}"})
@@ -661,7 +779,7 @@ def _build_ts_entry(arr: np.ndarray) -> dict:
 @mcp.tool(name="dsf_inspect_xml")
 @enforce_relative_paths
 def inspect_xml(
-    xml_file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
+    file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
 ) -> str:
     """Parse a DSF XML configuration file and return its structure.
 
@@ -670,6 +788,7 @@ def inspect_xml(
     Example:
         dsf_inspect_xml(xml_file="/path/to/sim.xml")
     """
+    xml_file = file
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
         return safe_dumps({"error": f"File not found: {xml_file}"})
@@ -731,7 +850,7 @@ def inspect_xml(
 @mcp.tool(name="dsf_get_summary")
 @enforce_relative_paths
 def get_summary(
-    output_file: Annotated[str, Field(description="Relative path to a CSV or HDF5 output file")],
+    file: Annotated[str, Field(description="Relative path to a CSV or HDF5 output file")],
 ) -> str:
     """Get a compact statistical summary of a simulation output file.
 
@@ -740,6 +859,7 @@ def get_summary(
     Example:
         dsf_get_summary(output_file="/path/to/output1.csv")
     """
+    output_file = file
     fpath = Path(output_file).resolve()
     if not fpath.exists():
         return safe_dumps({"error": f"File not found: {output_file}"})
@@ -857,7 +977,7 @@ def _watch_worker(job_id: str, xml_path: str, lib_path: str,
 @mcp.tool(name="dsf_watch_sim")
 @enforce_relative_paths
 def watch_sim(
-    xml_file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
+    file: Annotated[str, Field(description="Relative path to a DSF XML configuration file")],
     library: Annotated[str, Field(description="Relative path to shared library (required)")],
     watch: Annotated[str, Field(description="Comma-separated variable name patterns to track. Empty = all.")] = "",
     dt: Annotated[float, Field(description="Timestep in seconds. 0 = read from XML.")] = 0,
@@ -870,6 +990,7 @@ def watch_sim(
     Example:
         dsf_watch_sim(xml_file="/path/to/sim.xml", library="/path/to/libsixdof.so")
     """
+    xml_file = file
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
         return safe_dumps({"error": f"XML file not found: {xml_file}"})
@@ -1030,15 +1151,17 @@ def list_jobs() -> str:
 @mcp.tool(name="dsf_plot_timeseries_csv")
 @enforce_relative_paths
 def plot_timeseries_csv(
-    csv_file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
+    file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
     variables: Annotated[str, Field(description="Comma-separated column names (substring match) to plot")],
-    out_file: Annotated[str, Field(description="Path to save the plot image (e.g. 'plot.png'). Empty = auto-generate.")] = "",
+    output: Annotated[str, Field(description="Path to save the plot image (e.g. 'plot.png'). Empty = auto-generate.")] = "",
 ) -> str:
     """Plot timeseries data from a CSV output file and save to an image.
 
     Example:
         dsf_plot_timeseries_csv(csv_file="/path/to/output1.csv", variables="Altitude,Mach", out_file="/tmp/plot.png")
     """
+    csv_file = file
+    out_file = output
     import matplotlib
     matplotlib.use('Agg')  # Prevent GUI popups that could hang the server
     import matplotlib.pyplot as plt
@@ -1113,8 +1236,8 @@ def plot_timeseries_csv(
 @mcp.tool(name="dsf_compare_runs_csv")
 @enforce_relative_paths
 def compare_runs_csv(
-    csv_file1: Annotated[str, Field(description="Relative path to the first (baseline) CSV output file")],
-    csv_file2: Annotated[str, Field(description="Relative path to the second (modified) CSV output file")],
+    file_a: Annotated[str, Field(description="Relative path to the first (baseline) CSV output file")],
+    file_b: Annotated[str, Field(description="Relative path to the second (modified) CSV output file")],
     variables: Annotated[str, Field(description="Comma-separated column names (substring match) to compare")],
 ) -> str:
     """Compare two simulation CSV outputs and return min/max/RMS differences.
@@ -1122,6 +1245,8 @@ def compare_runs_csv(
     Example:
         dsf_compare_runs_csv(csv_file1="/path/to/baseline.csv", csv_file2="/path/to/modified.csv", variables="Altitude,Mach")
     """
+    csv_file1 = file_a
+    csv_file2 = file_b
     from pathlib import Path
     import json
     fpath1 = Path(csv_file1).resolve()
@@ -1184,9 +1309,9 @@ def compare_runs_csv(
 @mcp.tool(name="dsf_extract_events")
 @enforce_relative_paths
 def extract_events(
-    csv_file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
+    file: Annotated[str, Field(description="Relative path to a DSF CSV output file")],
     variable: Annotated[str, Field(description="Column name (or substring) to evaluate")],
-    operator_str: Annotated[str, Field(description="Comparison operator: '>', '<', '>=', '<=', '==', '!=', or 'crosses'")],
+    operator: Annotated[str, Field(description="Comparison operator: '>', '<', '>=', '<=', '==', '!=', or 'crosses'")],
     threshold: Annotated[float, Field(description="Numeric threshold value to compare against")],
 ) -> str:
     """Find timestamps in a CSV where a condition becomes true (crosses threshold).
@@ -1194,6 +1319,8 @@ def extract_events(
     Example:
         dsf_extract_events(csv_file="/path/to/output1.csv", variable="Altitude", operator_str="<", threshold=0)
     """
+    csv_file = file
+    operator_str = operator
     from pathlib import Path
     import json
     fpath = Path(csv_file).resolve()
@@ -1261,10 +1388,10 @@ def extract_events(
 @mcp.tool(name="dsf_patch_run_xml")
 @enforce_relative_paths
 def patch_run_xml(
-    xml_file: Annotated[str, Field(description="Relative path to the baseline DSF XML configuration file")],
+    file: Annotated[str, Field(description="Relative path to the baseline DSF XML configuration file")],
     xpath: Annotated[str, Field(description="ElementTree XPath to the node to modify, e.g. './/block[@id=\"AltHold\"]'")],
     attributes: Annotated[str, Field(description="JSON string of attribute key-value pairs to set, e.g. '{\"Kp\": \"0.5\"}'")],
-    out_file: Annotated[str, Field(description="Path to save patched XML. Empty = <stem>_patched.xml.")] = "",
+    output: Annotated[str, Field(description="Path to save patched XML. Empty = <stem>_patched.xml.")] = "",
     library: Annotated[str, Field(description="Path to shared library. Empty = read from XML.")] = "",
     tmax: Annotated[float, Field(description="Override simulation end time. 0 = use XML value.")] = 0,
 ) -> str:
@@ -1273,6 +1400,8 @@ def patch_run_xml(
     Example:
         dsf_patch_run_xml(xml_file="/path/to/sim.xml", xpath=".//fcs[@id='F16FCS']", attributes='{"Kp_h": "0.01"}')
     """
+    xml_file = file
+    out_file = output
     from pathlib import Path
     import json
     import xml.etree.ElementTree as ET
@@ -1569,8 +1698,8 @@ def _generate_report_plot(output_path: str, plot_path: str,
 @mcp.tool(name="dsf_report")
 @enforce_relative_paths
 def build_report(
-    xml_file: Annotated[str, Field(description="Relative path to the DSF XML configuration file")],
-    output_file: Annotated[str, Field(description="Path to the output CSV or HDF5 file. Empty = auto-detect most recent output next to XML.")] = "",
+    file: Annotated[str, Field(description="Relative path to the DSF XML configuration file")],
+    file: Annotated[str, Field(description="Path to the output CSV or HDF5 file. Empty = auto-detect most recent output next to XML.")] = "",
 ) -> str:
     """Generate a comprehensive simulation report with plots from a DSF run.
 
@@ -1582,6 +1711,8 @@ def build_report(
         dsf_report(xml_file="/path/to/sim.xml")
         dsf_report(xml_file="/path/to/sim.xml", output_file="/path/to/output1.csv")
     """
+    xml_file = file
+    output_file = file
     import xml.etree.ElementTree as ET
     import glob
 
