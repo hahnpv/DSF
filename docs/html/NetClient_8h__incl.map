@@ -1,0 +1,7 @@
+<map id="DSF/net/NetClient.h" name="DSF/net/NetClient.h">
+<area shape="rect" id="Node000001" title="TCP client block for connecting to a remote simulation server." alt="" coords="31,5,182,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,79,85,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="99,33,66,70,62,66,95,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="109,79,227,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="119,29,151,66,147,70,115,33"/>
+</map>

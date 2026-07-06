@@ -1,0 +1,19 @@
+<map id="dsf::sim::Sim" name="dsf::sim::Sim">
+<area shape="rect" id="Node000001" title="Simulation executive — owns the run loop." alt="" coords="32,373,139,399"/>
+<area shape="rect" id="Node000002" href="$classdsf_1_1sim_1_1Clock.html" title="Digital simulation clock with integer time tracking." alt="" coords="5,95,123,120"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="69,133,87,373,82,373,63,134"/>
+<area shape="rect" id="Node000004" href="$classdsf_1_1sim_1_1Block.html" title="Base class for all simulation model blocks." alt="" coords="131,183,248,208"/>
+<area shape="poly" id="edge8_Node000004_Node000002" title=" " alt="" coords="94,126,174,180,171,185,91,130"/>
+<area shape="rect" id="Node000003" href="$classdsf_1_1sim_1_1Output.html" title="CSV/HDF5 telemetry output handler." alt="" coords="101,278,227,303"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="148,316,97,375,93,371,143,312"/>
+<area shape="poly" id="edge7_Node000004_Node000003" title=" " alt="" coords="168,264,184,207,189,209,173,265"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="173,220,167,233,163,256,165,277,159,278,158,256,161,231,168,218"/>
+<area shape="poly" id="edge6_Node000004_Node000004" title=" " alt="" coords="263,187,275,195,266,203,248,206,248,201,264,198,269,195,260,191"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="251,271,408,311"/>
+<area shape="poly" id="edge5_Node000005_Node000004" title=" " alt="" coords="206,218,231,245,273,268,271,273,228,249,202,221"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="317,260,298,234,274,219,247,209,249,204,277,214,302,230,321,256"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="147,95,234,120"/>
+<area shape="poly" id="edge9_Node000004_Node000006" title=" " alt="" coords="193,134,192,182,187,182,188,134"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="121,5,260,45"/>
+<area shape="poly" id="edge10_Node000006_Node000007" title=" " alt="" coords="193,59,193,94,188,94,188,59"/>
+</map>

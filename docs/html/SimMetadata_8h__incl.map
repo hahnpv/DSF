@@ -1,0 +1,35 @@
+<map id="DSF/sim/SimMetadata.h" name="DSF/sim/SimMetadata.h">
+<area shape="rect" id="Node000001" title="Macros for decorating DSF blocks with metadata." alt="" coords="272,5,451,31"/>
+<area shape="rect" id="Node000002" href="$TClassDict_8h.html" title="Template class factory and dictionary system." alt="" coords="310,79,413,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="364,31,364,65,359,65,359,31"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="43,225,106,251"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="340,107,111,222,108,217,337,102"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="513,445,593,471"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="311,105,221,125,122,155,77,173,41,193,16,215,10,226,8,237,8,312,12,330,23,346,41,360,64,374,126,397,201,416,283,430,364,440,500,451,499,457,364,445,282,435,200,421,125,402,62,379,38,365,19,349,7,332,3,313,3,236,5,224,12,211,38,189,75,168,120,150,220,120,309,100"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="716,225,775,251"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="374,102,413,139,439,158,468,175,529,198,580,206,634,212,703,223,702,228,634,217,580,212,527,203,466,180,436,163,409,143,370,106"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="479,152,665,177"/>
+<area shape="poly" id="edge5_Node000002_Node000006" title=" " alt="" coords="396,101,526,145,524,150,394,107"/>
+<area shape="rect" id="Node000007" href="$TIntDict_8h.html" title="Integrand dictionary for numerical integration." alt="" coords="319,152,404,177"/>
+<area shape="poly" id="edge6_Node000002_Node000007" title=" " alt="" coords="364,104,364,138,359,138,359,104"/>
+<area shape="poly" id="edge7_Node000007_Node000003" title=" " alt="" coords="319,179,120,227,119,222,318,174"/>
+<area shape="poly" id="edge10_Node000007_Node000004" title=" " alt="" coords="369,177,405,252,444,323,491,384,535,434,531,437,487,388,439,325,401,254,364,179"/>
+<area shape="poly" id="edge11_Node000007_Node000005" title=" " alt="" coords="405,171,423,175,562,196,703,223,702,228,561,202,422,180,404,177"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="615,225,691,251"/>
+<area shape="poly" id="edge8_Node000007_Node000008" title=" " alt="" coords="405,174,603,222,601,227,404,179"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="130,225,217,251"/>
+<area shape="poly" id="edge9_Node000007_Node000009" title=" " alt="" coords="332,180,218,223,216,218,330,175"/>
+<area shape="rect" id="Node000010" href="$integrator__base_8h.html" title="Abstract base class for numerical integrators." alt="" coords="241,225,377,251"/>
+<area shape="poly" id="edge12_Node000007_Node000010" title=" " alt="" coords="355,179,328,216,324,213,351,176"/>
+<area shape="rect" id="Node000011" href="$quat_8h.html" title="Quaternion class for attitude representation." alt="" coords="452,225,591,251"/>
+<area shape="poly" id="edge13_Node000007_Node000011" title=" " alt="" coords="388,175,484,217,482,222,386,180"/>
+<area shape="poly" id="edge14_Node000011_Node000004" title=" " alt="" coords="526,251,552,431,547,432,520,251"/>
+<area shape="rect" id="Node000012" title=" " alt="" coords="453,299,515,324"/>
+<area shape="poly" id="edge15_Node000011_Node000012" title=" " alt="" coords="518,252,499,288,494,285,513,250"/>
+<area shape="rect" id="Node000013" href="$mat3_8h.html" title="3x3 matrix class for rotation and transformation operations." alt="" coords="591,299,659,324"/>
+<area shape="poly" id="edge16_Node000011_Node000013" title=" " alt="" coords="540,248,598,288,595,293,537,253"/>
+<area shape="poly" id="edge17_Node000013_Node000004" title=" " alt="" coords="641,323,656,338,669,356,676,378,672,398,659,415,643,428,608,446,605,441,640,423,655,411,667,396,671,378,665,359,652,341,637,326"/>
+<area shape="rect" id="Node000014" href="$vec3_8h.html" title="3D vector class for simulation mathematics." alt="" coords="591,372,657,397"/>
+<area shape="poly" id="edge18_Node000013_Node000014" title=" " alt="" coords="628,324,627,359,622,358,622,324"/>
+<area shape="poly" id="edge19_Node000014_Node000004" title=" " alt="" coords="614,400,576,438,572,434,610,396"/>
+</map>

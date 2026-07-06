@@ -1,0 +1,7 @@
+<map id="dsf::sim::FiredEvent" name="dsf::sim::FiredEvent">
+<area shape="rect" id="Node000001" title="Record of a fired event." alt="" coords="5,183,156,208"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="37,95,124,120"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="83,134,83,182,78,182,78,134"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="11,5,150,45"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="83,59,83,94,78,94,78,59"/>
+</map>

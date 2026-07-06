@@ -31,7 +31,7 @@ import functools
 from pathlib import Path
 import json as _json_builtin
 
-FILE_ROOT = Path('/home/philip/git/sixdof').resolve()
+FILE_ROOT = Path(os.environ.get("DSF_WORKSPACE", "/opt/sixdof")).resolve()
 
 def safe_dumps(*args, **kwargs):
     s = _json_builtin.dumps(*args, **kwargs)
@@ -306,9 +306,9 @@ def _build_run_command(xml_file: str, library: str = None) -> tuple:
 
     # Build environment
     env = os.environ.copy()
-    conda_lib = "/opt/miniconda3/envs/DSF/lib"
+    conda_lib = os.environ.get("DSF_CONDA_LIB", "")
     current_ld = env.get('LD_LIBRARY_PATH', '')
-    if conda_lib not in current_ld:
+    if conda_lib and conda_lib not in current_ld:
         env['LD_LIBRARY_PATH'] = f"{conda_lib}:{current_ld}" if current_ld else conda_lib
 
     if lib_path:
@@ -317,7 +317,7 @@ def _build_run_command(xml_file: str, library: str = None) -> tuple:
             env['LD_PRELOAD'] = f"{lib_path}:{existing_preload}" if existing_preload else lib_path
 
     # Find the dynamic executable
-    dynamic_exe = "/home/philip/git/DSF/build/examples/dynamic/dynamic"
+    dynamic_exe = os.environ.get("DSF_DYNAMIC_EXE", "/opt/DSF/build/examples/dynamic/dynamic")
     if not os.path.exists(dynamic_exe):
         raise FileNotFoundError(f"DSF dynamic executable not found at {dynamic_exe}")
 
@@ -1699,7 +1699,7 @@ def _generate_report_plot(output_path: str, plot_path: str,
 @enforce_relative_paths
 def build_report(
     file: Annotated[str, Field(description="Relative path to the DSF XML configuration file")],
-    file: Annotated[str, Field(description="Path to the output CSV or HDF5 file. Empty = auto-detect most recent output next to XML.")] = "",
+    output_file: Annotated[str, Field(description="Path to the output CSV or HDF5 file. Empty = auto-detect most recent output next to XML.")] = "",
 ) -> str:
     """Generate a comprehensive simulation report with plots from a DSF run.
 

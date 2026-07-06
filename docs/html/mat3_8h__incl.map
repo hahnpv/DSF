@@ -1,0 +1,8 @@
+<map id="DSF/util/math/mat3.h" name="DSF/util/math/mat3.h">
+<area shape="rect" id="Node000001" title="3x3 matrix class for rotation and transformation operations." alt="" coords="5,5,167,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="46,152,126,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="87,31,81,79,84,138,79,138,75,79,81,31"/>
+<area shape="rect" id="Node000003" href="$vec3_8h.html" title="3D vector class for simulation mathematics." alt="" coords="89,79,155,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="94,30,112,65,108,68,90,32"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="118,106,100,141,96,138,114,103"/>
+</map>

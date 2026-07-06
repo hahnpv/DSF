@@ -1,0 +1,13 @@
+<map id="DSF/util/math/quat.h" name="DSF/util/math/quat.h">
+<area shape="rect" id="Node000001" title="Quaternion class for attitude representation." alt="" coords="5,5,161,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="62,225,142,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="73,32,56,53,42,80,40,91,42,103,63,164,90,213,85,215,59,166,37,105,34,91,37,78,51,50,69,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="52,79,115,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="86,31,86,65,81,65,81,31"/>
+<area shape="rect" id="Node000004" href="$mat3_8h.html" title="3x3 matrix class for rotation and transformation operations." alt="" coords="139,79,207,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="99,29,149,68,146,72,96,33"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="164,106,146,127,130,153,118,183,110,212,104,211,112,182,125,151,142,124,160,102"/>
+<area shape="rect" id="Node000005" href="$vec3_8h.html" title="3D vector class for simulation mathematics." alt="" coords="140,152,205,177"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="175,104,175,138,170,138,170,104"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="163,180,125,218,121,214,159,176"/>
+</map>

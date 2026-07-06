@@ -1,0 +1,48 @@
+var namespacedsf_1_1util =
+[
+    [ "earth", "namespacedsf_1_1util_1_1earth.html", [
+      [ "F_EARTH", "namespacedsf_1_1util_1_1earth.html#ae46423998bbaf79e528a903ce2c2aeee", null ],
+      [ "G0", "namespacedsf_1_1util_1_1earth.html#acff52407489dc648500da122c6fae827", null ],
+      [ "J2_EARTH", "namespacedsf_1_1util_1_1earth.html#a39f9446fb9db5b9252b0aa715514176d", null ],
+      [ "MU_EARTH", "namespacedsf_1_1util_1_1earth.html#a858cfac6ae6c4cc5093d889ceaca862e", null ],
+      [ "OMEGA_EARTH", "namespacedsf_1_1util_1_1earth.html#a553aca2cfd260b7f11b5810ee7b2009e", null ],
+      [ "RE_EARTH", "namespacedsf_1_1util_1_1earth.html#a1362fa49f5d829c09751f0548b83580e", null ],
+      [ "RP_EARTH", "namespacedsf_1_1util_1_1earth.html#adf854c1a0e39c48eadb44139425532dc", null ]
+    ] ],
+    [ "math", "namespacedsf_1_1util_1_1math.html", [
+      [ "C_DEG", "namespacedsf_1_1util_1_1math.html#a18ee0f1d7d259e8ec089cf44f3b74ae8", null ],
+      [ "PI", "namespacedsf_1_1util_1_1math.html#ababdd212cb9d11731bbf48a319cb7150", null ],
+      [ "RAD", "namespacedsf_1_1util_1_1math.html#a01080eb295f120d4d79c187c01523f86", null ]
+    ] ],
+    [ "get_unique_file", "classdsf_1_1util_1_1get__unique__file.html", "classdsf_1_1util_1_1get__unique__file" ],
+    [ "Mat3", "classdsf_1_1util_1_1Mat3.html", "classdsf_1_1util_1_1Mat3" ],
+    [ "Mat4", "classdsf_1_1util_1_1Mat4.html", "classdsf_1_1util_1_1Mat4" ],
+    [ "Quaternion", "classdsf_1_1util_1_1Quaternion.html", "classdsf_1_1util_1_1Quaternion" ],
+    [ "Table", "classdsf_1_1util_1_1Table.html", "classdsf_1_1util_1_1Table" ],
+    [ "Table2d", "classdsf_1_1util_1_1Table2d.html", "classdsf_1_1util_1_1Table2d" ],
+    [ "TableND", "classdsf_1_1util_1_1TableND.html", "classdsf_1_1util_1_1TableND" ],
+    [ "TSpecificFunctor", "classdsf_1_1util_1_1TSpecificFunctor.html", "classdsf_1_1util_1_1TSpecificFunctor" ],
+    [ "TSpecificRefFunctor", "classdsf_1_1util_1_1TSpecificRefFunctor.html", "classdsf_1_1util_1_1TSpecificRefFunctor" ],
+    [ "TSpecificRefFunctor2", "classdsf_1_1util_1_1TSpecificRefFunctor2.html", "classdsf_1_1util_1_1TSpecificRefFunctor2" ],
+    [ "Vec3", "classdsf_1_1util_1_1Vec3.html", "classdsf_1_1util_1_1Vec3" ],
+    [ "clamp", "namespacedsf_1_1util.html#aae14278ff1bd869daae34474aaa4490a", null ],
+    [ "clamp_val", "namespacedsf_1_1util.html#a9bec41de140d6c217954e7b2764dbbac", null ],
+    [ "demangle", "namespacedsf_1_1util.html#acbb676bc9f564db7607a0beb4b6cb5cf", null ],
+    [ "get_gauss", "namespacedsf_1_1util.html#a25bb75971163b39da4af9f947cc22c1b", null ],
+    [ "getUniform", "namespacedsf_1_1util.html#a07986610ffd6f54c9283ad48a7954f1a", null ],
+    [ "isinf", "namespacedsf_1_1util.html#a7bc3691d2d303540f2bf920cc5a8e842", null ],
+    [ "isnan", "namespacedsf_1_1util.html#a829c06529f444887c28df833f1b7c50e", null ],
+    [ "operator<<", "namespacedsf_1_1util.html#aed76b517a63c016dfff547d66d7f6e9b", null ],
+    [ "operator<<", "namespacedsf_1_1util.html#aaa9b9f8621b8b78895ffe1bab8caf881", null ],
+    [ "operator<<", "namespacedsf_1_1util.html#a33b3fad5612300313a2f33760774e645", null ],
+    [ "operator<<", "namespacedsf_1_1util.html#a9fbb7543b6cca808fa9f7a465ed7cb5f", null ],
+    [ "parse_doubles", "namespacedsf_1_1util.html#a6ab16e3c3d5b34141a67501042b51fac", null ],
+    [ "rate_limit", "namespacedsf_1_1util.html#ab53d0d04e5d15a5bc32fc77cf8210b34", null ],
+    [ "set_seed", "namespacedsf_1_1util.html#aa2931f5d60cea5c38e0aec10472411f8", null ],
+    [ "sign", "namespacedsf_1_1util.html#a390f9ffeb674175fe9c80f4bbe652733", null ],
+    [ "split", "namespacedsf_1_1util.html#a8c4899408ec63ea285b2f161525a11f3", null ],
+    [ "TFunctor", "namespacedsf_1_1util.html#a82d22a88216a608f7beb3724a0a1f663", null ],
+    [ "TFunctor", "namespacedsf_1_1util.html#a4bf1d850b28a9f4776b29706cfec3398", null ],
+    [ "trim", "namespacedsf_1_1util.html#a5c07356bc3f5116a04795b91145388fc", null ],
+    [ "wrap_pi", "namespacedsf_1_1util.html#adec84a3b5b16ee6f295ed0b97223fb86", null ]
+];
