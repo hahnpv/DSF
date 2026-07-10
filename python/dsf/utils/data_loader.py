@@ -13,6 +13,10 @@ from __future__ import annotations
 from typing import Dict, Tuple
 import numpy as np
 
+# Vec3 component datasets are stored as base_x / base_y / base_z; this maps the
+# axis index (used internally while regrouping) back to its suffix.
+_AXIS_SUFFIX = {0: "x", 1: "y", 2: "z"}
+
 
 def load_h5(path: str) -> Tuple[np.ndarray, Dict[str, Dict[str, np.ndarray]]]:
     """
@@ -78,9 +82,10 @@ def load_h5(path: str) -> Tuple[np.ndarray, Dict[str, Dict[str, np.ndarray]]]:
                         mat = np.stack([comps[0], comps[1], comps[2]], axis=1)  # (N,3)
                         block_data[base] = mat
                     else:
-                        # Partial — keep as individual scalars
+                        # Partial — keep as individual scalars, restoring the
+                        # original x/y/z suffix (comps is keyed by axis index).
                         for ax, arr in comps.items():
-                            block_data[f"{base}_{ax}"] = arr
+                            block_data[f"{base}_{_AXIS_SUFFIX.get(ax, ax)}"] = arr
 
                 if block_data:
                     data[group_name] = block_data
@@ -121,7 +126,7 @@ def load_h5(path: str) -> Tuple[np.ndarray, Dict[str, Dict[str, np.ndarray]]]:
                     block_data[base] = np.stack([comps[0], comps[1], comps[2]], axis=1)
                 else:
                     for ax, arr in comps.items():
-                        block_data[f"{base}_{ax}"] = arr
+                        block_data[f"{base}_{_AXIS_SUFFIX.get(ax, ax)}"] = arr
 
             if times is None:
                 times = np.arange(len(next(iter(block_data.values()))))
@@ -203,15 +208,18 @@ def load_h5_trajectory(filepath, dataset_path='trajectory'):
         with h5py.File(filepath, 'r') as f:
             if dataset_path in f:
                 data = f[dataset_path][:]
-                if data.shape[0] == 3 and data.shape[1] > 3:
+                if data.ndim == 2 and data.shape[0] == 3 and data.shape[1] > 3:
                     data = data.T
                 return data
             else:
                 for key in f.keys():
                     d = f[key]
-                    if hasattr(d, 'shape') and (d.shape[1] == 3 or d.shape[0] == 3):
+                    # Only consider 2-D Nx3 / 3xN datasets. Probing shape[1] on a
+                    # 1-D dataset (e.g. the Time array) raised IndexError and
+                    # aborted the whole load.
+                    if hasattr(d, 'ndim') and d.ndim == 2 and (d.shape[1] == 3 or d.shape[0] == 3):
                         data = d[:]
-                        if data.shape[0] == 3:
+                        if data.shape[0] == 3 and data.shape[1] != 3:
                             data = data.T
                         return data
                 print(f"Dataset {dataset_path} not found in {filepath}")

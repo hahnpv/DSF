@@ -180,12 +180,26 @@ class SimSession:
         if not vehicle_names:
             return raw
 
+        # Already prefixed at the C++ level (Output::setGroupName per vehicle)?
+        # Then don't re-prefix.
+        if any(h.startswith(v + "_") for v in vehicle_names for h in raw):
+            return raw
+
+        # Single vehicle: unambiguous — prefix everything with its id.
+        if len(vehicle_names) == 1:
+            return [f"{vehicle_names[0]}_{h}" for h in raw]
+
+        # Multiple vehicles: the flat header list carries no per-vehicle boundary.
+        # An even split is only correct when every vehicle logs the SAME number of
+        # channels; for vehicles with differing channel counts it silently
+        # mislabels (vehicle A credited with vehicle B's channels). Only apply the
+        # split when it divides evenly, and warn that it assumes homogeneity.
         n_v, n_h = len(vehicle_names), len(raw)
         if n_h % n_v != 0:
-            return raw  # Can't cleanly assign headers to vehicles
-
+            return raw
+        import sys
+        print("SimSession: prefixing multi-vehicle telemetry by an even split; "
+              "this is only correct if all vehicles log the same channels. "
+              "Use per-vehicle Output groups for reliable labeling.", file=sys.stderr)
         vpv = n_h // n_v
-        return [
-            f"{vehicle_names[i // vpv]}_{h}"
-            for i, h in enumerate(raw)
-        ]
+        return [f"{vehicle_names[i // vpv]}_{h}" for i, h in enumerate(raw)]

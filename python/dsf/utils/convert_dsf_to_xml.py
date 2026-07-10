@@ -126,7 +126,14 @@ def convert_dsf_to_xml(json_filepath):
     """
     with open(json_filepath, 'r') as f:
          data = json.load(f)
-         
+
+    # Validate the project before converting/running. Fails loudly by default on
+    # structural errors (bad dt/tmax, duplicate ids, dangling connections) and
+    # registry-known attribute mistakes, instead of letting the C++ layer
+    # silently substitute zeros. DSF_VALIDATE=warn downgrades to warnings.
+    from dsf.utils.validate_config import enforce_config
+    enforce_config(data)
+
     xml_content = _dict_to_xml(data)
     
     # Create temp file

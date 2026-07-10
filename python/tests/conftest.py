@@ -31,6 +31,33 @@ if BUILD_DIR not in sys.path:
     sys.path.insert(0, BUILD_DIR)
 
 
+# ── sixdof availability ─────────────────────────────────────────────────────
+# The sim fixtures dlopen libsixdof.so (built from the sibling ../sixdof repo).
+# When it isn't present the sims can't run, so those tests should SKIP, not
+# error — otherwise a fresh clone / CI without sixdof reports spurious failures.
+
+def _sixdof_available() -> bool:
+    candidates = []
+    for d in os.environ.get("LD_LIBRARY_PATH", "").split(":"):
+        if d:
+            candidates.append(os.path.join(d, "libsixdof.so"))
+    candidates += [
+        os.path.join(REPO_ROOT, "..", "sixdof", "build", "libsixdof.so"),
+        os.path.join(BUILD_DIR, "libsixdof.so"),
+        os.path.join(BUILD_DIR, "sixdof_build", "libsixdof.so"),
+    ]
+    return any(os.path.exists(c) for c in candidates)
+
+
+SIXDOF_AVAILABLE = _sixdof_available()
+
+
+def require_sixdof():
+    """Skip the calling test/fixture when the sixdof model library is absent."""
+    if not SIXDOF_AVAILABLE:
+        pytest.skip("sixdof model library (../sixdof/build/libsixdof.so) not built")
+
+
 # ── Subprocess runner ──────────────────────────────────────────────────────────
 
 def run_sim(input_path: str, work_dir: str) -> str:
@@ -82,6 +109,7 @@ def load(h5_path: str):
 @pytest.fixture(scope="session")
 def xml_h5(tmp_path_factory):
     """Run gps_1hr.xml (tmax=3600) via subprocess → (times, data)."""
+    require_sixdof()
     d = str(tmp_path_factory.mktemp("xml_run"))
     return load(run_sim(GPS_1HR_XML, d))
 
@@ -89,6 +117,7 @@ def xml_h5(tmp_path_factory):
 @pytest.fixture(scope="session")
 def dsf_h5(tmp_path_factory):
     """Run gps_1hr.dsf (tmax=3600) via subprocess → (times, data)."""
+    require_sixdof()
     d = str(tmp_path_factory.mktemp("dsf_run"))
     return load(run_sim(GPS_1HR_DSF, d))
 
@@ -96,6 +125,7 @@ def dsf_h5(tmp_path_factory):
 @pytest.fixture(scope="session")
 def exec_h5(tmp_path_factory):
     """Run gps_6min.dsf via 'dsf run' subprocess → (times, data)."""
+    require_sixdof()
     d = str(tmp_path_factory.mktemp("exec_run"))
     return load(run_sim(GPS_6MIN_DSF, d))
 
@@ -103,6 +133,7 @@ def exec_h5(tmp_path_factory):
 @pytest.fixture(scope="session")
 def watch_h5(tmp_path_factory):
     """Run gps_6min.dsf via 'dsf watch --h5' subprocess → (times, data)."""
+    require_sixdof()
     d = str(tmp_path_factory.mktemp("watch_run"))
     before = set(glob.glob(os.path.join(d, "*.h5")))
 

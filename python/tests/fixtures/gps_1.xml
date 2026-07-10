@@ -1,1 +1,15 @@
-/home/philip/git/DSF/gps_1.xml
+<sim dt="0.1" tmax="86400" file="100.0" library="libsixdof.so">
+	<vehicle class="Vehicle" name="GPS_BIIA-23_(PRN_18)" id="Vehicle">
+		<rbeom id="Equinoctial" class="Equinoctial" rpt="1000.0">
+			<state>
+				<eccentricity>0.015653435282672032</eccentricity>
+				<semimajor_axis>26558762.943163067</semimajor_axis>
+				<inclination>54.716471105314504</inclination>
+				<RAAN>65.56401337417735</RAAN>
+				<omega>81.73531922843574</omega>
+				<tanom>3.542328800618416</tanom>
+			</state>
+		</rbeom>
+	</vehicle>
+  <earth id="WGS84" class="WGS84" />
+</sim>

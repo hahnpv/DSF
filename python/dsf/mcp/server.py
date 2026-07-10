@@ -187,10 +187,37 @@ mcp.tool = _robust_tool
 
 # Background simulation jobs: job_id -> dict with proc, status, etc.
 _running_jobs: dict = {}
+_jobs_lock = threading.Lock()          # guards _running_jobs (concurrent tool calls)
+_MAX_KEPT_JOBS = 50                     # cap retained finished jobs (avoid unbounded growth)
 
 # Watch sessions: job_id -> dict with SimSession, thread, state
 _watch_sessions: dict = {}
 _watch_lock = threading.Lock()
+_MAX_KEPT_SESSIONS = 50
+
+
+def _reap_jobs():
+    """Close log handles of finished async jobs and evict the oldest completed
+    ones beyond the cap. Must be called under _jobs_lock (or it takes it)."""
+    with _jobs_lock:
+        for job in _running_jobs.values():
+            proc = job["proc"]
+            if proc.poll() is not None and not job.get("_reaped"):
+                lf = job.get("log_file")
+                if lf is not None and not lf.closed:
+                    try:
+                        lf.close()
+                    except Exception:
+                        pass
+                job["_reaped"] = True
+                job["exit_code"] = proc.returncode
+        if len(_running_jobs) > _MAX_KEPT_JOBS:
+            done = sorted(
+                (jid for jid, j in _running_jobs.items() if j["proc"].poll() is not None),
+                key=lambda jid: _running_jobs[jid]["start_time"],
+            )
+            for jid in done[: len(_running_jobs) - _MAX_KEPT_JOBS]:
+                _running_jobs.pop(jid, None)
 
 
 # =========================================================================
@@ -448,20 +475,23 @@ def run_sim_async(
     job_id = str(uuid.uuid4())[:8]
     log_path = cwd / f"sim_{job_id}.log"
 
+    _reap_jobs()   # close finished jobs' log handles / evict old ones first
+
     log_file = open(log_path, 'w')
     proc = subprocess.Popen(
         cmd, env=env, cwd=str(cwd),
         stdout=log_file, stderr=subprocess.STDOUT
     )
 
-    _running_jobs[job_id] = {
-        "proc": proc,
-        "log_file": log_file,
-        "log_path": str(log_path),
-        "xml_file": str(xml_path),
-        "cwd": str(cwd),
-        "start_time": _time.time(),
-    }
+    with _jobs_lock:
+        _running_jobs[job_id] = {
+            "proc": proc,
+            "log_file": log_file,
+            "log_path": str(log_path),
+            "xml_file": str(xml_path),
+            "cwd": str(cwd),
+            "start_time": _time.time(),
+        }
 
     return safe_dumps({
         "job_id": job_id,
@@ -481,10 +511,11 @@ def run_status(
     Example:
         dsf_run_status(job_id="abc12345")
     """
-    if job_id not in _running_jobs:
+    with _jobs_lock:
+        job = _running_jobs.get(job_id)
+    if job is None:
         return safe_dumps({"error": f"Unknown job_id: {job_id}"})
 
-    job = _running_jobs[job_id]
     proc = job["proc"]
     elapsed = round(_time.time() - job["start_time"], 1)
 
@@ -498,6 +529,7 @@ def run_status(
 
     if status == "done":
         result["exit_code"] = proc.returncode
+        _reap_jobs()   # close this job's log handle now that it has finished
 
     # Read log tail
     try:
@@ -521,10 +553,11 @@ def stop_run(
     Example:
         dsf_stop_run(job_id="abc12345")
     """
-    if job_id not in _running_jobs:
+    with _jobs_lock:
+        job = _running_jobs.get(job_id)
+    if job is None:
         return safe_dumps({"error": f"Unknown job_id: {job_id}"})
 
-    job = _running_jobs[job_id]
     proc = job["proc"]
 
     if proc.poll() is None:
@@ -533,8 +566,10 @@ def stop_run(
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
+        _reap_jobs()   # close the log handle for the now-terminated job
         return safe_dumps({"job_id": job_id, "status": "terminated"})
     else:
+        _reap_jobs()
         return safe_dumps({"job_id": job_id, "status": "already_done", "exit_code": proc.returncode})
 
 
@@ -1018,6 +1053,17 @@ def watch_sim(
     job_id = str(uuid.uuid4())[:8]
 
     with _watch_lock:
+        # Evict the oldest finished sessions so the dict can't grow without bound
+        # over a long-lived server (uuid leak).
+        if len(_watch_sessions) >= _MAX_KEPT_SESSIONS:
+            finished = sorted(
+                (jid for jid, s in _watch_sessions.items()
+                 if s.get("status") in ("done", "error")),
+                key=lambda jid: _watch_sessions[jid].get("start_time", 0),
+            )
+            for jid in finished[: len(_watch_sessions) - _MAX_KEPT_SESSIONS + 1]:
+                _watch_sessions.pop(jid, None)
+
         _watch_sessions[job_id] = {
             "status": "starting",
             "xml_file": str(xml_path),
@@ -1127,13 +1173,14 @@ def list_jobs() -> str:
     """
     result = {"async_jobs": {}, "watch_jobs": {}}
 
-    for jid, job in _running_jobs.items():
-        proc = job["proc"]
-        result["async_jobs"][jid] = {
-            "status": "running" if proc.poll() is None else "done",
-            "xml_file": job["xml_file"],
-            "elapsed": round(_time.time() - job["start_time"], 1),
-        }
+    with _jobs_lock:
+        for jid, job in list(_running_jobs.items()):
+            proc = job["proc"]
+            result["async_jobs"][jid] = {
+                "status": "running" if proc.poll() is None else "done",
+                "xml_file": job["xml_file"],
+                "elapsed": round(_time.time() - job["start_time"], 1),
+            }
 
     with _watch_lock:
         for jid, session in _watch_sessions.items():
