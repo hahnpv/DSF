@@ -85,7 +85,21 @@ class GraphSerializer:
             pos = QPointF(b_data["x"], b_data["y"])
             block = BlockItem(b_def, b_data["id"], pos)
             block.xml_tag = b_data.get("tag", block.xml_tag)
-            block.parameters = b_data.get("parameters", block.parameters)
+            params = b_data.get("parameters", block.parameters)
+            # Legacy-file migration: older GUIs saved every introspected
+            # property, including output/telemetry state, which the converter
+            # then emitted as deck attributes nothing reads (strict-mode
+            # failures). When the registry knows this class, keep only its
+            # declared (config-direction) properties; unknown classes pass
+            # through untouched. Saving the project persists the cleanup.
+            if b_def.properties:
+                known = {p.name for p in b_def.properties}
+                dropped = [k for k in params if k not in known]
+                if dropped:
+                    print(f"[dsf] '{b_data['id']}' ({b_data['type']}): dropped "
+                          f"non-config parameters from legacy file: {dropped}")
+                params = {k: v for k, v in params.items() if k in known}
+            block.parameters = params
             block.raw_params = b_data.get("raw_params", {})
             
             # Restore Ports (Dynamic + Definitions)

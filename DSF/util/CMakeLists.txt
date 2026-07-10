@@ -16,8 +16,11 @@ set(util_source_files
   tbl/tablend.cpp
   tbl/tablend.h
   TFunctor.h
+  config_errors.h
   xml/xml.h
   xml/xml.cpp
+  xml/validate.h
+  xml/validate.cpp
 )
 add_library(util ${util_source_files})
 # util is linked into the shared libDSF.so, so its objects must be

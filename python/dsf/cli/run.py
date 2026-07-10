@@ -76,6 +76,11 @@ def parse_args():
     parser.add_argument("--fname", required=True, help="Path to the XML configuration file")
     parser.add_argument("--h5", action="store_true", default=False,
                         help="Also write an HDF5 output file (overrides project/XML setting)")
+    parser.add_argument("--not-strict", dest="not_strict", action="store_true",
+                        default=False,
+                        help="Run despite config-validation findings (unused/"
+                             "typo'd attributes, failed table loads). Strict "
+                             "mode is the default.")
     return parser.parse_args()
 
 def map_level(level_str):
@@ -193,6 +198,7 @@ def main():
         console_rate=rate_console, file_rate=rate_file,
         integrator=integrator_type, atol=atol, rtol=rtol,
         csv=is_csv, hdf5=is_hdf5, csv_level=csv_level, h5_level=h5_level,
+        strict=not args.not_strict,
     )
 
     try:
@@ -201,8 +207,13 @@ def main():
         print(f"Error building simulation: {e}")
         sys.exit(1)
 
-    # init() registers integrands and builds telemetry headers.
-    session.init()
+    # init() registers integrands, validates the config (strict mode may
+    # refuse to run here), and builds telemetry headers.
+    try:
+        session.init()
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
     all_headers = session.sim.output.get_header_names()
     watch = (run_config.watch if run_config is not None else [])

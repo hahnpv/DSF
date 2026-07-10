@@ -12,6 +12,9 @@
  *
  * Built and registered by CMake as the `cpp_util_tests` ctest.
  */
+#include "../DSF/util/config_errors.h"
+#include "../DSF/util/xml/xml.h"
+#include "../DSF/util/xml/validate.h"
 #include "../DSF/util/tbl/tbl.h"
 #include "../DSF/util/tbl/tbl2d.h"
 #include "../DSF/util/tbl/tablend.h"
@@ -88,9 +91,19 @@ void test_table_2point()
 
 void test_table_missing_file()
 {
-    // Missing file must not hang (no cin) and must not crash on interp.
+    // Missing file must not hang (no cin) and must not crash on interp —
+    // and must be recorded for config validation (strict mode, H6) so a sim
+    // can't quietly fly with an all-zero table.
+    dsf::util::config_errors().clear();
     Table t("/tmp/dsf_no_such_table_file.txt", "Nope");
     CHECK_NEAR(t.interp(1.0), 0.0, 1e-9, "Table missing-file interp safe");
+    CHECK(dsf::util::config_errors().size() == 1,
+          "Table missing-file recorded in config_errors");
+
+    TableND tn("/tmp/dsf_no_such_tablend_file.txt");
+    CHECK(dsf::util::config_errors().size() == 2,
+          "TableND missing-file recorded in config_errors");
+    dsf::util::config_errors().clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +275,57 @@ void test_quat_dcm()
 }
 
 // ---------------------------------------------------------------------------
+// Config validation (strict mode, H6) — attribute-usage tracking
+// ---------------------------------------------------------------------------
+
+void test_config_validation()
+{
+    // A deck with one consumed attribute, one typo'd attribute nobody reads,
+    // one consumed value-element, and one typo'd value-element.
+    const char* path = "/tmp/dsf_test_validate.xml";
+    {
+        std::ofstream f(path);
+        f << "<sim dt=\"0.1\" tmax=\"1\">"
+             "<vehicle id=\"V\" class=\"Vehicle\">"
+             "<rbeom id=\"E\" rpt=\"1\" rptt=\"2\">"
+             "<mass>50</mass><mas>60</mas>"
+             "</rbeom></vehicle></sim>";
+    }
+
+    dsf::xml::xml doc(path);
+    doc.parse();
+    CHECK(doc.xmlRoot != nullptr, "validate: doc parsed");
+
+    // Simulate a configure pass: read rpt and mass, ask for a missing attr.
+    dsf::xml::xmlnode n = *doc.xmlRoot;
+    n.search("sim");
+    dsf::xml::xmlnode veh = n;
+    veh.child(0);                 // <vehicle>
+    dsf::xml::xmlnode eom = veh;
+    eom.child(0);                 // <rbeom>
+    CHECK_NEAR(eom.attrAsDouble("rpt"), 1.0, 1e-12, "validate: rpt read");
+    CHECK_NEAR(eom.attrAsDouble("mass"), 50.0, 1e-12, "validate: mass read");
+    CHECK_NEAR(eom.attrAsDouble("absent"), 0.0, 1e-12, "validate: absent defaults");
+
+    dsf::xml::ValidationReport r = dsf::xml::validate_config(doc);
+
+    // dt/tmax (sim allowlist), id/class (global allowlist), rpt and mass
+    // (read) must NOT be flagged; rptt and <mas> must.
+    CHECK(r.unused.size() == 2, "validate: exactly the two typos flagged");
+    bool have_rptt = false, have_mas = false;
+    for (const auto& u : r.unused) {
+        if (u.find("'rptt'") != std::string::npos) have_rptt = true;
+        if (u.find("<mas>") != std::string::npos)  have_mas = true;
+    }
+    CHECK(have_rptt, "validate: typo'd attribute rptt flagged");
+    CHECK(have_mas, "validate: typo'd value element <mas> flagged");
+    CHECK(!r.missing.empty(), "validate: defaulted lookup recorded");
+    CHECK(!r.clean(), "validate: report not clean with typos present");
+
+    std::remove(path);
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -281,6 +345,7 @@ int main()
     test_table_1d();
     test_table_2point();
     test_table_missing_file();
+    test_config_validation();
     test_table2d();
     test_table2d_bilinear();
     test_tablend_high_dim();

@@ -27,8 +27,8 @@ namespace dsf
 
 		Mat3 Quaternion::dcm() const
 		{
-			// Quaternion to body-to-inertial DCM
-			// Equivalent to the rotation matrix C(q)
+			// Quaternion to inertial-to-body DCM (T_b_i): v_body = dcm() * v_inertial.
+			// See the doc block in quat.h; transpose for body-to-inertial.
 			Mat3 C;
 			C.a0.x = q0*q0 + q1*q1 - q2*q2 - q3*q3;
 			C.a0.y = 2*(q1*q2 + q0*q3);

@@ -1,0 +1,46 @@
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "dsf"
+version = "0.1.0"
+description = "Interactive 6-DOF Model Configuration Interface and Simulation Bindings"
+authors = [{ name = "DSF Team" }]
+requires-python = ">=3.9"
+dependencies = [
+    "PyQt6",
+    "pyqtgraph",
+    "numpy",
+    "pandas",
+    "lxml",
+    "pyqtdarktheme",
+    "click",
+    "pyvista",
+    "h5py",
+    "matplotlib", # used by dsf.mc_plot
+]
+
+[project.optional-dependencies]
+# Heavier/optional stacks kept out of the base install.
+jax = ["jax"]             # dsf.jax accelerated Monte Carlo
+mcp = ["mcp", "pydantic"] # dsf.mcp.server (FastMCP)
+
+[project.scripts]
+dsf = "dsf.cli.main:cli"
+
+[project.gui-scripts]
+dsf-gui = "dsf.gui.main:main"
+
+[tool.scikit-build]
+# Persistent build dir → incremental rebuilds on `pip install -e .` and a
+# one-time pybind11 FetchContent download.
+build-dir = "build/skbuild-{wheel_tag}"
+cmake.build-type = "Release"
+# Only the extension (and its libDSF dependency) — not the example
+# executables or C++ test binaries. Those come from a plain cmake build.
+build.targets = ["dsf_core"]
+# The Python package lives under python/; GUI resources are picked up as
+# package data automatically. The compiled dsf_core + libDSF are added by
+# the SKBUILD install rules in CMakeLists.txt.
+wheel.packages = ["python/dsf"]

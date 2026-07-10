@@ -9,6 +9,7 @@
 #include "sim/monte_carlo.h"
 #include "sim/xml_config.h"
 #include "util/xml/xml.h"
+#include "util/xml/validate.h"
 
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
@@ -24,6 +25,8 @@ po::variables_map add_program_options(int argc, char * argv[])
         po::options_description desc("Command Line Parameters:");
         desc.add_options()
                 ("fname", po::value<std::string>(),  "XML configuration file")
+                ("not-strict", po::bool_switch(),
+                 "run despite config-validation findings (strict is the default)")
                 ;
 
         po::positional_options_description p;
@@ -101,6 +104,9 @@ int main(int argc, char *argv[])
 		child_node.child(i);
 		if (std::string(child_node.attrAsString("id")).empty()) continue;
 		root->getChild(bi)->configure( child_node);
+		// Configure-time metadata check: flag deck attributes this block's
+		// DSF_PROPERTY metadata does not declare (likely typos).
+		dsf::sim::warn_unknown_attributes(root->getChild(bi), child_node);
 		bi++;
 	}
 
@@ -130,6 +136,23 @@ int main(int argc, char *argv[])
 	// variable pointers). Shared with the Python path via sim/xml_config.h;
 	// register_events() also latches initial values for crossing detection.
 	dsf::sim::register_events(*sim, n);
+
+	// Config validation: flag deck attributes nobody read (typos) and
+	// table loads that fell back to empty. Strict (refuse to run) is the
+	// DEFAULT; opt out with --not-strict or <sim strict="false">.
+	bool strict = true;
+	if (n.findAttr("strict") && !n.attrAsBool("strict"))
+		strict = false;                          // deck opts out
+	if (vm["not-strict"].as<bool>())
+		strict = false;                          // command line opts out
+	dsf::xml::ValidationReport report = dsf::xml::validate_config(xmlinput);
+	report.print(std::cerr);
+	if (strict && !report.clean())
+	{
+		report.print_strict_banner(std::cerr);
+		return 1;
+	}
+
 	sim->exec();
 
 	return 0;

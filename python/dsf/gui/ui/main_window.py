@@ -415,9 +415,15 @@ class MainWindow(QMainWindow):
                     except Exception:
                         cpp_props, cpp_ports = ([], [])
 
-                    # Map properties
+                    # Map properties. Only "config" properties (read from the
+                    # deck in configure()) are editable/emittable — "output"
+                    # properties are runtime state for probing/telemetry, and
+                    # emitting them as deck attributes would trip strict-mode
+                    # validation (nothing ever reads them from XML).
                     py_props = []
                     for p in cpp_props:
+                        if getattr(p, "direction", "config") != "config":
+                            continue
                         # Map C++ types to GUI types
                         ptype = "string"
                         val = p.defaultValue

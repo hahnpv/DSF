@@ -10,13 +10,18 @@ def cli():
 @cli.command()
 @click.argument('xml_file', type=click.Path(exists=True))
 @click.option('--h5', is_flag=True, default=False, help="Also write an HDF5 output file.")
-def run(xml_file, h5):
+@click.option('--not-strict', 'not_strict', is_flag=True, default=False,
+              help="Run despite config-validation findings (typo'd attributes, "
+                   "failed table loads). Strict mode is the default.")
+def run(xml_file, h5, not_strict):
     """Run a simulation from an XML configuration file."""
     argv = ['dsf-run', '--fname', xml_file]
     if h5:
         argv.append('--h5')
+    if not_strict:
+        argv.append('--not-strict')
     sys.argv = argv
-    
+
     from dsf.cli import run as dsf_run
     dsf_run.main()
 

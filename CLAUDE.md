@@ -46,7 +46,7 @@ Test design constraint (see `python/tests/conftest.py`): simulations are run in 
 ## Running simulations
 
 ```bash
-dsf run config.xml [--h5]        # run a sim (C++ exec loop)
+dsf run config.xml [--h5] [--not-strict]   # run a sim (C++ exec loop)
 dsf watch project.dsf            # Python-driven step loop with live telemetry (slower)
 dsf gui / dsf-gui                # PyQt6 GUI
 ./run_sixdof_example.sh <example.xml>          # C++ 'dynamic' executable against sixdof examples
@@ -77,7 +77,9 @@ Two layers, C++ and Python, joined by the `dsf_core` pybind11 module:
 ## Gotchas
 
 - The C++ XML layer (`DSF/util/xml/`) is a **Boost Property Tree** wrapper — tag/attribute/comment parsing is Boost's and is sound (the "hand-rolled tab-sensitive parser" note in TODO.md is stale). The residual whitespace sensitivity is in *value* parsing: `attrAsVec3`/`attrAsMat3` now accept comma- **or** whitespace-separated components, and `parse.h` warns rather than silently zero-filling. Still, prefer the Python `dsf.utils` generators over hand-editing sim XML.
-- A `.dsf` project is currently a **single JSON file** (block graph + `metadata`), not the directory-with-`project.xml` layout described in `DSF_FORMAT.md` (that format is documented but unimplemented). `dsf run`/`watch` load the JSON and convert it to XML for the C++ core.
+- **Config validation / strict mode (DEFAULT)**: after configure, the deck is diffed against what the models actually read (`DSF/util/xml/validate.h`). Attributes/elements nobody read (typos — the "attrAsDouble silently returns 0" class) and table loads that fell back to empty **refuse to run** with a banner; opt out per-invocation (`--not-strict`) or per-deck (`<sim strict="false">`). Lookups that defaulted are informational. Applies equally to hand-written XML and `.dsf`-converted decks — model property metadata distinguishes config (`DSF_PROPERTY*`) from output (`DSF_OUTPUT*`) direction, and the GUI/converter only emit config properties. Runs via `SimSession.init()` (run/watch/GUI/MCP) and `examples/dynamic/main.cpp`.
+- Model libraries **must be rebuilt after DSF header changes** (`cmake --build ../sixdof/build`): `xmlnode` methods are header-inline, so a stale `libsixdof.so` carries old copies — at best missing behavior (e.g. its attribute reads don't register with validation, causing false "unused" warnings), at worst an ABI mismatch.
+- A `.dsf` project is a **single JSON file** (block graph + `metadata`) — see `DSF_FORMAT.md` for the schema. `dsf run`/`watch` load the JSON and convert it to XML for the C++ core. Block `parameters` must contain only **config-direction** properties (`DSF_PROPERTY*` declarations); runtime/telemetry state is declared `DSF_OUTPUT*` and must not be emitted as deck attributes — strict validation flags it as unused.
 - `dsf/cli/run.py` looks for the extension in `build/` first, then `python/dsf/`, then site-packages (where `pip install -e .` puts the compiled copy) — a fresh `cmake` build in `build/` therefore shadows the pip-installed extension. After C++ changes, either rebuild in `build/` or re-run `pip install -e . --no-build-isolation`; don't let the two go stale relative to each other. The loader registers the module as `sys.modules['dsf.dsf_core']` so the package reuses the same copy — loading a second copy makes pybind11 abort with "type 'Vec3' is already registered".
 - `LD_LIBRARY_PATH` should include `build/` and wherever `libsixdof.so` was built (`../sixdof/build`); the `build/sixdof_build` path in older docs is not created by this build.
 - C++ unit tests live in `test/` (`cpp_util_tests`, `cpp_kernel_tests`, `cpp_tablend_tests`) and run via `ctest`. Python tests live in `python/tests/` only — `pytest.ini` deliberately scopes collection there. The repo root also holds many untracked one-off analysis/debug scripts (`plot_*.py`, `check_*.py`, `test_*.py`).

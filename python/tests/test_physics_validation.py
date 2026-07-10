@@ -1,5 +1,5 @@
 """
-Numerical validation of the physics — ground truth, not self-consistency (H1).
+Numerical validation of the physics — ground truth, not self-consistency.
 
 Three families of checks, all through the full stack (deck → `dsf run` → .h5):
 

@@ -1,60 +1,119 @@
 # DSF Project File Format (`.dsf`)
 
-The `.dsf` file format is a project container that bundles simulation
-configuration, vehicle models, and output specifications into a single
-package for the DSF simulation framework.
+A `.dsf` project is a **single JSON file** describing a block graph (the
+simulation's model tree), its connections, and runner metadata. It is the
+GUI's native save format and is accepted directly by `dsf run` and
+`dsf watch`, which convert it to the XML the C++ core consumes
+(`python/dsf/utils/convert_dsf_to_xml.py`).
 
-## Structure
+> Historical note: an earlier revision of this document described a
+> directory-based layout (`myproject.dsf/` containing `project.xml`,
+> `vehicles/`, `tables/`, ...). That format was never implemented. The
+> single-JSON format below is what the code reads and writes.
 
-A `.dsf` project file is a **directory** with the following layout:
+## Top-level structure
 
-```
-myproject.dsf/
-├── project.xml        # Top-level configuration (required)
-├── vehicles/          # Vehicle XML definitions
-│   ├── f16.xml
-│   └── target.xml
-├── terrain/           # SRTM tiles (optional)
-│   └── N35W106.hgt
-├── tables/            # Aero/propulsion lookup tables
-│   └── cl_alpha.tbl
-└── output/            # Simulation output (auto-created)
-    └── output1.h5
-```
-
-## project.xml
-
-The top-level configuration file defines the simulation:
-
-```xml
-<simulation dt="0.01" tmax="300" library="libsixdof.so">
-    <output type="h5" file="output/output1.h5" />
-    <earth id="WGS84" class="WGS84" />
-    <vehicle id="F16" class="Vehicle" file="vehicles/f16.xml" />
-</simulation>
+```json
+{
+    "blocks":      [ ... ],
+    "connections": [ ... ],
+    "metadata":    { ... }
+}
 ```
 
-### Key Elements
+## `blocks`
 
-| Element       | Description                                    |
-|---------------|------------------------------------------------|
-| `<simulation>`| Root element — sets timestep, duration, library |
-| `<output>`    | Output format (h5, csv) and file path          |
-| `<earth>`     | Geodesy/gravity model                          |
-| `<vehicle>`   | Vehicle definition (inline or file reference)  |
+One entry per block in the model tree:
+
+```json
+{
+    "id": "Equinoctial",
+    "type": "Equinoctial",
+    "tag": "rbeom",
+    "parent_id": "Vehicle",
+    "x": 120.0,
+    "y": 80.0,
+    "parameters": { "rpt": "1000.0" },
+    "raw_params": { "semimajor_axis": "26558762.9", "eccentricity": "0.0157" },
+    "ports": { "inputs": [], "outputs": [] }
+}
+```
+
+| Field        | Meaning                                                        |
+|--------------|----------------------------------------------------------------|
+| `id`         | Unique instance id (becomes the XML `id` attribute)            |
+| `type`       | C++ class name, instantiated via the factory (`TClassDict`)    |
+| `tag`        | XML element name to emit (`rbeom`, `mass`, `earth`, ...)       |
+| `parent_id`  | Parent block instance (`null` for top-level blocks)            |
+| `x`, `y`     | GUI canvas position (ignored outside the GUI)                  |
+| `parameters` | XML **attributes** to emit — configuration values only          |
+| `raw_params` | Child **value elements** to emit (`<semimajor_axis>...</semimajor_axis>`) |
+| `ports`      | GUI port list (wiring endpoints; not emitted as XML)           |
+
+**`parameters` must contain only configuration properties** — attributes the
+model's `configure()` actually reads. Model classes declare which properties
+those are via `DSF_PROPERTY`/`DSF_PROPERTY_BIND` (direction `"config"`);
+runtime/telemetry state is declared with `DSF_OUTPUT`/`DSF_OUTPUT_BIND`
+(direction `"output"`) and must **not** appear here: the converted XML would
+carry attributes nothing reads, which strict-mode config validation flags as
+typos and refuses to run. The GUI enforces this by only offering
+`direction == "config"` properties in the inspector.
+
+## `connections`
+
+GUI port wiring, resolved to reference attributes (e.g. `guidance_id`) during
+XML conversion:
+
+```json
+{
+    "from_block": "S1_Guidance", "from_port": "cmd_out",
+    "to_block":   "S1_Control",  "to_port":   "guidance"
+}
+```
+
+## `metadata`
+
+Runner policy consumed by `dsf run` / `dsf watch`
+(`python/dsf/utils/run_config.py`):
+
+```json
+{
+    "dt": 0.1,
+    "tmax": 3600.0,
+    "library": "libsixdof.so",
+    "file": 100.0,
+    "output": {
+        "formats": ["csv", "hdf5"],
+        "log_level": "normal",
+        "csv_log_level": "normal",
+        "hdf5_log_level": "normal"
+    },
+    "telemetry": {
+        "console_rate": 1.0,
+        "file_rate": 100.0,
+        "watch": ["altitude", "Latitude"]
+    }
+}
+```
+
+| Key                      | Meaning                                          |
+|--------------------------|--------------------------------------------------|
+| `dt`, `tmax`             | Timestep and duration [s]                        |
+| `library` (or `lib_path`)| Model shared library to dlopen                   |
+| `file`                   | File-output interval [s]                         |
+| `output.formats`         | Any of `csv`, `hdf5`                             |
+| `output.*_log_level`     | `critical` / `normal` / `verbose`                |
+| `telemetry.console_rate` | Seconds between console updates (`dsf watch`)    |
+| `telemetry.file_rate`    | Seconds between file writes                      |
+| `telemetry.watch`        | Substring filters for live telemetry display     |
 
 ## Running
 
 ```bash
-# Run a .dsf project
-dsf run myproject.dsf/project.xml
-
-# Or with the CLI pointing to the directory
-dsf run myproject.dsf
+dsf run  myproject.dsf [--h5]   # convert → C++ exec loop
+dsf watch myproject.dsf         # convert → Python step loop, live telemetry
 ```
 
-## File vs Directory Resolution
-
-- If the argument is a **directory**, DSF looks for `project.xml` inside it
-- If the argument is a **file**, DSF uses it directly as the simulation config
-- Relative paths in the XML are resolved relative to the XML file's location
+Both paths run strict config validation after the configure pass (see
+CLAUDE.md "Config validation / strict mode"); a clean `.dsf` project passes
+with no findings.

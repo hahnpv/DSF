@@ -148,5 +148,52 @@ namespace dsf
             std::string name;               ///< Block instance name.
         };
         extern template class TClassDict<Block>;
+
+        /**
+         * @brief Warn about deck attributes a block's metadata does not declare.
+         *
+         * Compares the attribute names present on XML node `n` against the
+         * property names class `blk` published via DSF_PROPERTY /
+         * DSF_PROPERTY_BIND (see PropertyNameRegistry() in TClassDict.h) and
+         * prints one warning line per unknown attribute — the classic typo'd
+         * attribute that silently reads as 0.
+         *
+         * - Classes that publish no metadata at all are skipped (not
+         *   checkable — absence of metadata does not mean absence of
+         *   attributes).
+         * - Framework-consumed attributes (id, class, name, rpt) are always
+         *   allowed.
+         *
+         * Call sites: the deck loaders invoke this on every top-level block
+         * right after configure() (C++ dynamic loader and the Python
+         * SimSession), and container blocks that configure their own children
+         * (e.g. sixdof's Vehicle) invoke it per child. Warnings are advisory
+         * only; the strict-mode unused-attribute validation (validate.h)
+         * remains the fatal check.
+         */
+        inline void warn_unknown_attributes(Block* blk, dsf::xml::xmlnode n)
+        {
+            if (!blk) return;
+
+            // Attributes the framework itself consumes on block nodes:
+            // id/class/name are read by the loaders (instantiation + naming),
+            // rpt by Block::configure.
+            static const std::set<std::string> framework_attrs =
+                {"id", "class", "name", "rpt"};
+
+            const auto& registry = PropertyNameRegistry();
+            const std::string cls = boost::core::demangle(typeid(*blk).name());
+            auto it = registry.find(cls);
+            if (it == registry.end()) return;   // no metadata published — not checkable
+
+            for (const std::string& attr : n.attrNames())
+            {
+                if (framework_attrs.count(attr)) continue;
+                if (it->second.count(attr)) continue;
+                std::cout << "WARNING: " << cls << " '" << blk->getName()
+                          << "': unknown attribute '" << attr
+                          << "' (not in metadata)" << std::endl;
+            }
+        }
     }
 }

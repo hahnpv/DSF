@@ -10,6 +10,8 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <map>
+#include <set>
 #include <boost/core/demangle.hpp>
 #include "TIntDict.h"
 using namespace std;
@@ -31,6 +33,12 @@ namespace dsf
             string defaultValue;
             string description;
             size_t offset;
+            /// "config" — read from the deck XML in configure(); the GUI may
+            /// emit it as an attribute. "output" — runtime state published for
+            /// introspection/telemetry/MC binding only; never written to a
+            /// deck (a deck attribute with this name would go unread, which
+            /// strict-mode validation treats as a typo).
+            string direction = "config";
         };
 
         /**
@@ -41,6 +49,27 @@ namespace dsf
             string type;
             string direction; // "input" or "output"
         };
+
+        /**
+         * @brief Global class-name → published-property-name index.
+         *
+         * Populated by TClassBase::AddProperty (i.e. by the DSF_PROPERTY /
+         * DSF_PROPERTY_BIND macros) regardless of which TClassDict<Base>
+         * dictionary the metadata was registered against — some classes
+         * register their factory against Block but their metadata against a
+         * domain base (SensorBase, EOMBase, ...), which lands in a different
+         * dictionary. This flat index lets configure-time checks answer
+         * "which attributes does class X publish?" from the concrete type
+         * name alone (see warn_unknown_attributes() in block.h).
+         *
+         * Classes that never call AddProperty are absent; checks must treat
+         * that as "not checkable" (no metadata does NOT mean no attributes).
+         */
+        inline std::map<std::string, std::set<std::string>>& PropertyNameRegistry()
+        {
+            static std::map<std::string, std::set<std::string>> registry;
+            return registry;
+        }
 
         /**
          * @brief Singleton dictionary of class factories.
@@ -159,8 +188,14 @@ namespace dsf
             virtual BClass * getnew() { cout << "TClassBase" << endl; return new BClass; }; ///< Create new instance.
             static  BClass * getStatic() { return (new BClass); };  ///< Static factory method.
 
-            void AddProperty(string name, string type, string defaultValue, string description="", size_t offset=0) {
-                properties.push_back({name, type, defaultValue, description, offset});
+            void AddProperty(string name, string type, string defaultValue, string description="",
+                             size_t offset=0, string direction="config") {
+                properties.push_back({name, type, defaultValue, description, offset, direction});
+                // Only config-direction properties are legal deck attributes;
+                // "output" properties are runtime state that configure() never
+                // reads, so they must not whitelist a deck attribute.
+                if (direction == "config")
+                    PropertyNameRegistry()[tDerived].insert(name);
             }
             void AddPort(string name, string type, string direction) {
                 ports.push_back({name, type, direction});

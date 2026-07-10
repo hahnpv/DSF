@@ -65,7 +65,8 @@ namespace dsf
             /**
              * @brief Construct quaternion from a Direction Cosine Matrix.
              * Uses Shepperd's method for numerical stability.
-             * @param R 3×3 rotation matrix (e.g. T_b_i from geodesy).
+             * @param R 3×3 rotation matrix, in the inertial-to-body sense
+             *          (e.g. T_b_i from geodesy) so that dcm() round-trips.
              * @return Unit quaternion representing the same rotation.
              */
             static Quaternion fromDCM(const Mat3& R)
@@ -131,8 +132,14 @@ namespace dsf
             /// @{
 
             /**
-             * @brief Body-to-inertial direction cosine matrix.
-             * @return 3×3 DCM derived from the quaternion.
+             * @brief Inertial-to-body direction cosine matrix (T_b_i).
+             *
+             * Transforms inertial(parent)-frame vectors into body-frame
+             * vectors: v_body = dcm() * v_inertial. Equivalent to the
+             * geodesy T_b_i(euler, p) convention — e.g. the 6DOF EOM uses
+             * uvw_b = attitude_q.dcm() * (uvw - w_e_i x xyz). For the
+             * body-to-inertial rotation, use dcm().transpose().
+             * @return 3×3 inertial-to-body DCM derived from the quaternion.
              */
             Mat3 dcm() const;
 

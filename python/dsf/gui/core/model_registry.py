@@ -52,7 +52,9 @@ class ModelRegistry:
             description="Simple point mass with inertia",
             properties=[
                 PropertyDefinition("mass", "float", 100.0),
+                PropertyDefinition("area", "float", 1.0),
                 PropertyDefinition("station", "float", 0.0),
+                PropertyDefinition("position", "vec3", [0.0, 0.0, 0.0]),
                 PropertyDefinition("MOI", "vec3", [1.0, 1.0, 1.0]), # Simplified diagonal for MVP? Or vector string
             ],
             ports=[
@@ -68,6 +70,8 @@ class ModelRegistry:
             properties=[
                 PropertyDefinition("mass", "float", 1000.0),
                 PropertyDefinition("station", "float", 0.0),
+                PropertyDefinition("position", "vec3", [0.0, 0.0, 0.0]),
+                PropertyDefinition("MOI", "vec3", [1.0, 1.0, 1.0]),
                 PropertyDefinition("geometry", "string", "cylinder", options=["cylinder", "sphere", "point_mass"]),
                 PropertyDefinition("radius", "float", 1.0),
                 PropertyDefinition("length", "float", 5.0),

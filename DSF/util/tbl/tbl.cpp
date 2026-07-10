@@ -1,4 +1,5 @@
 #include "tbl.h"
+#include "../config_errors.h"
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
@@ -27,6 +28,7 @@ namespace dsf
 					if (!myfile.is_open())
 					{
 						cerr << "Table: error opening file " << fname << " looking for " << tabName << endl;
+						dsf::util::config_errors().push_back("Table: error opening file " + fname + " (table '" + tabName + "')");
 						// Leave an empty-but-safe table (max == -1) so interp() returns 0
 						// instead of dereferencing an unallocated pointer.
 						return;
@@ -52,6 +54,7 @@ namespace dsf
 					if (numberOfLines <= 0)
 					{
 						cerr << "Table: table '" << tabName << "' not found or empty in " << fname << endl;
+						dsf::util::config_errors().push_back("Table: table '" + tabName + "' not found or empty in " + fname);
 						myfile.close();
 						return;		// leaves max == -1 (safe empty table)
 					}

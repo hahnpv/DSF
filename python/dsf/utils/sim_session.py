@@ -30,7 +30,8 @@ class SimSession:
                  integrator: str = "", atol: float = 1e-8, rtol: float = 1e-6,
                  csv: Optional[bool] = None, hdf5: Optional[bool] = None,
                  csv_level: Any = None, h5_level: Any = None,
-                 case_id: int = -1, case_seed: int = 0):
+                 case_id: int = -1, case_seed: int = 0,
+                 strict: bool = True):
         """Construct a simulation session.
 
         The timing/output parameters make this the single tree-builder shared by
@@ -56,6 +57,9 @@ class SimSession:
         self.h5_level = h5_level
         self.case_id = case_id       # Monte-Carlo case (< 0 = nominal run)
         self.case_seed = case_seed
+        self.strict = strict         # fail on config-validation findings;
+                                     # default ON — opt out via --not-strict or
+                                     # <sim strict="false">
 
         self._sim = None
         self._sim_root = None
@@ -142,6 +146,12 @@ class SimSession:
         # Configure pass
         for block, node, name_override in self._all_blocks:
             block.configure(node)
+            # Configure-time metadata check: flag deck attributes this block's
+            # DSF_PROPERTY metadata does not declare (likely typos). Advisory
+            # only — the strict-mode unused-attribute validation stays fatal.
+            warn_unknown = getattr(_dsf, "warn_unknown_attributes", None)
+            if warn_unknown is not None:
+                warn_unknown(block, node)
 
         # Apply Monte-Carlo dispersions (after configure, before load — matching
         # the C++ loader). No-op for a nominal run (case_id < 0).
@@ -182,7 +192,54 @@ class SimSession:
         # Register <events> after init so Output has resolved variable pointers
         # (same order as the C++ loader). Both dsf run and watch now get events.
         self._dsf.register_events(self._sim, self._sim_node)
+        self._validate_config()
         self._final_headers = self._build_headers()
+
+    STRICT_BANNER = """\
+======================================================================
+ CONFIG VALIDATION FAILED — this deck did not pass strict mode
+======================================================================
+ Strict mode is now the DEFAULT. The [config] lines above list:
+
+   * UNUSED attributes/elements — present in the deck but never read
+     by any model. Usually a typo'd name: the model looked up the
+     correct spelling, found nothing, and silently used 0.
+
+   * TABLE errors — a lookup table failed to load, so the model would
+     interpolate 0 everywhere (e.g. an aero deck flying ballistic).
+
+ Decks with these problems used to run anyway — and were quietly
+ wrong. Fix the deck (usual case), or opt out of strict mode:
+
+   dsf run <deck> --not-strict        (this invocation only)
+   <sim strict="false" ...>           (permanently, per deck)
+======================================================================"""
+
+    def _validate_config(self):
+        """Config validation: diff the deck against what the models
+        actually read. Unused attributes (typos) and failed table loads are
+        fatal by default; opt out with --not-strict (session strict=False)
+        or <sim strict=\"false\">. Matches the C++ loader in main.cpp."""
+        strict = self.strict
+        if strict and self._sim_node.findAttr("strict") \
+                and not self._sim_node.attrAsBool("strict"):
+            strict = False   # deck explicitly opts out
+        report = self._dsf.validate_config(self._xml_input)
+        for u in report["unused"]:
+            print(f"[config] UNUSED (possible typo — value silently ignored): {u}",
+                  file=sys.stderr)
+        for t in report["table_errors"]:
+            print(f"[config] TABLE (interpolating 0): {t}", file=sys.stderr)
+        if report["missing"]:
+            print(f"[config] {len(report['missing'])} lookup(s) defaulted "
+                  "(absent attribute/element; often optional)", file=sys.stderr)
+        fatal = len(report["unused"]) + len(report["table_errors"])
+        if strict and fatal:
+            print(self.STRICT_BANNER, file=sys.stderr)
+            raise RuntimeError(
+                f"config validation failed: {len(report['unused'])} unused "
+                f"attribute(s)/element(s), {len(report['table_errors'])} table "
+                "error(s) — see the [config] lines and banner above")
 
     def build(self):
         """Construct + init in one call (step-loop callers)."""

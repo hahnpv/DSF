@@ -3,6 +3,7 @@
 #include <pybind11/operators.h>
 
 #include "util/xml/xml.h"
+#include "util/xml/validate.h"
 #include "util/math/vec3.h"
 #include "util/math/mat3.h"
 #include "util/math/mat4.h"
@@ -165,4 +166,15 @@ void init_util(py::module_ &m) {
         .def(py::init<std::string>())
         .def("parse", &xml::parse)
         .def_readonly("xmlRoot", &xml::xmlRoot, py::return_value_policy::reference);
+
+    // Config validation (strict mode, H6). Call after the configure pass on
+    // the SAME xml document the tree was built from; see util/xml/validate.h.
+    m.def("validate_config", [](const xml& doc) {
+        dsf::xml::ValidationReport r = dsf::xml::validate_config(doc);
+        py::dict d;
+        d["unused"] = r.unused;             // deck attrs nobody read (typos) — fatal in strict
+        d["table_errors"] = r.table_errors; // tables that fell back to empty — fatal in strict
+        d["missing"] = r.missing;           // lookups that defaulted — informational
+        return d;
+    }, "Diff a parsed deck against its attribute-usage record (strict mode)");
 }

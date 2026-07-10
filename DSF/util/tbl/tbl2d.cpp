@@ -1,4 +1,5 @@
 #include "tbl2d.h"
+#include "../config_errors.h"
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -21,6 +22,7 @@ namespace dsf
 			if (!myfile.is_open())
 			{
 				cerr << "Table2d: error opening file " << fname << endl;
+				dsf::util::config_errors().push_back("Table2d: error opening file " + fname);
 				return;		// leaves an empty table; interp() returns 0 / empty
 			}
 

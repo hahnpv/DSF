@@ -183,6 +183,14 @@ void init_sim(py::module_ &m) {
              return dsf::sim::TRefUnique<Block>(id);
          }, py::return_value_policy::take_ownership);
 
+    // Configure-time metadata check (see sim/block.h): prints one WARNING per
+    // deck attribute the block's DSF_PROPERTY metadata does not declare.
+    // Call right after block.configure(node) with the SAME node.
+    m.def("warn_unknown_attributes",
+          [](Block* blk, dsf::xml::xmlnode n) { dsf::sim::warn_unknown_attributes(blk, n); },
+          py::arg("block"), py::arg("node"),
+          "Warn about deck attributes not published in the block's DSF metadata");
+
     // XML-driven config shared with the C++ executable (see sim/xml_config.h):
     // apply Monte-Carlo dispersions (after configure, before load) and register
     // <events> (after init). This gives `dsf run`/`watch` the same event/MC
@@ -197,7 +205,8 @@ void init_sim(py::module_ &m) {
         .def_readonly("name", &PropertyMetadata::name)
         .def_readonly("type", &PropertyMetadata::type)
         .def_readonly("defaultValue", &PropertyMetadata::defaultValue)
-        .def_readonly("description", &PropertyMetadata::description);
+        .def_readonly("description", &PropertyMetadata::description)
+        .def_readonly("direction", &PropertyMetadata::direction);
 
     py::class_<PortMetadata>(m, "PortMetadata")
         .def_readonly("name", &PortMetadata::name)

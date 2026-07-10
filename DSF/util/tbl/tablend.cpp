@@ -1,4 +1,5 @@
 #include "tablend.h"
+#include "../config_errors.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -64,6 +65,7 @@ TableND::TableND(const std::string& filename)
     if (!probe.is_open())
     {
         std::cerr << "TableND: error opening file " << filename << std::endl;
+        dsf::util::config_errors().push_back("TableND: error opening file " + filename);
         return;
     }
 
@@ -101,6 +103,7 @@ TableND TableND::fromCSV(const std::string& filename,
     if (!f.is_open())
     {
         std::cerr << "TableND::fromCSV: error opening " << filename << std::endl;
+        dsf::util::config_errors().push_back("TableND::fromCSV: error opening " + filename);
         return TableND();
     }
 
@@ -133,6 +136,9 @@ TableND TableND::fromCSV(const std::string& filename,
     {
         std::cerr << "TableND::fromCSV: columns '" << x_col << "' or '"
                   << y_col << "' not found in " << filename << std::endl;
+        dsf::util::config_errors().push_back(
+            "TableND::fromCSV: columns '" + x_col + "' or '" + y_col +
+            "' not found in " + filename);
         return TableND();
     }
 
@@ -185,6 +191,9 @@ void TableND::compute_strides()
         std::cerr << "TableND: data length " << data_.size()
                   << " does not match product of axis sizes " << expected
                   << " (table may be misconfigured)" << std::endl;
+        dsf::util::config_errors().push_back(
+            "TableND: data length " + std::to_string(data_.size()) +
+            " does not match product of axis sizes " + std::to_string(expected));
     }
 }
 
@@ -373,6 +382,7 @@ void TableND::load_tablend_csv(const std::string& filename)
     if (!f.is_open())
     {
         std::cerr << "TableND: error opening " << filename << std::endl;
+        dsf::util::config_errors().push_back("TableND: error opening " + filename);
         return;
     }
 
@@ -457,6 +467,7 @@ void TableND::load_legacy(const std::string& filename)
     if (!f.is_open())
     {
         std::cerr << "TableND: error opening legacy file " << filename << std::endl;
+        dsf::util::config_errors().push_back("TableND: error opening legacy file " + filename);
         return;
     }
 
