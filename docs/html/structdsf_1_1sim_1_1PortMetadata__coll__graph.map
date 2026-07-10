@@ -1,7 +1,0 @@
-<map id="dsf::sim::PortMetadata" name="dsf::sim::PortMetadata">
-<area shape="rect" id="Node000001" title="Metadata for a block port." alt="" coords="5,212,175,237"/>
-<area shape="rect" id="Node000002" title=" " alt="" coords="47,95,133,120"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="93,133,93,212,87,212,87,133"/>
-<area shape="rect" id="Node000003" title=" " alt="" coords="21,5,159,45"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="93,59,93,94,87,94,87,59"/>
-</map>

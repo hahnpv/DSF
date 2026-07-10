@@ -1,5 +1,0 @@
-<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="Node000000" href="$classdsf_1_1sim_1_1Block.html" title="Base class for all simulation model blocks." alt="" coords="5,5,123,31"/>
-<area shape="rect" id="Node000001" href="$classdsf_1_1sim_1_1Output.html" title="CSV/HDF5 telemetry output handler." alt="" coords="171,5,296,31"/>
-<area shape="poly" id="edge1_Node000000_Node000001" title=" " alt="" coords="136,15,171,15,171,21,136,21"/>
-</map>

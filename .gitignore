@@ -48,3 +48,9 @@ doc/latex/
 doc/rtf/
 doc/man/
 doc/xml/
+# Generated Doxygen output (OUTPUT_DIRECTORY=docs). docs/monte_carlo.md is
+# hand-authored and stays tracked.
+docs/html/
+docs/DSF.tag
+docs/latex/
+docs/xml/

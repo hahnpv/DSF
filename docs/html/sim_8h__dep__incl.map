@@ -1,7 +1,0 @@
-<map id="DSF/sim/sim.h" name="DSF/sim/sim.h">
-<area shape="rect" id="Node000001" title="Top&#45;level simulation executive." alt="" coords="139,5,255,31"/>
-<area shape="rect" id="Node000002" href="$integratorRK4_8cpp.html" title=" " alt="" coords="5,79,203,104"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="173,41,121,81,118,76,170,37"/>
-<area shape="rect" id="Node000003" href="$sim_8cpp.html" title=" " alt="" coords="227,79,357,104"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="225,37,278,76,275,81,222,41"/>
-</map>

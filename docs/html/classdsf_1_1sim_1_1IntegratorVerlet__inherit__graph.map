@@ -1,5 +1,0 @@
-<map id="dsf::sim::IntegratorVerlet" name="dsf::sim::IntegratorVerlet">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,79,188,104"/>
-<area shape="rect" id="Node000002" href="$classdsf_1_1sim_1_1IntegratorBase.html" title="Abstract interface for numerical integration strategies." alt="" coords="8,5,185,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="99,44,99,79,94,79,94,44"/>
-</map>

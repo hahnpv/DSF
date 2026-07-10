@@ -1,5 +1,0 @@
-<map id="dsf::sim::Output" name="dsf::sim::Output">
-<area shape="rect" id="Node000001" title="CSV/HDF5 telemetry output handler." alt="" coords="5,79,131,104"/>
-<area shape="rect" id="Node000002" href="$classdsf_1_1sim_1_1Block.html" title="Base class for all simulation model blocks." alt="" coords="9,5,127,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="71,44,71,79,65,79,65,44"/>
-</map>
