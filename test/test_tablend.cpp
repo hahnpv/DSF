@@ -239,13 +239,20 @@ void test_tablend_csv_format()
     CHECK_NEAR(t.interp(1.0, 5.0), 6.0, 1e-10, "TableND CSV (1,5) mid");
 }
 
+// Fixture directory, injected by CMake as the test/ source dir so the test
+// runs from any build location (local, CI, ASan builds).
+#ifndef TEST_DATA_DIR
+#define TEST_DATA_DIR "."
+#endif
+
 void test_legacy_format()
 {
     // Use the existing test file
-    const char* path = "/home/philip/git/DSF/test/table_1d.txt";
-    TableND t(path);
+    const std::string path = std::string(TEST_DATA_DIR) + "/table_1d.txt";
+    TableND t(path.c_str());
 
     CHECK(t.ndim() == 1, "Legacy ndim");
+    if (t.ndim() != 1) return;   // file missing/unparsed — don't index into nothing
     CHECK(t.axis_size(0) == 4, "Legacy axis_size");
 
     CHECK_NEAR(t.interp(0.0), 0.0, 1e-10, "Legacy x=0");

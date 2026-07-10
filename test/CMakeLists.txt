@@ -11,6 +11,9 @@ add_test(NAME cpp_util_tests COMMAND cpp_util_tests)
 add_executable(cpp_tablend_tests test_tablend.cpp)
 target_link_libraries(cpp_tablend_tests PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
 target_include_directories(cpp_tablend_tests PRIVATE ${Boost_INCLUDE_DIRS})
+# Table fixtures (table_1d.txt) live next to the sources; tell the test where.
+target_compile_definitions(cpp_tablend_tests PRIVATE
+    TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 add_test(NAME cpp_tablend_tests COMMAND cpp_tablend_tests)
 
 # Sim-kernel tests (clock, events) — no full sim loop required.

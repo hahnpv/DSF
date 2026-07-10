@@ -37,8 +37,11 @@ jobs:
           cmake --build build -j
 
       - name: C++ unit tests (ctest)
+        # Only the C++ suites here — the python_tests ctest entry needs the
+        # package + pytest, which are installed in the next step and run
+        # directly in the "Python tests" step below.
         working-directory: build
-        run: ctest --output-on-failure
+        run: ctest -R "cpp_" --output-on-failure
 
       - name: Install Python package
         # scikit-build-core compiles the extension into the package — no

@@ -110,11 +110,12 @@ public:
     /// Number of dimensions
     int ndim() const { return static_cast<int>(axes_.size()); }
 
-    /// Number of breakpoints along dimension i
-    int axis_size(int i) const { return static_cast<int>(axes_[i].size()); }
+    /// Number of breakpoints along dimension i (throws std::out_of_range on
+    /// a bad dimension rather than reading past the axes vector)
+    int axis_size(int i) const { return static_cast<int>(axes_.at(i).size()); }
 
-    /// Breakpoint vector for dimension i
-    const std::vector<double>& axis(int i) const { return axes_[i]; }
+    /// Breakpoint vector for dimension i (bounds-checked, see axis_size)
+    const std::vector<double>& axis(int i) const { return axes_.at(i); }
 
     /// Total number of data points
     size_t size() const { return data_.size(); }

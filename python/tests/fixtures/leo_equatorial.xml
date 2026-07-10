@@ -1,0 +1,30 @@
+<?xml version="1.0" ?>
+<!--
+  Physics-validation fixture: equatorial circular LEO under WGS84 J2 gravity.
+
+  For an equatorial orbit the J2 perturbation is purely radial and constant,
+  so a closed-form circular solution exists:
+      mu_eff = MU * (1 + 1.5 * J2 * (Re/r)^2),  J2 = sqrt(5)*|C_2_0|
+      v      = sqrt(mu_eff / r)                 (7354.597238 m/s at r below)
+      T      = 2*pi*sqrt(r^3 / mu_eff)          (6303.2958 s)
+  r = 7378137 m (1000 km altitude; AeroBase produces zero force, so no drag).
+  tmax covers one full orbit. Used by test_physics_validation.py.
+-->
+<sim dt="0.1" tmax="6310" file="10.0" library="libsixdof.so">
+	<vehicle name="LEO_Equatorial" id="Vehicle" class="Vehicle">
+		<rbeom id="OblateEarth" rollingAirframe="false" rpt="100000.0" frame="ECI" class="OblateEarth">
+			<position>7378137,0,0</position>
+			<orientation>0.,0.,0.</orientation>
+			<velocity>0,7354.597238,0</velocity>
+			<rates>0.,0.,0.</rates>
+		</rbeom>
+		<atmosphere id="Atmosphere" class="Atmosphere"/>
+		<aero id="AeroBase" class="AeroBase"/>
+		<mass id="Mass" class="Mass">
+			<mass>1000</mass>
+			<area>1.0</area>
+			<MOI>100,0,0, 0,100,0, 0,0,100</MOI>
+		</mass>
+	</vehicle>
+	<earth id="WGS84" class="WGS84"/>
+</sim>
