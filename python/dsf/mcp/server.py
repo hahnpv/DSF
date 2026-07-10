@@ -988,7 +988,7 @@ def _watch_worker(job_id: str, xml_path: str, lib_path: str,
         _watch_sessions[job_id]["disp_indices"] = disp_indices
         _watch_sessions[job_id]["status"] = "running"
 
-    while session.t() < tmax:
+    while session.t() < tmax and session.running():
         # Check for stop signal
         with _watch_lock:
             if _watch_sessions[job_id].get("stop"):

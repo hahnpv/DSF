@@ -72,7 +72,7 @@ def main():
 
     # Step loop — report at ~30 Hz wall-clock
     last_pt = time.time()
-    while session.t() < tmax:
+    while session.t() < tmax and session.running():
         session.step()
         pt = time.time()
         if pt - last_pt > 0.033:

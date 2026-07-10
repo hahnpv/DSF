@@ -99,7 +99,7 @@ def run_watch(xml_path: str, lib_path: str, dt: float, tmax: float, watch: List[
 
     last_pt = time.time()
 
-    while session.t() < tmax:
+    while session.t() < tmax and session.running():
         session.step()
         t = session.t()
         pt = time.time()

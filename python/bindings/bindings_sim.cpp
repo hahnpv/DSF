@@ -6,6 +6,7 @@
 #include "sim/sim.h"
 #include "sim/TRefDict.h"
 #include "sim/TClassDict.h" // Added include
+#include "sim/xml_config.h" // events + Monte Carlo registration from XML
 #include "util/math/quat.h" // Added for Quaternion introspection
 
 using namespace dsf::sim;
@@ -55,6 +56,7 @@ void init_sim(py::module_ &m) {
         .def("dt", &Clock::dt)
         .def("set_dt", &Clock::set_dt)
         .def("end", &Clock::end)
+        .def("is_running", &Clock::is_running)
         .def("Sample", &Clock::Sample);
 
     py::class_<Block, PyBlock>(m, "Block")
@@ -180,6 +182,16 @@ void init_sim(py::module_ &m) {
     m.def("make_block", [](std::string id) {
              return dsf::sim::TRefUnique<Block>(id);
          }, py::return_value_policy::take_ownership);
+
+    // XML-driven config shared with the C++ executable (see sim/xml_config.h):
+    // apply Monte-Carlo dispersions (after configure, before load) and register
+    // <events> (after init). This gives `dsf run`/`watch` the same event/MC
+    // behavior as the C++ `dynamic` loader.
+    m.def("apply_monte_carlo", &dsf::sim::apply_monte_carlo,
+          py::arg("root"), py::arg("sim_node"),
+          py::arg("case_id") = -1, py::arg("case_seed") = 0);
+    m.def("register_events", &dsf::sim::register_events,
+          py::arg("sim"), py::arg("sim_node"));
 
     py::class_<PropertyMetadata>(m, "PropertyMetadata")
         .def_readonly("name", &PropertyMetadata::name)

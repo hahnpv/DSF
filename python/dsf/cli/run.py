@@ -175,150 +175,46 @@ def main():
     print(f"  Library: {library_path}")
     print(f"  Output: CSV={is_csv} ({csv_level}), HDF5={is_hdf5} ({h5_level})")
 
-    dsf.Output.defaultCSV = is_csv
-    dsf.Output.defaultHDF5 = is_hdf5
-    dsf.Output.defaultCSVLevel = csv_level
-    dsf.Output.defaultHDF5Level = h5_level
+    # Build the simulation via the shared SimSession builder — the SAME
+    # construction path used by `dsf watch`, the GUI, and the MCP server, so the
+    # run / watch / GUI / MCP paths can no longer drift in how they build the
+    # block tree. Output policy + report rates are passed as config.
+    from dsf.utils.sim_session import SimSession
+    session = SimSession(
+        target_xml_path, library_path, dt, tmax,
+        console_rate=rate_console, file_rate=rate_file,
+        integrator=integrator_type, atol=atol, rtol=rtol,
+        csv=is_csv, hdf5=is_hdf5, csv_level=csv_level, h5_level=h5_level,
+    )
 
-    # 3. Load Shared Library
-    # The XML library attribute might be relative to the XML file or CWD. 
-    # The C++ code does `dlopen(input.library().c_str()...)`
-    # We should probably handle relative paths relative to CWD as C++ does by default.
-    
     try:
-        # RTLD_GLOBAL is essential so that the loaded library's symbols
-        # RTLD_NOW ensures static initializers (factory registration) run immediately
-        ctypes.CDLL(library_path, mode=os.RTLD_GLOBAL | os.RTLD_NOW)
-        print(f"Loaded library: {library_path}")
-    except OSError as e:
-        print(f"Error loading library '{library_path}': {e}")
-        # Try finding it relative to the XML file
-        xml_dir = os.path.dirname(os.path.abspath(args.fname))
-        alt_path = os.path.join(xml_dir, library_path)
-        if os.path.exists(alt_path) and alt_path != library_path:
-             try:
-                ctypes.CDLL(alt_path, mode=os.RTLD_GLOBAL | os.RTLD_NOW)
-                print(f"Loaded library from alternative path: {alt_path}")
-             except OSError as e2:
-                 print(f"Fatal error loading library: {e2}")
-                 sys.exit(1)
+        session.build_tree()
+    except Exception as e:
+        print(f"Error building simulation: {e}")
+        sys.exit(1)
+
+    # init() registers integrands and builds telemetry headers.
+    session.init()
+
+    all_headers = session.sim.output.get_header_names()
+    watch = (run_config.watch if run_config is not None else [])
+    if watch:
+        matched = [h for h in all_headers if any(w in h for w in watch)]
+        if matched:
+            print(f"Watching {len(matched)}/{len(all_headers)} telemetry channels: {matched}")
         else:
-            sys.exit(1)
-    
-
-
-    # 4. Instantiate and Configure Blocks
-    # Create a root Block to hold everything
-    sim_root = dsf.Block()
-    
-    # Iterate over children of 'sim' node
-    children = sim_node.children()
-    blocks = []
-    children_nodes = []
-    for child in children:
-        child_id = child.attrAsString("id")
-        child_name = child.attrAsString("name")
-        child_class = child.attrAsString("class")
-        if not child_id:
-            continue
-
-        # Fall back to the (capitalized) element tag when no class= is given.
-        # xmlnode exposes name(), not tag(); mirror SimSession.build() so
-        # `dsf run` and `dsf watch` construct the tree identically.
-        raw_tag = child.name()
-        class_to_use = child_class or (raw_tag[0].upper() + raw_tag[1:] if raw_tag else "")
-        final_id = child_name if child_name else child_id
-        print(f"Creating root block: {final_id} [class={class_to_use}]")
-
-        try:
-            new_block = dsf.make_block(class_to_use)
-            if new_block:
-                new_block.setName(final_id)
-                sim_root.addChild(new_block)
-                blocks.append(new_block)
-                children_nodes.append(child)
-            else:
-                print(f"FATAL: Factory returned None for class '{class_to_use}' (id={child_id}). Is the class name correct?")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error creating block '{child_id}': {e}")
-            sys.exit(1)
-
-    # Configure Pass
-    # Get children again or just iterate the blocks we added?
-    # The C++ code iterates XML children again and calls getChild(i)->configure(node).
-    # Since we added them in order, index alignment should hold.
-    
-    # We can iterate Python sim_root children? sim_root doesn't expose list of children directly?
-    # Block binding: children is protected. no getChildren() exposed?
-    # Wait, I didn't check if getChildren is exposed. 
-    # Checked bindings_sim.cpp: 
-    # .def("addChild", ...)
-    # .def("has_children", ...)
-    # // .def("getParent", &Block::getParent) 
-    # // .def("getChild", &Block::getChild)
-    # They are commented out in the file I viewed! 
-    # But wait, looking at `main.cpp` logic:
-    # `root->getChild(i)->configure( child_node);`
-    # So I DO need access to the children blocks to configure them.
-    
-    # If getChild isn't exposed, I can't retrieve them from sim_root.
-    # But I have the `new_block` reference in the first loop.
-    # So I should configure it right there, OR store them in a list.
-    
-    # Re-reading C++ main.cpp:
-    # for ( int i = 0; i < nx; i++) root->addChild( TRefUnique<Block>( child_node.attrAsString("id")));
-    # for ( int i = 0; i < nx; i++) root->getChild(i)->configure( child_node);
-    
-    # Configure each block with its corresponding XML node
-    for block, node in zip(blocks, children_nodes):
-        block.configure(node)
-
-
-    # 5. Run Simulation
-    sim = dsf.Sim()
-    sim.load(sim_root, dt, tmax, rate_console, rate_file, integrator_type, atol, rtol)
-    
-    # Pass XML info for HDF5 metadata and filename convention
-    try:
-        xml_path = os.path.abspath(target_xml_path)
-        with open(xml_path, 'r') as f:
-            xml_content = f.read()
-        sim.set_xml_info(xml_path, xml_content)
-    except Exception:
-        pass  # Non-fatal: metadata is nice-to-have
-
-    if hasattr(sim, 'init') and hasattr(sim, 'exec'):
-        print("Starting simulation (init/exec)...")
-        sim.init()
-        
-        # --- Telemetry header output ---
-        # If a RunConfig with a non-empty `watch` list was loaded, only echo
-        # those variables. Otherwise fall back to printing all headers.
-        if hasattr(sim, 'output'):
-            all_headers = sim.output.get_header_names()
-            watch = (run_config.watch if run_config is not None else [])
-            if watch:
-                matched = [h for h in all_headers if any(w in h for w in watch)]
-                if matched:
-                    print(f"Watching {len(matched)}/{len(all_headers)} telemetry channels: {matched}")
-                else:
-                    print(f"Warning: watch list {watch!r} matched no headers. Available: {all_headers}")
-            else:
-                print(f"Telemetry Headers: {all_headers}")
-            
-        sim.exec()
+            print(f"Warning: watch list {watch!r} matched no headers. Available: {all_headers}")
     else:
-        print("Starting simulation (run)...")
-        sim.run()
-        
+        print(f"Telemetry Headers: {all_headers}")
+
+    print("Starting simulation...")
+    session.exec_loop()
     print("Simulation complete.")
-    
+
     # Cleanup temporary XML if it was dynamically generated from a JSON project
     if is_temp_xml and os.path.exists(target_xml_path):
         try:
             os.remove(target_xml_path)
-            # print(f"Cleaned up {target_xml_path}")
         except OSError:
             pass
 
