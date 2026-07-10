@@ -39,6 +39,13 @@ def load_h5(path: str) -> Tuple[np.ndarray, Dict[str, Dict[str, np.ndarray]]]:
             data: Dict[str, Dict[str, np.ndarray]] = {}
             times = None
 
+            # The Time dataset is written at the file root, alongside the block
+            # groups. Read it here; otherwise `times` would be fabricated as
+            # arange(N) below, mislabeling every sample by its index instead of
+            # its actual simulation time.
+            if "Time" in datasets_at_root:
+                times = datasets_at_root["Time"][:]
+
             for group_name, group in groups.items():
                 block_data: Dict[str, np.ndarray] = {}
                 scalars = {}

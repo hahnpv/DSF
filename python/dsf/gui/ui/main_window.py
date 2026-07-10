@@ -16,6 +16,14 @@ class MainWindow(QMainWindow):
         self._setup_ui()
 
     def closeEvent(self, event):
+        # Stop any running worker threads before teardown, otherwise Qt aborts
+        # with "QThread: Destroyed while thread is still running" and the
+        # headless subprocess is orphaned.
+        for attr in ("sim_worker", "probe_worker"):
+            worker = getattr(self, attr, None)
+            if worker is not None and worker.isRunning():
+                worker.stop()
+                worker.wait(2000)
         if hasattr(self, 'plot_window'):
             # Stop the window from ignoring close events during shutdown
             self.plot_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
@@ -479,6 +487,9 @@ class MainWindow(QMainWindow):
                 elif lib_path:
                      print(f"Warning: Library {lib_path} not found.")
 
+                # reconstruct() calls scene.clear(); drop stale undo history that
+                # would otherwise reference the destroyed items and crash on undo.
+                self.undo_stack.clear()
                 metadata = serializer.reconstruct(self.scene, data)
                 # Don't overwrite lib_path if provided by CLI
                 if self.sim_config.get("lib_path"):
@@ -514,6 +525,10 @@ class MainWindow(QMainWindow):
         return False
 
     def _new_file(self):
+        # Clear the undo stack first: after scene.clear() its commands hold
+        # references to deleted QGraphicsItems, so a later Ctrl+Z would call
+        # removeItem() on freed C++ objects and crash.
+        self.undo_stack.clear()
         self.scene.clear()
         self.inspector_widget.set_selection([])
 
@@ -562,11 +577,22 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Export Error", str(e))
 
     def _run_validation(self):
+        # Re-entrancy guard: set_error() below repaints blocks, which makes the
+        # scene emit changed() again → _run_validation → … a perpetual loop that
+        # pegs a CPU core at idle. Suppress the self-induced re-trigger and clear
+        # the guard on the next event-loop tick, once those change signals have
+        # been delivered (and ignored).
+        if getattr(self, "_suppress_validation", False):
+            return
         try:
             errors = self.validator.validate()
         except RuntimeError:
             return
-        
+
+        self._suppress_validation = True
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: setattr(self, "_suppress_validation", False))
+
         # Clear all block errors first
         from dsf.gui.ui.canvas import BlockItem
         for item in self.scene.items():
@@ -628,9 +654,13 @@ class MainWindow(QMainWindow):
             
             self._refresh_sim_info()
             
-            self.undo_stack.beginMacro(f"Import {os.path.basename(path)}")
+            # Import rebuilds the scene from scratch and adds items directly
+            # (not via undo commands), so discard the undo history rather than
+            # wrap it in an empty macro. scene.clear() invalidates any commands
+            # still referencing the old items, so this must precede it.
+            self.undo_stack.clear()
             self.scene.clear()
-            
+
             # Reconstruction logic
             created_blocks = {} # id -> BlockItem
             
@@ -746,9 +776,6 @@ class MainWindow(QMainWindow):
             self._reconstruct_connections(blocks_data, created_blocks)
             self._auto_wire_implicit_connections(created_blocks)
 
-
-            self.undo_stack.endMacro()
-            
             # Center view and zoom out slightly to see all
             if created_blocks:
                 rect = self.scene.itemsBoundingRect()
@@ -976,10 +1003,14 @@ class MainWindow(QMainWindow):
                     pos = self.view.mapToScene(self.view.viewport().rect().center())
                     pos += QPointF(20, 20)
                     
-                    # unique id
-                    count = len([i for i in self.scene.items() if isinstance(i, BlockItem)])
-                    instance_id = f"{b_data['type']}_{count+1}"
-                    
+                    # unique id: lowest free suffix, not block count (which
+                    # collides after any deletion and duplicates ids).
+                    existing = {i.instance_id for i in self.scene.items() if isinstance(i, BlockItem)}
+                    n = 1
+                    while f"{b_data['type']}_{n}" in existing:
+                        n += 1
+                    instance_id = f"{b_data['type']}_{n}"
+
                     block = BlockItem(b_def, instance_id, pos)
                     block.parameters = b_data["parameters"].copy()
                     
@@ -1083,7 +1114,7 @@ class MainWindow(QMainWindow):
             self.sim_config["tmax"]
         )
         self.sim_worker.progress.connect(self._on_sim_progress)
-        self.sim_worker.finished.connect(self._on_sim_finished)
+        self.sim_worker.sim_finished.connect(self._on_sim_finished)
         self.sim_worker.error.connect(self._on_sim_error)
         self.sim_worker.deep_data_ready.connect(self.plot_widget.update_deep_data) # New Introspection Connection
         

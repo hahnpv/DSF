@@ -60,6 +60,7 @@ namespace dsf
             /// @name Operator Overloads
             /// @{
             double &operator[](int i);          ///< Array-style access (0=x, 1=y, 2=z).
+            const double &operator[](int i) const; ///< Const array-style access.
             Vec3 operator+(Vec3 vec);           ///< Vector addition.
             Vec3 operator*(double c);           ///< Scalar multiplication.
             Vec3 operator/(double c);           ///< Scalar division.

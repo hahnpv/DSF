@@ -3,39 +3,65 @@ import sys
 import argparse
 import ctypes
 import os
-
-# The C++ pybind11 module is also called 'dsf' but lives in the build directory.
-# Since this file is inside the Python 'dsf' package, `import dsf` resolves to
-# the package itself, not the C++ module. We must load it explicitly.
 import importlib.util
-_dsf_build_dir = os.path.join(os.path.dirname(__file__), "../../../build")
-_dsf_so = None
-for _candidate in [os.path.join(_dsf_build_dir, f) for f in os.listdir(_dsf_build_dir)
-                   if f.startswith("dsf") and f.endswith(".so")] if os.path.isdir(_dsf_build_dir) else []:
-    _dsf_so = _candidate
-    break
 
-if _dsf_so is None:
-    # Fallback: try the DSF project build directory
-    _dsf_build_dir2 = os.path.join(os.path.dirname(__file__), "../../build")
-    for _candidate in [os.path.join(_dsf_build_dir2, f) for f in os.listdir(_dsf_build_dir2)
-                       if f.startswith("dsf") and f.endswith(".so")] if os.path.isdir(_dsf_build_dir2) else []:
-        _dsf_so = _candidate
-        break
 
-try:
-    sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)
-    if _dsf_so:
-        _spec = importlib.util.spec_from_file_location("dsf_core", _dsf_so)
-        dsf = importlib.util.module_from_spec(_spec)
-        _spec.loader.exec_module(dsf)
-    else:
-        # Last resort: maybe it's installed in site-packages
-        import dsf as dsf
-except (ImportError, FileNotFoundError) as e:
-    print(f"Error: Could not import dsf C++ module: {e}")
-    print(f"  Searched: {_dsf_build_dir}")
-    sys.exit(1)
+def _load_dsf_core():
+    """Load the ``dsf_core`` C++ extension exactly once.
+
+    The extension must be loaded with RTLD_GLOBAL so model libraries can resolve
+    DSF symbols. Critically, we register it in ``sys.modules['dsf.dsf_core']``
+    *before* anything imports the ``dsf`` package, so the package's
+    ``from .dsf_core import *`` reuses this same module object rather than
+    dlopen'ing a second copy — a second copy makes pybind11 abort with
+    "generic_type: type 'Vec3' is already registered".
+
+    Returns the module, or None if the extension cannot be found/loaded.
+    """
+    # Already loaded (e.g. the package was imported first)? Reuse it.
+    if "dsf.dsf_core" in sys.modules:
+        return sys.modules["dsf.dsf_core"]
+
+    here = os.path.dirname(__file__)
+    # Prefer a freshly-built extension, then the copy inside the package.
+    search_dirs = [
+        os.path.join(here, "../../../build"),   # repo build/
+        os.path.join(here, "../../build"),      # alt build/
+        os.path.join(here, ".."),               # python/dsf/ (installed copy)
+    ]
+    so_path = None
+    for d in search_dirs:
+        if not os.path.isdir(d):
+            continue
+        # Match the exact extension name; sort for determinism (avoids the old
+        # arbitrary os.listdir order that could pick a stale ABI).
+        cands = sorted(f for f in os.listdir(d)
+                       if f.startswith("dsf_core") and f.endswith(".so"))
+        if cands:
+            so_path = os.path.join(d, cands[0])
+            break
+
+    old_flags = sys.getdlopenflags()
+    try:
+        sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)
+        if so_path:
+            spec = importlib.util.spec_from_file_location("dsf.dsf_core", so_path)
+            mod = importlib.util.module_from_spec(spec)
+            # Register before exec so a re-entrant `import dsf` reuses this copy.
+            sys.modules["dsf.dsf_core"] = mod
+            sys.modules.setdefault("dsf_core", mod)
+            spec.loader.exec_module(mod)
+            return mod
+        # Last resort: an installed extension importable as a top-level module.
+        import dsf as pkg
+        return pkg
+    except (ImportError, FileNotFoundError):
+        return None
+    finally:
+        sys.setdlopenflags(old_flags)   # don't leak RTLD_GLOBAL to later imports
+
+
+dsf = _load_dsf_core()
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run a simulation from an XML configuration file.")
@@ -52,8 +78,13 @@ def map_level(level_str):
     return dsf.LogLevel.LOG_NORMAL
 
 def main():
+    if dsf is None:
+        print("Error: Could not load the dsf_core C++ extension. "
+              "Build it (see CLAUDE.md) and copy build/dsf_core*.so into python/dsf/.")
+        sys.exit(1)
+
     args = parse_args()
-    
+
     if not os.path.exists(args.fname):
         print(f"Error: File '{args.fname}' not found.")
         sys.exit(1)
@@ -186,17 +217,23 @@ def main():
     children_nodes = []
     for child in children:
         child_id = child.attrAsString("id")
+        child_name = child.attrAsString("name")
         child_class = child.attrAsString("class")
         if not child_id:
             continue
-            
-        class_to_use = child_class or child.tag().capitalize()
-        print(f"Creating root block: {child_id} [class={class_to_use}]")
-        
+
+        # Fall back to the (capitalized) element tag when no class= is given.
+        # xmlnode exposes name(), not tag(); mirror SimSession.build() so
+        # `dsf run` and `dsf watch` construct the tree identically.
+        raw_tag = child.name()
+        class_to_use = child_class or (raw_tag[0].upper() + raw_tag[1:] if raw_tag else "")
+        final_id = child_name if child_name else child_id
+        print(f"Creating root block: {final_id} [class={class_to_use}]")
+
         try:
             new_block = dsf.make_block(class_to_use)
             if new_block:
-                new_block.setName(child_id)
+                new_block.setName(final_id)
                 sim_root.addChild(new_block)
                 blocks.append(new_block)
                 children_nodes.append(child)

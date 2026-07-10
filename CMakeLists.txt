@@ -77,7 +77,6 @@ target_include_directories(DSF PUBLIC
 )
 
 target_link_libraries(DSF PUBLIC sim util ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
-target_compile_options(DSF PRIVATE -fpermissive)
 set_target_properties(DSF PROPERTIES LINKER_LANGUAGE CXX)
 
 # Python Bindings Module
@@ -90,11 +89,13 @@ target_link_libraries(dsf_core PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
  target_include_directories(dsf_core PRIVATE 
     ${Boost_INCLUDE_DIRS}
 )
-target_compile_options(dsf_core PRIVATE -fpermissive)
 
 # Add Examples
 add_subdirectory(examples/dynamic)
 add_subdirectory(examples/bouncy)
+
+# C++ unit tests
+add_subdirectory(test)
 
 
 

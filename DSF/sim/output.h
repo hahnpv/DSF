@@ -36,6 +36,7 @@ namespace dsf
                 h5 = NULL;
                 rate = _rate;
                 rptRate = _rate;
+                header_written = false;	// avoid reading an indeterminate flag before open()
                 
                 // Use Global Defaults
                 csv_enabled = defaultCSV();
@@ -101,8 +102,16 @@ namespace dsf
                         *out << ", " << *doubles[i] * conversion[0][i];
                     for (unsigned int i=0; i < vectors.size(); i++)
                         *out << ", " << (*vectors[i]).x * conversion[1][i] << ", " << (*vectors[i]).y * conversion[1][i] << ", " << (*vectors[i]).z * conversion[1][i];
-                    for (unsigned int i=0; i < matrices.size(); i++)
-                        *out << ", " << *matrices[i] * conversion[2][i];
+                    for (unsigned int i=0; i < matrices.size(); i++) {
+                        double c = conversion[2][i];
+                        const dsf::util::Mat3& m = *matrices[i];
+                        // Write the 9 elements as comma-separated values. The old
+                        // code streamed the Mat3 via operator<< which embedded
+                        // newlines, corrupting the CSV row.
+                        *out << ", " << m.a0.x*c << ", " << m.a0.y*c << ", " << m.a0.z*c
+                             << ", " << m.a1.x*c << ", " << m.a1.y*c << ", " << m.a1.z*c
+                             << ", " << m.a2.x*c << ", " << m.a2.y*c << ", " << m.a2.z*c;
+                    }
                     *out << endl;
                 }
                 
@@ -276,8 +285,13 @@ namespace dsf
                 *out <<" Time ";
                 for (unsigned int i=0; i < title.size(); i++) {
                     for (unsigned int j=0; j < title[i].size(); j++) {
-                        if ( i == 1) {
+                        if ( i == 1) {	// vectors → 3 columns
                             *out << ", " << title[i][j] << " (x) " << ", " << title[i][j] << " (y) " << ", " << title[i][j] << " (z) ";
+                        }
+                        else if ( i == 2) {	// matrices → 9 columns (row-major)
+                            *out << ", " << title[i][j] << " (0,0)" << ", " << title[i][j] << " (0,1)" << ", " << title[i][j] << " (0,2)"
+                                 << ", " << title[i][j] << " (1,0)" << ", " << title[i][j] << " (1,1)" << ", " << title[i][j] << " (1,2)"
+                                 << ", " << title[i][j] << " (2,0)" << ", " << title[i][j] << " (2,1)" << ", " << title[i][j] << " (2,2)";
                         }
                         else
                             *out << ", " <<  title[i][j];
@@ -287,8 +301,11 @@ namespace dsf
                 *out << " [s] ";
                 for (unsigned int i=0; i < units.size(); i++) {
                     for (unsigned int j=0; j < title[i].size(); j++) {
-                         if ( i == 1) {
+                         if ( i == 1) {	// vectors → 3 unit columns
                             *out << ", " << units[i][j] << ", " <<  units[i][j] << ", " <<  units[i][j];
+                        }
+                        else if ( i == 2) {	// matrices → 9 unit columns
+                            for (int k = 0; k < 9; k++) *out << ", " << units[i][j];
                         }
                         else
                             *out << ", " <<  units[i][j];

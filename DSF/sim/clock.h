@@ -8,6 +8,7 @@
 #pragma once
 
 #include <iostream>
+#include <cmath>
 
 namespace dsf
 {
@@ -26,19 +27,23 @@ namespace dsf
         class Clock
         {
         public:
-            Clock() {};             ///< Default constructor for function pointer use.
+            /// Default constructor for function-pointer use. All members are
+            /// initialized so a Clock that is never load()'d is not indeterminate.
+            Clock()
+                : error(1.0), maxtime(0.0), safe_sample(true), time(0), state(true) {};
 
             /**
              * @brief Construct clock with integration rate.
              * @param _dt   Integration timestep [s].
              * @param _tmax Maximum simulation time [s].
              */
-            Clock(double _dt, double _tmax) 
+            Clock(double _dt, double _tmax)
             {
                 time  = 0;
-                error = (1/_dt)*2.0;
+                error = (_dt > 0.0) ? (1/_dt)*2.0 : 1.0;	// guard divide-by-zero
                 state = true;
                 maxtime  = _tmax;
+                safe_sample = true;	// not mid-integration until a step starts
             }
 
             /**
@@ -68,7 +73,7 @@ namespace dsf
                     return;
                 derror /= error;
                 error = (1/newdt)*2.0;
-                time  = (int) ( (double)time * derror); 
+                time  = (unsigned long) ( (double)time * derror + 0.5);	// round, not truncate
             }
 
             /**
@@ -90,10 +95,21 @@ namespace dsf
             {
                 if ( t == 0 || !safe_sample)
                     return safe_sample;
-                if ( time / (t*error) == (int)(time / (t*error)) )
-                    return true;
-                else
+                if ( t < 0.0 )
                     return false;
+
+                // Fire once per sample period, on the first step that enters a new
+                // period. The old test required time/(t*error) to be an exact
+                // integer double, which silently dropped every report when the
+                // sample period was not a whole multiple of dt (e.g. rpt=0.1 with
+                // dt=0.03). Comparing period indices across the step is robust to
+                // any dt/rpt ratio.
+                double now  = this->t();
+                double prev = now - this->dt();
+                const double eps = 1e-9;
+                long period_now  = (long)std::floor(now  / t + eps);
+                long period_prev = (long)std::floor(prev / t + eps);
+                return period_now != period_prev;
             }
 
             void increment()        { time++; }             ///< Advance clock by dt/2.

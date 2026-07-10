@@ -104,10 +104,28 @@ void IntegratorRK45::propagate(Block* root)
         d->xdd[0][i] = *d->xd[i];  // k1
     }
 
+    // NOTE (known limitation): stage derivatives are evaluated with the Clock
+    // held at the start-of-step time (the clock is only advanced after the macro
+    // step). The tick-based Clock (2 ticks per dt) cannot represent Dormand-Prince
+    // stage times (c = 1/5, 3/10, 4/5, ...), so explicitly time-dependent models
+    // integrated under RK45 see constant time across stages. Use RK4 for strongly
+    // time-dependent dynamics until the clock gains a continuous stage-time.
+
     // --- Sub-step loop: advance by exactly dt_nominal ---
     double t_covered = 0.0;
+    int substep_guard = 0;
+    const int MAX_SUBSTEPS = 100000;	// backstop against a non-converging step
     while (t_covered < dt_nominal - 1e-14)
     {
+        if (++substep_guard > MAX_SUBSTEPS)
+        {
+            std::cerr << "IntegratorRK45: exceeded " << MAX_SUBSTEPS
+                      << " sub-steps in one macro step (stiff or non-finite "
+                      << "dynamics); ending simulation" << std::endl;
+            clock->end();
+            break;
+        }
+
         double t_remaining = dt_nominal - t_covered;
         double h = std::min(dt_adapt_, t_remaining);
 
@@ -168,18 +186,26 @@ void IntegratorRK45::propagate(Block* root)
         dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
         for (int i = 0; i < n; i++) d->xdd[6][i] = *d->xd[i];
 
-        // Error estimation
+        // Error estimation. A NaN/Inf derivative must NOT be accepted: since
+        // std::max(x, NaN) returns x, a naive max would leave err_max finite and
+        // silently accept a non-finite step, propagating NaN through the state.
         double err_max = 0.0;
+        bool nonfinite = false;
         for (int i = 0; i < n; i++)
         {
             double err_i = h * std::fabs(e1 * d->xdd[0][i] + e3 * d->xdd[2][i]
                                         + e4 * d->xdd[3][i] + e5 * d->xdd[4][i]
                                         + e6 * d->xdd[5][i] + e7 * d->xdd[6][i]);
+            if (!std::isfinite(err_i) || !std::isfinite(*d->x[i]))
+            {
+                nonfinite = true;
+                break;
+            }
             double scale = atol_ + rtol_ * std::fabs(*d->x[i]);
             err_max = std::max(err_max, err_i / scale);
         }
 
-        if (err_max <= 1.0)
+        if (!nonfinite && err_max <= 1.0)
         {
             // Accept sub-step
             t_covered += h;
@@ -202,8 +228,19 @@ void IntegratorRK45::propagate(Block* root)
             for (int i = 0; i < n; i++)
                 *d->x[i] = d->x0[i];
 
-            double factor = 0.9 * std::pow(err_max, -0.25);
-            factor = std::max(factor, 0.1);
+            // If we are already at the minimum step and still failing (stiff
+            // dynamics, or a NaN derivative that shrinking cannot fix), stop
+            // rather than spin forever.
+            if (h <= dt_min_ * (1.0 + 1e-12))
+            {
+                std::cerr << "IntegratorRK45: step rejected at minimum step size "
+                          << (nonfinite ? "(non-finite derivatives)" : "(too stiff)")
+                          << "; ending simulation" << std::endl;
+                clock->end();
+                break;
+            }
+
+            double factor = nonfinite ? 0.1 : std::max(0.9 * std::pow(err_max, -0.25), 0.1);
             dt_adapt_ = std::max(h * factor, dt_min_);
 
             // Re-evaluate derivatives at restored state

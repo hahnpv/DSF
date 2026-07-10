@@ -10,6 +10,21 @@ CMakeDoxyfile.in
 *.png
 __pycache__
 
+# ...but never ignore build/test files that happen to end in .txt
+!CMakeLists.txt
+!**/CMakeLists.txt
+!requirements.txt
+!**/requirements.txt
+
+# Versioned shared libs (e.g. libsixdof.so.1.0.0) — *.so below misses the suffix
+*.so.*
+
+# Packaging / editable-install metadata
+*.egg-info/
+
+# Atmosphere / Fortran model data
+*.mod
+
 # CMake Artifacts
 CMakeFiles/
 CMakeCache.txt

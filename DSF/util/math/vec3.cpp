@@ -23,8 +23,9 @@ namespace dsf
 		/// Return a unit vector, |v|.
 		Vec3 Vec3::unit()
 		{
-			Vec3 unit;
 			double mag = this->mag();
+			if (mag == 0.0) return Vec3(0, 0, 0);	// avoid divide-by-zero → NaN
+			Vec3 unit;
 			unit.x = this->x / mag;
 			unit.y = this->y / mag;
 			unit.z = this->z / mag;
@@ -67,6 +68,26 @@ namespace dsf
 			case 2:
 				return z;
 			}
+			// Out-of-range access: warn and return a valid reference rather than
+			// falling off the end of the function (which was undefined behavior).
+			cerr << "Vec3::operator[]: index " << i << " out of range [0,2]" << endl;
+			return z;
+		}
+
+		/// Const array-style access (0=x, 1=y, 2=z).
+		const double &Vec3::operator[]( int i) const
+		{
+			switch( i)
+			{
+			case 0:
+				return x;
+			case 1:
+				return y;
+			case 2:
+				return z;
+			}
+			cerr << "Vec3::operator[]: index " << i << " out of range [0,2]" << endl;
+			return z;
 		}
 
 		/// Addition operator with another vector.
@@ -145,42 +166,27 @@ namespace dsf
 			return *this;
 		}
 
-		/// Tests two vectors for equality, STL container compliance.
+		/// Tests two vectors for equality (component-wise), STL container compliance.
 		bool Vec3::operator== (const Vec3& right) const {
-
-			if ( sqrt( this->x*this->x + this->y*this->y + this->z*this->z ) == sqrt( right.x*right.x + right.y*right.y + right.z*right.z ))
-				return true;
-			else
-				return false;
+			return this->x == right.x && this->y == right.y && this->z == right.z;
 		}
 
-		/// Tests two vectors for inequality, STL container compliance.
+		/// Tests two vectors for inequality (component-wise), STL container compliance.
 		bool Vec3::operator!= (const Vec3& right) const {
-
-			if ( sqrt( this->x*this->x + this->y*this->y + this->z*this->z ) != sqrt( right.x*right.x + right.y*right.y + right.z*right.z ))
-				return true;
-			else
-				return false;
+			return !(*this == right);
 		}
 
-		/// Tests the relative magnitude of two vectors, STL container compliance.
+		/// Lexicographic ordering (x, then y, then z). Provides a strict weak
+		/// ordering consistent with operator== so Vec3 can be a std::map/set key.
 		bool Vec3::operator<  (const Vec3& right) const {
-
-			// defining < by magnitude
-			if ( sqrt( this->x*this->x + this->y*this->y + this->z*this->z ) < sqrt( right.x*right.x + right.y*right.y + right.z*right.z ))
-				return true;
-			else
-				return false;
+			if (x != right.x) return x < right.x;
+			if (y != right.y) return y < right.y;
+			return z < right.z;
 		}
 
-		/// Tests the relative magnitude of two vectors, STL container compliance.
+		/// Lexicographic ordering (mirror of operator<).
 		bool Vec3::operator>  (const Vec3& right) const {
-
-			// defining > by magnitude
-			if ( sqrt( this->x*this->x + this->y*this->y + this->z*this->z ) > sqrt( right.x*right.x + right.y*right.y + right.z*right.z ))
-				return true;
-			else
-				return false;
+			return right < *this;
 		}
 
 		/// ostream operator for vectors.

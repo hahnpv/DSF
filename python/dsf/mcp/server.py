@@ -48,7 +48,9 @@ def resolve_path(rel_path: str) -> str:
     else:
         p = p.resolve()
         
-    if not str(p).startswith(str(FILE_ROOT)):
+    # Containment check via path semantics, not string prefix. A plain
+    # startswith() lets "/opt/sixdof_secrets" pass as inside "/opt/sixdof".
+    if p != FILE_ROOT and FILE_ROOT not in p.parents:
         raise ValueError(f"Security error: path '{rel_path}' ({p}) attempts to escape FILE_ROOT '{FILE_ROOT}'")
     return str(p)
 
@@ -59,7 +61,7 @@ def enforce_relative_paths(func):
         # Match the new canonical param names + old names for backward compat
         path_params = {'file', 'file_a', 'file_b', 'library', 'output',
                        'xml_file', 'csv_file', 'h5_file', 'csv_file1', 'csv_file2',
-                       'output_file', 'out_file'}
+                       'output_file', 'out_file', 'build_dir', 'src_dir', 'directory'}
         for k, v in kwargs.items():
             if k in path_params and isinstance(v, str):
                 new_kwargs[k] = resolve_path(v)
@@ -1433,8 +1435,10 @@ def patch_run_xml(
             
         tree.write(str(out_path), encoding="utf-8", xml_declaration=True)
         
-        # We process the simulation synchronously
-        return run_sim(str(out_path), library, tmax)
+        # We process the simulation synchronously. run_sim is wrapped by
+        # normalize_args (a **kwargs-only wrapper), so it must be called with
+        # keyword arguments — positional args raise TypeError.
+        return run_sim(file=str(out_path), library=library, tmax=tmax)
     except Exception as e:
         return safe_dumps({"error": str(e)})
 
@@ -1712,7 +1716,8 @@ def build_report(
         dsf_report(xml_file="/path/to/sim.xml", output_file="/path/to/output1.csv")
     """
     xml_file = file
-    output_file = file
+    # NB: do NOT overwrite output_file with the XML path — that made the report
+    # try to parse the .xml as CSV and disabled auto-detection of the real output.
     import xml.etree.ElementTree as ET
     import glob
 
@@ -1986,17 +1991,32 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DSF MCP Server")
     parser.add_argument("--transport", default="stdio", choices=["stdio", "sse"],
                         help="Transport mode: stdio (default) or sse")
-    parser.add_argument("--host", default="0.0.0.0", help="SSE host (default: 0.0.0.0)")
+    # Bind to loopback by default. This server exposes file-write and build
+    # tools; combined with the `library` LD_PRELOAD path that is an unauthenticated
+    # RCE surface if bound to 0.0.0.0. Remote exposure must be opted into
+    # explicitly and should sit behind an authenticating proxy.
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="SSE host (default: 127.0.0.1 / loopback)")
     parser.add_argument("--port", type=int, default=9100, help="SSE port (default: 9100)")
+    parser.add_argument("--allow-remote", action="store_true",
+                        help="Permit binding to a non-loopback host (e.g. 0.0.0.0). "
+                             "Only use behind an authenticating reverse proxy.")
     args = parser.parse_args()
 
     if args.transport == "sse":
+        loopback = args.host in ("127.0.0.1", "localhost", "::1")
+        if not loopback and not args.allow_remote:
+            parser.error(
+                f"refusing to bind SSE transport to non-loopback host '{args.host}' "
+                "without --allow-remote (this server exposes file-write/build tools). "
+                "Put it behind an authenticating proxy and pass --allow-remote to override."
+            )
         mcp.settings.host = args.host
         mcp.settings.port = args.port
-        # Allow cross-network access (e.g. from DGX Spark)
+        # DNS-rebinding protection is only relaxed for explicit remote use.
         from mcp.server.transport_security import TransportSecuritySettings
         mcp.settings.transport_security = TransportSecuritySettings(
-            enable_dns_rebinding_protection=False
+            enable_dns_rebinding_protection=(not args.allow_remote)
         )
     mcp.run(transport=args.transport)
 

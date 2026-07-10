@@ -52,34 +52,7 @@ class ValidationEngine:
                         if isinstance(target_block, BlockItem):
                             adj[bid].append(target_block.instance_id)
 
-        # Standard DFS cycle detection
-        visited = set()
-        path = set()
-        cycled_blocks = set()
-
-        def visit(u):
-            if u in path:
-                return True
-            if u in visited:
-                return False
-            
-            visited.add(u)
-            path.add(u)
-            
-            for v in adj.get(u, []):
-                if visit(v):
-                    cycled_blocks.add(u)
-                    cycled_blocks.add(v)
-                    return True
-            
-            path.remove(u)
-            return False
-
-        for bid in blocks:
-            if bid not in visited:
-                visit(bid)
-
-        for bid in cycled_blocks:
+        for bid in self._detect_cycles(adj):
             errors.append(ValidationError(
                 bid,
                 "Part of a circular dependency (cycle detected).",
@@ -87,3 +60,36 @@ class ValidationEngine:
             ))
 
         return errors
+
+    @staticmethod
+    def _detect_cycles(adj: Dict[str, List[str]]) -> Set[str]:
+        """Return the set of nodes that participate in at least one cycle.
+
+        Color-DFS with an explicit recursion stack that is always popped
+        (unlike the previous version, which returned early on a cycle and left
+        stale nodes in the path, poisoning later DFS roots and falsely flagging
+        feeder blocks). Only nodes on the actual back-edge cycle are returned.
+        """
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color = {u: WHITE for u in adj}
+        stack: List[str] = []
+        cycled: Set[str] = set()
+
+        def visit(u):
+            color[u] = GRAY
+            stack.append(u)
+            for v in adj.get(u, []):
+                if v not in color:
+                    continue            # edge to a non-block target; ignore
+                if color[v] == GRAY:
+                    idx = stack.index(v)  # back edge → cycle is stack[idx:]
+                    cycled.update(stack[idx:])
+                elif color[v] == WHITE:
+                    visit(v)
+            stack.pop()
+            color[u] = BLACK
+
+        for u in adj:
+            if color[u] == WHITE:
+                visit(u)
+        return cycled

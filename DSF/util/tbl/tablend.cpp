@@ -174,6 +174,18 @@ void TableND::compute_strides()
     {
         strides_[i] = strides_[i + 1] * axes_[i + 1].size();
     }
+
+    // Sanity-check the flat data length against the product of axis sizes.
+    // A mismatch means the grid is misaligned; interp_impl guards the read, but
+    // warn so the misconfiguration is visible rather than silently wrong.
+    size_t expected = 1;
+    for (const auto& ax : axes_) expected *= ax.size();
+    if (data_.size() != expected)
+    {
+        std::cerr << "TableND: data length " << data_.size()
+                  << " does not match product of axis sizes " << expected
+                  << " (table may be misconfigured)" << std::endl;
+    }
 }
 
 // ============================================================================
@@ -218,10 +230,32 @@ double TableND::interp_impl(const double* point, int ndim) const
         return 0.0;
     }
 
-    // 1. Find bracket and fractional weight for each axis
-    // Stack-allocate for up to 8 dimensions (covers all practical cases)
-    int    idx[8];
-    double frac[8];
+    // Multilinear interpolation blends 2^D corners, so very high D is both
+    // impractical and would overflow the (1 << D) corner counter. Guard it.
+    if (D > 20)
+    {
+        std::cerr << "TableND::interp: dimensionality " << D
+                  << " exceeds supported maximum (20)" << std::endl;
+        return 0.0;
+    }
+
+    // 1. Find bracket and fractional weight for each axis.
+    // Use a small stack buffer for the common case; fall back to heap for D > 8
+    // so a genuinely high-dimensional table never overruns a fixed array.
+    constexpr int STACK_D = 8;
+    int    idx_stack[STACK_D];
+    double frac_stack[STACK_D];
+    std::vector<int>    idx_heap;
+    std::vector<double> frac_heap;
+    int*    idx  = idx_stack;
+    double* frac = frac_stack;
+    if (D > STACK_D)
+    {
+        idx_heap.resize(D);
+        frac_heap.resize(D);
+        idx  = idx_heap.data();
+        frac = frac_heap.data();
+    }
 
     for (int d = 0; d < D; d++)
     {
@@ -229,7 +263,9 @@ double TableND::interp_impl(const double* point, int ndim) const
         idx[d] = find_bracket(ax, point[d]);
         int j = idx[d];
 
-        double span = ax[j + 1] - ax[j];
+        // Single-point (or empty) axis: constant along this dimension. Avoid
+        // reading ax[j + 1], which would be out of bounds.
+        double span = (static_cast<int>(ax.size()) > 1) ? (ax[j + 1] - ax[j]) : 0.0;
         if (span > 0.0)
             frac[d] = (point[d] - ax[j]) / span;
         else
@@ -262,10 +298,16 @@ double TableND::interp_impl(const double* point, int ndim) const
         {
             int bit = (c >> (D - 1 - d)) & 1;  // 0 = low corner, 1 = high corner
             weight *= (bit == 0) ? (1.0 - frac[d]) : frac[d];
-            flat_idx += (idx[d] + bit) * strides_[d];
+            // Don't step past the end of a single-point axis (its high corner has
+            // weight 0 anyway, but the index must stay in bounds).
+            int step = (bit && static_cast<int>(axes_[d].size()) > 1) ? 1 : 0;
+            flat_idx += (idx[d] + step) * strides_[d];
         }
 
-        result += weight * data_[flat_idx];
+        // Defensive bound: a malformed table (data shorter than the axis-size
+        // product) must never read out of bounds.
+        if (flat_idx < data_.size())
+            result += weight * data_[flat_idx];
     }
 
     return result;

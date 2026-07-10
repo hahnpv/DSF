@@ -32,9 +32,9 @@ namespace dsf
 		private:
 			double binarySearch(double val, int left, int right);
 			std::string tableName;
-			int min;
-			int max;
-			double **table;		// need to dimension in the constructor
+			int min = 0;
+			int max = -1;			// -1 => empty/uninitialized table
+			double **table = nullptr;	// need to dimension in the constructor
 		};
 	}
 }

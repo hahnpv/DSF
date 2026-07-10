@@ -72,11 +72,15 @@ namespace dsf
     
             /// @name Time Functions
             /// @{
-            double  t()             { return clock->t();  };    ///< Get current simulation time [s].
-            double dt()             { return clock->dt(); };    ///< Get integration timestep [s].
-            void set_dt(double dt)  { clock->set_dt( dt); };    ///< Modify timestep dynamically.
-            void end(void)          { clock->end(); };          ///< Signal simulation termination.
-            bool sample(double t=0) { return clock->Sample(t); };///< Check if current time is a reporting sample.
+            // These guard against a null clock: a Block that has not been added
+            // to a loaded Sim (e.g. `dsf.Block().t()` from Python, or a block
+            // created after Sim::load) has clock == nullptr. Returning a benign
+            // value beats a segfault.
+            double  t()             { return clock ? clock->t()  : 0.0; };  ///< Get current simulation time [s].
+            double dt()             { return clock ? clock->dt() : 0.0; };  ///< Get integration timestep [s].
+            void set_dt(double dt)  { if (clock) clock->set_dt( dt); };     ///< Modify timestep dynamically.
+            void end(void)          { if (clock) clock->end(); };           ///< Signal simulation termination.
+            bool sample(double t=0) { return clock ? clock->Sample(t) : false; };///< Check if current time is a reporting sample.
             /// @}
 
             /// @name Reference Functions

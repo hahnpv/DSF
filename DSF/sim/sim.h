@@ -84,13 +84,13 @@ namespace dsf
                 return simulation;
             };
 
-            Clock *clock;                           ///< Simulation clock.
-            Output *output;                         ///< Telemetry output handler.
+            Clock *clock = nullptr;                 ///< Simulation clock.
+            Output *output = nullptr;               ///< Telemetry output handler.
 
         private:
-            double rptRate;                         ///< Console report rate [s].
+            double rptRate = 0.0;                   ///< Console report rate [s].
             std::vector<Block*>simulation;          ///< Root block tree.
-            IntegratorBase *i;                      ///< Active integrator.
+            IntegratorBase *i = nullptr;            ///< Active integrator.
         };
     }
 }

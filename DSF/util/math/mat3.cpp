@@ -42,7 +42,13 @@ namespace dsf
 		/// Calculates the inverse of the matrix.
 		Mat3 Mat3::inv()
 		{
-			double invdet = 1/this->det();
+			double d = this->det();
+			if (d == 0.0)
+			{
+				cerr << "Mat3::inv: singular matrix (det == 0)" << endl;
+				return Mat3(0,0,0, 0,0,0, 0,0,0);
+			}
+			double invdet = 1/d;
 
 			Mat3 inv;
 
@@ -83,20 +89,22 @@ namespace dsf
 		/// Returns a Vec3, whose operator[] provides the second bracket accessor.
 		Vec3 &Mat3::operator[](int i)
 		{
-			Vec3 v0;
-			
-			if ( i == 0)
-			{
-				return a0;
-			}
-			else if ( i == 1)
-			{
-				return a1;
-			}
-			else if ( i == 2)
-			{
-				return a2;
-			}
+			if ( i == 0) return a0;
+			if ( i == 1) return a1;
+			if ( i == 2) return a2;
+			cerr << "Mat3::operator[]: row index " << i << " out of range [0,2]" << endl;
+			return a2;
+		}
+
+		/// Const row access. Enables use on a const Mat3 (e.g. Quaternion::fromDCM),
+		/// which previously required the -fpermissive compiler flag.
+		const Vec3 &Mat3::operator[](int i) const
+		{
+			if ( i == 0) return a0;
+			if ( i == 1) return a1;
+			if ( i == 2) return a2;
+			cerr << "Mat3::operator[]: row index " << i << " out of range [0,2]" << endl;
+			return a2;
 		}
 
 		/// Addition operator with another matrix.

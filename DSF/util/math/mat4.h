@@ -27,7 +27,13 @@ namespace dsf
         public:
             /// @name Constructors
             /// @{
-            Mat4() {};                              ///< Default constructor.
+            /// Default constructor (zero matrix — members are value-initialized
+            /// rather than left indeterminate).
+            Mat4()
+                : a00(0), a01(0), a02(0), a03(0),
+                  a10(0), a11(0), a12(0), a13(0),
+                  a20(0), a21(0), a22(0), a23(0),
+                  a30(0), a31(0), a32(0), a33(0) {};
 
             /**
              * @brief Construct from 16 elements (row-major).

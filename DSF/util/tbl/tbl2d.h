@@ -57,9 +57,6 @@ namespace dsf
 			int cols() const { return table.empty() ? 0 : (int)table[0].size(); }
 
 		private:
-			double binarySearch(double val, int i, int left, int right);
-			double interp(double val, int i, int left, int right);
-
 			/// Find bracket index: returns j such that breaks[j] <= val < breaks[j+1]
 			/// Clamps to [0, n-2] for out-of-range values.
 			static int findBracket(const std::vector<double>& breaks, double val);

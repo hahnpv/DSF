@@ -16,32 +16,26 @@ public:
     using Block::Block; // Inherit constructors
 
     void configure(dsf::xml::xmlnode n) override {
-        std::cout << "[PyBlock::configure] " << this << std::endl;
         pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, configure, n);
     }
     void init() override {
-        std::cout << "[PyBlock::init] " << this << std::endl;
         pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, init, );
     }
     void update() override {
-        std::cout << "[PyBlock::update] " << this << std::endl;
         pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, update, );
     }
     void rpt() override {
-        std::cout << "[PyBlock::rpt] " << this << std::endl;
         pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, rpt, );
     }
     void rptSim() override {
-        std::cout << "[PyBlock::rptSim] " << this << std::endl;
         pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, rptSim, );
     }
     void finalize() override {
-        std::cout << "[PyBlock::finalize] " << this << std::endl;
         pybind11::gil_scoped_acquire gil;
         PYBIND11_OVERRIDE(void, Block, finalize, );
     }
@@ -162,12 +156,17 @@ void init_sim(py::module_ &m) {
 
     py::class_<Sim>(m, "Sim")
         .def(py::init<>())
-        .def("load", py::overload_cast<Block*, double, double, double, double>(&Sim::load))
+        // keep_alive<1,2>: the Sim (arg 1 = self) stores the root Block* (arg 2),
+        // so the Block must outlive the Sim. Without this, Python can GC the root
+        // while run() (GIL released) still dereferences it → use-after-free.
+        .def("load", py::overload_cast<Block*, double, double, double, double>(&Sim::load),
+             py::keep_alive<1, 2>())
         .def("load", py::overload_cast<Block*, double, double, double, double,
              const std::string&, double, double>(&Sim::load),
              py::arg("root"), py::arg("dt"), py::arg("tmax"),
              py::arg("console"), py::arg("file"),
-             py::arg("integrator_type"), py::arg("atol") = 1e-8, py::arg("rtol") = 1e-6)
+             py::arg("integrator_type"), py::arg("atol") = 1e-8, py::arg("rtol") = 1e-6,
+             py::keep_alive<1, 2>())
         .def("set_xml_info", &Sim::setXmlInfo,
              py::arg("xml_file"), py::arg("xml_content"))
         .def("run", &Sim::run, py::call_guard<py::gil_scoped_release>()) // Release GIL!

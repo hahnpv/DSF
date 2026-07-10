@@ -1,4 +1,0 @@
-<?xml version="1.0" ?>
-<sim name="UtilTest" dt="0.1" tmax="0.5" file="0.1" library="libsixdof.so">
-    <python_model id="PythonModel" script="python_util_verify.py" class="UtilVerify" rpt="0.1" />
-</sim>

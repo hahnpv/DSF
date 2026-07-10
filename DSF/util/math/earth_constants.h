@@ -19,8 +19,8 @@ namespace dsf
             /// WGS84 semi-major axis (equatorial radius) [m]
             constexpr double RE_EARTH     = 6378137.0;
 
-            /// WGS84 first zonal harmonic (oblateness) [-]
-            constexpr double J2_EARTH     = 0.001081874;
+            /// WGS84 second-degree zonal harmonic (dynamic form factor J2) [-]
+            constexpr double J2_EARTH     = 1.08262982e-3;
 
             /// Standard gravity (ISO 80000-3) [m/s²]
             constexpr double G0           = 9.80665;

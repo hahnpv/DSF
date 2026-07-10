@@ -13,7 +13,10 @@ namespace sim
 // -------------------------------------------------------------------------
 std::optional<double> Event::check(double t, double dt) const
 {
-    if (!armed || fired)
+    // Only `armed` gates firing. `fired` is a historical record, not a gate:
+    // gating on it made one_shot=false (recurring) events fire exactly once.
+    // one_shot events are disarmed (armed=false) after firing in evaluate().
+    if (!armed)
         return std::nullopt;
 
     const auto& c = condition;

@@ -11,11 +11,14 @@ def _resolve_connection_pointers(port_name, params):
     In GUI JSON `connections`, it might say from_port: "state", to_port: "prop".
     In XML this needs to be represented as `<child_block prop_id="instance_id" />`.
     """
+    # These pointer ports are read by the C++ models under their BARE names
+    # (e.g. PointMassEOM reads attrAsString("guidance"), Seeker reads "target").
+    # Emitting "guidance_id" here would leave the connection silently unwired.
     known_pointers = {"nav", "control", "guidance", "prop", "parent", "target"}
     if port_name in known_pointers:
-        return f"{port_name}_id"
-    
-    # Generic fallback
+        return port_name
+
+    # Generic fallback for other ports.
     if not port_name.endswith("_id"):
          return f"{port_name}_id"
     return port_name
@@ -57,7 +60,11 @@ def _dict_to_xml(json_data):
         # Add basic parameters
         params = b_data.get("parameters", {})
         for key, val in params.items():
-            if isinstance(val, list):
+            if isinstance(val, bool):
+                # C++ attrAsBool accepts only "true"/"1"; Python's str(True)
+                # is "True", which C++ reads as false.
+                s_val = "true" if val else "false"
+            elif isinstance(val, list):
                 s_val = ",".join(map(str, val))
             else:
                 s_val = str(val)

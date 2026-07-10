@@ -66,6 +66,7 @@ namespace dsf
             /// @name Operator Overloads
             /// @{
             Vec3 &operator[]( int i);           ///< Row access (0, 1, or 2).
+            const Vec3 &operator[]( int i) const; ///< Const row access (0, 1, or 2).
             Mat3 operator+( Mat3 m0);           ///< Matrix addition.
             Mat3 operator-( Mat3 m0);           ///< Matrix subtraction.
             Mat3 operator*( Mat3 m0);           ///< Matrix multiplication.

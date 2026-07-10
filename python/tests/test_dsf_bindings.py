@@ -171,8 +171,10 @@ class TestMat3:
 
 class TestQuaternion:
     def test_identity(self):
+        # Quaternion storage is scalar-first: Quaternion(q0, q1, q2, q3) with
+        # q0 the scalar (w) part, so the identity quaternion is (1, 0, 0, 0).
         out = _assert_runs("""
-            q = dsf.Quaternion(0, 0, 0, 1)
+            q = dsf.Quaternion(1, 0, 0, 0)
             print(q.x, q.y, q.z, q.w)
         """)
         x, y, z, w = map(float, out.split())

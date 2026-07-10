@@ -24,5 +24,4 @@ set(sim_source_files
   TRefDict.h
 )
 add_library(sim ${sim_source_files})
-target_compile_options(sim PRIVATE -fpermissive)
 set_target_properties(sim PROPERTIES POSITION_INDEPENDENT_CODE ON)

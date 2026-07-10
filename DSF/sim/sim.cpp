@@ -8,6 +8,7 @@
 #include "integrator_verlet.h"
 #include "block.h"
 #include "TClassDict.h"
+#include "TIntDict.h"
 #include "../util/TFunctor.h"
 
 // Explicit instantiation of factory dictionary to ensure singleton is in libDSF.so
@@ -70,6 +71,31 @@ namespace dsf
 		               const std::string& integrator_type, double atol, double rtol)
 		{
 			rptRate = _console;
+
+			// Start from a clean integrand table and event bus. In a long-lived
+			// process (GUI / MCP session / Monte Carlo) a previous run's state
+			// pointers would otherwise still be registered and get integrated.
+			TClassIntegrandDict<Block>::Instance()->clear();
+			EventBus::Instance()->clear();
+
+			// Validate timing parameters. A missing/zero dt attribute previously
+			// produced error=inf and an infinite loop with zero state advance.
+			if (_dt <= 0.0)
+			{
+				std::cerr << "Sim::load: invalid dt=" << _dt
+				          << " (must be > 0); aborting run" << std::endl;
+				clock = new Clock(1.0, 0.0);
+				clock->end();				// exec() loop will not run
+				output = new Output(_file);
+				simulation.push_back(root);
+				simulation.push_back(output);
+				return;
+			}
+			if (_tmax <= 0.0)
+			{
+				std::cerr << "Sim::load: tmax=" << _tmax
+				          << " (must be > 0); simulation will not advance" << std::endl;
+			}
 
 			// Instantiate clock and output
 			clock = new Clock( _dt, _tmax );

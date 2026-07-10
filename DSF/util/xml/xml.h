@@ -142,8 +142,13 @@ public:
      */
     dsf::util::Vec3 attrAsVec3(const std::string& str) {
         std::string source = attrAsString(str);
-        std::vector<double> v = dsf::util::split<double>(source, ",");
+        // Accept comma- and/or whitespace-separated components so a value like
+        // "1 2 3" is not silently parsed as a single token and zeroed out.
+        std::vector<double> v = dsf::util::split<double>(source, ", \t");
         if (v.size() >= 3) return dsf::util::Vec3(v[0], v[1], v[2]);
+        if (!source.empty())
+            std::cerr << "attrAsVec3: '" << str << "'=\"" << source
+                      << "\" is not 3 numbers; using (0,0,0)" << std::endl;
         return dsf::util::Vec3(0, 0, 0);
     }
 
@@ -154,8 +159,11 @@ public:
      */
     dsf::util::Mat3 attrAsMat3(const std::string& str) {
         std::string source = attrAsString(str);
-        std::vector<double> m = dsf::util::split<double>(source, ",");
+        std::vector<double> m = dsf::util::split<double>(source, ", \t");
         if (m.size() >= 9) return dsf::util::Mat3(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
+        if (!source.empty())
+            std::cerr << "attrAsMat3: '" << str << "'=\"" << source
+                      << "\" is not 9 numbers; using identity/zero" << std::endl;
         return dsf::util::Mat3();
     }
 

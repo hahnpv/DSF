@@ -10,9 +10,9 @@ namespace dsf
 	{
 		namespace math
 		{
-			const double C_DEG = 3.14159/180.; ///< Degrees-to-radians conversion factor.
-			const double RAD   = 57.2958;      ///< Radians-to-degrees conversion factor.
-			const double PI    = 3.14159;       ///< π (low precision — consider M_PI).
+			const double PI    = 3.14159265358979323846; ///< π (full double precision).
+			const double C_DEG = PI / 180.0;  ///< Degrees-to-radians conversion factor.
+			const double RAD   = 180.0 / PI;  ///< Radians-to-degrees conversion factor.
 		}
 	}
 }

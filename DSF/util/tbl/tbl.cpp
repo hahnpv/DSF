@@ -24,12 +24,12 @@ namespace dsf
 					//String strLine;
 
 					ifstream myfile (fname.c_str());
-					if (myfile.is_open())
-					{}
-					else
+					if (!myfile.is_open())
 					{
-						cout << "error opening file " << fname << " looking for " << tabName << endl;
-						char xx; cin >> xx;
+						cerr << "Table: error opening file " << fname << " looking for " << tabName << endl;
+						// Leave an empty-but-safe table (max == -1) so interp() returns 0
+						// instead of dereferencing an unallocated pointer.
+						return;
 					}
 
 					string strLine;
@@ -48,6 +48,13 @@ namespace dsf
 					// get the number of rows, instantiate table
 					int numberOfLines = atoi(line.c_str());
 //					cout << "number of lines: " << numberOfLines << endl;
+
+					if (numberOfLines <= 0)
+					{
+						cerr << "Table: table '" << tabName << "' not found or empty in " << fname << endl;
+						myfile.close();
+						return;		// leaves max == -1 (safe empty table)
+					}
 
 					//table = new double[numberOfLines,2];
 					// size table
@@ -164,6 +171,7 @@ namespace dsf
 		/// \param x Value to interpolate for.
 		double Table::interp(double x)
 		{
+			if (table == nullptr || max < 0) return 0.0;	// empty/failed-load table
 			if (min == max) return table[min][1];
 			if (x <= table[min][0]) return table[min][1];
 			if (x >= table[max][0]) return table[max][1];
@@ -179,31 +187,24 @@ namespace dsf
 		/// less possibility for bugs / discrepancies.
 		double Table::binarySearch(double val, int left, int right)
 		{
-			int mid;	// indexer
-			while ( (left <= right)) // & left >= min & right <= max to bound table; may have to fix after loop
+			// Precondition (guaranteed by interp()): table[left][0] < val < table[right][0].
+			// Narrow [left, right] until they are adjacent (right == left + 1), which is
+			// the bracketing interval, then linearly interpolate. Keeping the invariant
+			// table[left][0] <= val < table[right][0] avoids the earlier early-break bug
+			// that returned piecewise-constant values in the last panel / small tables.
+			while (right - left > 1)
 			{
-				mid = (int)floor( (double)((right-left)/2 + left));
-				if (val > table[mid][0] )
-					left = mid + 1;
-				else if (val < table[mid][0] )
-					right = mid -1;
-				else	// right on the money, val == table[mid][0]
-					return table[mid][1];
-
-				if (left == max)
-					break;
-				if (right == min)
-					break;
+				int mid = left + (right - left) / 2;
+				if (val < table[mid][0])
+					right = mid;
+				else				// table[mid][0] <= val
+					left = mid;
 			}
 
-			if ( left == right && left == min )
-				return table[0][1];
-			else if ( left == right && right == max )
-				return table[max-1][1];
-			else
-			{
-				return (table[right][1] - table[left][1]) * ( (val - table[left][0])/(table[right][0]-table[left][0]) ) + table[left][1];
-			}
+			double x0 = table[left][0], x1 = table[right][0];
+			double y0 = table[left][1], y1 = table[right][1];
+			if (x1 == x0) return y0;	// duplicate breakpoint guard (avoid divide-by-zero)
+			return y0 + (y1 - y0) * (val - x0) / (x1 - x0);
 		}
 	}
 }

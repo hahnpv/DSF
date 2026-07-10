@@ -146,6 +146,21 @@ namespace dsf
                     stage.resize(x.size(), 0.0);
             }
 
+            /// Remove all registered integrands. Called by Sim::load so that a
+            /// second run in a long-lived process (GUI / MCP session / Monte
+            /// Carlo) does not keep integrating the previous run's (freed) state
+            /// pointers. Without this the integrator dereferences dangling memory.
+            void clear()
+            {
+                x.clear();
+                x0.clear();
+                xd.clear();
+                for (auto& stage : xdd)
+                    stage.clear();
+                types.clear();
+                classDict.clear();
+            }
+
         private:
             TClassIntegrandDict()
             {

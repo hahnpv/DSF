@@ -21,4 +21,7 @@ set(util_source_files
   xml/xml.cpp
 )
 add_library(util ${util_source_files})
-target_compile_options(util PRIVATE -fpermissive)
+# util is linked into the shared libDSF.so, so its objects must be
+# position-independent. Without this, the day a util-only source defines a
+# symbol, linking libDSF.so fails with an R_X86_64_PC32 relocation error.
+set_target_properties(util PROPERTIES POSITION_INDEPENDENT_CODE ON)

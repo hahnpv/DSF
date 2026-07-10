@@ -29,45 +29,83 @@ namespace dsf
 			this->a33 = a33;
 		}
 
+		// The determinant and inverse use the six 2x2 minors from the top two
+		// rows (s0..s5) and the bottom two rows (c0..c5) — the standard cofactor
+		// expansion for a 4x4 matrix.
 		double Mat4::det()
 		{
-		//    return a00*a11*a22 + a01*a12*a20 + a02*a10*a21 
-		//	 - a02*a11*a20 - a01*a10*a22 - a00*a12*a21;
+			double s0 = a00*a11 - a10*a01;
+			double s1 = a00*a12 - a10*a02;
+			double s2 = a00*a13 - a10*a03;
+			double s3 = a01*a12 - a11*a02;
+			double s4 = a01*a13 - a11*a03;
+			double s5 = a02*a13 - a12*a03;
+
+			double c5 = a22*a33 - a32*a23;
+			double c4 = a21*a33 - a31*a23;
+			double c3 = a21*a32 - a31*a22;
+			double c2 = a20*a33 - a30*a23;
+			double c1 = a20*a32 - a30*a22;
+			double c0 = a20*a31 - a30*a21;
+
+			return s0*c5 - s1*c4 + s2*c3 + s3*c2 - s4*c1 + s5*c0;
 		}
 
 		Mat4 Mat4::inv()
 		{
-		/*
-			double det = this->det();
-			Mat3 inv;
-			inv.a00 = ( a11 * a22 - a12 * a21 ) / det;
-			inv.a01 = ( a02 * a21 - a01 * a22 ) / det;
-			inv.a02 = ( a01 * a12 - a11 * a02 ) / det;
-			inv.a10 = ( a20 * a12 - a10 * a22 ) / det;
-			inv.a11 = ( a00 * a22 - a20 * a02 ) / det;
-			inv.a12 = ( a10 * a02 - a00 * a12 ) / det;
-			inv.a20 = ( a10 * a21 - a20 * a11 ) / det;
-			inv.a21 = ( a20 * a01 - a00 * a21 ) / det;
-			inv.a22 = ( a00 * a11 - a01 * a10 ) / det;
-			return inv;
-		*/
+			double s0 = a00*a11 - a10*a01;
+			double s1 = a00*a12 - a10*a02;
+			double s2 = a00*a13 - a10*a03;
+			double s3 = a01*a12 - a11*a02;
+			double s4 = a01*a13 - a11*a03;
+			double s5 = a02*a13 - a12*a03;
+
+			double c5 = a22*a33 - a32*a23;
+			double c4 = a21*a33 - a31*a23;
+			double c3 = a21*a32 - a31*a22;
+			double c2 = a20*a33 - a30*a23;
+			double c1 = a20*a32 - a30*a22;
+			double c0 = a20*a31 - a30*a21;
+
+			double det = s0*c5 - s1*c4 + s2*c3 + s3*c2 - s4*c1 + s5*c0;
+			if (det == 0.0)
+			{
+				cerr << "Mat4::inv: singular matrix (det == 0)" << endl;
+				return Mat4();		// zero matrix
+			}
+			double invdet = 1.0 / det;
+
+			Mat4 b;
+			b.a00 = ( a11*c5 - a12*c4 + a13*c3) * invdet;
+			b.a01 = (-a01*c5 + a02*c4 - a03*c3) * invdet;
+			b.a02 = ( a31*s5 - a32*s4 + a33*s3) * invdet;
+			b.a03 = (-a21*s5 + a22*s4 - a23*s3) * invdet;
+
+			b.a10 = (-a10*c5 + a12*c2 - a13*c1) * invdet;
+			b.a11 = ( a00*c5 - a02*c2 + a03*c1) * invdet;
+			b.a12 = (-a30*s5 + a32*s2 - a33*s1) * invdet;
+			b.a13 = ( a20*s5 - a22*s2 + a23*s1) * invdet;
+
+			b.a20 = ( a10*c4 - a11*c2 + a13*c0) * invdet;
+			b.a21 = (-a00*c4 + a01*c2 - a03*c0) * invdet;
+			b.a22 = ( a30*s4 - a31*s2 + a33*s0) * invdet;
+			b.a23 = (-a20*s4 + a21*s2 - a23*s0) * invdet;
+
+			b.a30 = (-a10*c3 + a11*c1 - a12*c0) * invdet;
+			b.a31 = ( a00*c3 - a01*c1 + a02*c0) * invdet;
+			b.a32 = (-a30*s3 + a31*s1 - a32*s0) * invdet;
+			b.a33 = ( a20*s3 - a21*s1 + a22*s0) * invdet;
+			return b;
 		}
 
 		Mat4 Mat4::transpose()
 		{
-		/*
-		   Mat3 transpose;
-		   transpose.a00 = a00;
-		   transpose.a01 = a10;
-		   transpose.a02 = a20;
-		   transpose.a10 = a01;
-		   transpose.a11 = a11;
-		   transpose.a12 = a21;
-		   transpose.a20 = a02;
-		   transpose.a21 = a12;
-		   transpose.a22 = a22;
-		   return transpose;
-		*/
+			Mat4 t;
+			t.a00 = a00; t.a01 = a10; t.a02 = a20; t.a03 = a30;
+			t.a10 = a01; t.a11 = a11; t.a12 = a21; t.a13 = a31;
+			t.a20 = a02; t.a21 = a12; t.a22 = a22; t.a23 = a32;
+			t.a30 = a03; t.a31 = a13; t.a32 = a23; t.a33 = a33;
+			return t;
 		}
 
 		Mat4 Mat4::operator()( double a00, double a01, double a02, double a03,

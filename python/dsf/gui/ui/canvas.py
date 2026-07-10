@@ -398,9 +398,16 @@ class GraphView(QGraphicsView):
         
         if block_def:
             pos = self.mapToScene(event.position().toPoint())
-            count = len([i for i in self.scene().items() if isinstance(i, BlockItem)])
-            instance_id = f"{block_id}_{count+1}"
-            
+            # Derive a unique id by scanning for the lowest free suffix rather
+            # than block count — a count-based id collides after any deletion
+            # (drop Mass_1, Mass_2; delete Mass_1; next drop was also Mass_2),
+            # which silently corrupts the validation/connection/XML id maps.
+            existing = {i.instance_id for i in self.scene().items() if isinstance(i, BlockItem)}
+            n = 1
+            while f"{block_id}_{n}" in existing:
+                n += 1
+            instance_id = f"{block_id}_{n}"
+
             block = BlockItem(block_def, instance_id, pos)
             
             # Wrap in Undo Command
