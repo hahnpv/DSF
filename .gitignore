@@ -55,3 +55,6 @@ docs/html/
 docs/DSF.tag
 docs/latex/
 docs/xml/
+
+# Local one-off analysis/debug scratch (not tracked)
+scratch/
