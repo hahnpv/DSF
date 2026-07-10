@@ -46,23 +46,21 @@ The build process will produce the `dsf_core.<target>.so` shared object library 
 ### 2. External Simulation Libraries
 DSF dynamically loads external models at runtime (e.g., `libsixdof.so`). Ensure that your linked simulation libraries are compiled and the `.so` files are placed inside `./build/` alongside the DSF libraries, or on your system's `LD_LIBRARY_PATH`.
 
-For example, to configure the path so everything runs properly:
+For example, to configure the path so everything runs properly (from the repo root, with the sixdof repo as a sibling):
 ```bash
-export LD_LIBRARY_PATH="$(pwd)/build:$(pwd)/build/sixdof_build:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$(pwd)/build:$(pwd)/../sixdof/build:$LD_LIBRARY_PATH"
 ```
 
 ### 3. Install the Python Package
-We recommend installing the python package in **editable mode** so changes to the code immediately take effect.
+We recommend installing the python package in **editable mode** so changes to the code immediately take effect. The install is backed by scikit-build-core: it compiles the C++ extension and bundles `dsf_core` + `libDSF.so` into the package automatically — no manual copying of `.so` files.
 
 From the root project directory:
 ```bash
-# Copy the compiled C++ extension into the python module path
-cp build/dsf_core.*.so python/dsf/
-
-# Install the Python package and dependencies
-cd python
-pip install -e .
+pip install scikit-build-core          # once (enables --no-build-isolation)
+pip install -e . --no-build-isolation
 ```
+
+Re-run the same `pip install` after C++ changes; the persistent build directory (`build/skbuild-*`) makes rebuilds incremental.
 
 You can verify the installation by checking if the package and GUI CLI are accessible:
 ```bash

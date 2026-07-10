@@ -90,6 +90,15 @@ target_link_libraries(dsf_core PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
     ${Boost_INCLUDE_DIRS}
 )
 
+# scikit-build-core (pip install): ship the extension and the core library
+# inside the dsf package. dsf_core finds libDSF.so next to itself via $ORIGIN,
+# so no LD_LIBRARY_PATH is needed for the DSF core (model libs like
+# libsixdof.so are still located at runtime as before).
+if(SKBUILD)
+    set_target_properties(dsf_core DSF PROPERTIES INSTALL_RPATH "$ORIGIN")
+    install(TARGETS dsf_core DSF LIBRARY DESTINATION dsf)
+endif()
+
 # Add Examples
 add_subdirectory(examples/dynamic)
 add_subdirectory(examples/bouncy)

@@ -7,10 +7,8 @@ set(sim_source_files
   integrator_rk45.cpp
   integrator_verlet.h
   integrator_verlet.cpp
-  RTclock.h
   sim.h
   TIntDict.h
-  TSkedDict.h
   clock.h
   output.h
   hdf5output.h

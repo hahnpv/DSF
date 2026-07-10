@@ -1,6 +1,5 @@
 set(util_source_files
   file/get_unique_file.h
-  fptr.h
   gauss.h
   math/constants.h
   math/number.h

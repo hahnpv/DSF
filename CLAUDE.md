@@ -9,17 +9,21 @@ DSF (Digital Simulation Framework) is a time-domain 6-DOF simulation framework: 
 ## Build
 
 ```bash
-# C++ core + pybind11 module (out-of-source build is enforced)
+# Python package + C++ extension in one step (scikit-build-core compiles the
+# extension during pip install and bundles dsf_core + libDSF.so into the
+# package — no manual .so copying). Re-run after C++ changes; the build dir
+# (build/skbuild-*) is persistent, so rebuilds are incremental.
+pip install scikit-build-core          # once (needed for --no-build-isolation)
+pip install -e . --no-build-isolation  # from the repo root
+
+# Plain C++ build — for ctest, the examples, and the 'dynamic' loader
+# (out-of-source build is enforced):
 mkdir -p build && cd build
 cmake ..                # picks up ../sixdof automatically if present
 make -j$(nproc)
 
-# Make the extension importable and install the Python package (editable)
-cp build/dsf_core.*.so python/dsf/
-cd python && pip install -e .
-
-# Runtime library path for simulations that dlopen model libs
-export LD_LIBRARY_PATH="$(pwd)/build:$(pwd)/build/sixdof_build:$LD_LIBRARY_PATH"
+# Runtime library path for the model libs that simulations dlopen (from repo root)
+export LD_LIBRARY_PATH="$(pwd)/build:$(pwd)/../sixdof/build:$LD_LIBRARY_PATH"
 ```
 
 Dependencies: C++17, Boost (program_options, system, serialization), HDF5, OpenSceneGraph; pybind11 is fetched by CMake.
@@ -74,6 +78,6 @@ Two layers, C++ and Python, joined by the `dsf_core` pybind11 module:
 
 - The C++ XML layer (`DSF/util/xml/`) is a **Boost Property Tree** wrapper — tag/attribute/comment parsing is Boost's and is sound (the "hand-rolled tab-sensitive parser" note in TODO.md is stale). The residual whitespace sensitivity is in *value* parsing: `attrAsVec3`/`attrAsMat3` now accept comma- **or** whitespace-separated components, and `parse.h` warns rather than silently zero-filling. Still, prefer the Python `dsf.utils` generators over hand-editing sim XML.
 - A `.dsf` project is currently a **single JSON file** (block graph + `metadata`), not the directory-with-`project.xml` layout described in `DSF_FORMAT.md` (that format is documented but unimplemented). `dsf run`/`watch` load the JSON and convert it to XML for the C++ core.
-- After rebuilding C++, re-copy `build/dsf_core.*.so` into `python/dsf/` (the editable pip install does not do this). `dsf/cli/run.py` loads the extension once and registers it as `sys.modules['dsf.dsf_core']` so the package reuses the same copy — avoid loading a second copy, which makes pybind11 abort with "type 'Vec3' is already registered".
+- `dsf/cli/run.py` looks for the extension in `build/` first, then `python/dsf/`, then site-packages (where `pip install -e .` puts the compiled copy) — a fresh `cmake` build in `build/` therefore shadows the pip-installed extension. After C++ changes, either rebuild in `build/` or re-run `pip install -e . --no-build-isolation`; don't let the two go stale relative to each other. The loader registers the module as `sys.modules['dsf.dsf_core']` so the package reuses the same copy — loading a second copy makes pybind11 abort with "type 'Vec3' is already registered".
 - `LD_LIBRARY_PATH` should include `build/` and wherever `libsixdof.so` was built (`../sixdof/build`); the `build/sixdof_build` path in older docs is not created by this build.
 - C++ unit tests live in `test/` (`cpp_util_tests`, `cpp_kernel_tests`, `cpp_tablend_tests`) and run via `ctest`. Python tests live in `python/tests/` only — `pytest.ini` deliberately scopes collection there. The repo root also holds many untracked one-off analysis/debug scripts (`plot_*.py`, `check_*.py`, `test_*.py`).

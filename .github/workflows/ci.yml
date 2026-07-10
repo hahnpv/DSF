@@ -41,10 +41,13 @@ jobs:
         run: ctest --output-on-failure
 
       - name: Install Python package
+        # scikit-build-core compiles the extension into the package — no
+        # .so copying. The plain cmake build above still provides the C++
+        # test binaries and the build/ copy run.py prefers.
         run: |
-          cp build/dsf_core*.so python/dsf/
           python -m pip install --upgrade pip
-          python -m pip install -e python
+          python -m pip install scikit-build-core
+          python -m pip install -e . --no-build-isolation
           python -m pip install pytest pytest-qt
 
       - name: Python tests

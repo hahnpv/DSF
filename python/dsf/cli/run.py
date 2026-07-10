@@ -23,12 +23,20 @@ def _load_dsf_core():
         return sys.modules["dsf.dsf_core"]
 
     here = os.path.dirname(__file__)
-    # Prefer a freshly-built extension, then the copy inside the package.
+    # Prefer a freshly-built extension, then the copy inside the package,
+    # then a pip-installed copy (scikit-build-core puts the compiled files in
+    # site-packages/dsf/ even for editable installs of this source tree).
     search_dirs = [
         os.path.join(here, "../../../build"),   # repo build/
         os.path.join(here, "../../build"),      # alt build/
-        os.path.join(here, ".."),               # python/dsf/ (installed copy)
+        os.path.join(here, ".."),               # python/dsf/ (in-tree copy)
     ]
+    import site
+    site_dirs = list(getattr(site, "getsitepackages", lambda: [])())
+    user_site = getattr(site, "getusersitepackages", lambda: None)()
+    if user_site:
+        site_dirs.append(user_site)
+    search_dirs += [os.path.join(sp, "dsf") for sp in site_dirs]
     so_path = None
     for d in search_dirs:
         if not os.path.isdir(d):
