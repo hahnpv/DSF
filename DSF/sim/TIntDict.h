@@ -161,6 +161,30 @@ namespace dsf
                 classDict.clear();
             }
 
+            /// Remove every integrand whose state pointer lies in [lo, hi).
+            /// Used to retire a body from the integrator at runtime — e.g. a
+            /// spent stage that impacts ("pops") — so the integrator stops
+            /// touching its state. `lo`/`hi` are typically the memory footprint
+            /// of the retiring EOM object (its state vars are members).
+            void removeInRange(const void* lo, const void* hi)
+            {
+                for (size_t i = 0; i < x.size(); )
+                {
+                    const void* p = static_cast<const void*>(x[i]);
+                    if (p >= lo && p < hi)
+                    {
+                        x.erase(x.begin() + i);
+                        x0.erase(x0.begin() + i);
+                        xd.erase(xd.begin() + i);
+                        for (auto& stage : xdd)
+                            if (i < stage.size()) stage.erase(stage.begin() + i);
+                        types.erase(types.begin() + i);
+                        classDict.erase(classDict.begin() + i);
+                    }
+                    else ++i;
+                }
+            }
+
         private:
             TClassIntegrandDict()
             {

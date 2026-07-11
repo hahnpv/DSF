@@ -74,6 +74,14 @@ void IntegratorVerlet::propagate(Block* root)
     }
 
     clock->increment();
+
+    // Post-integration constraint hook (see Block::constrain): invoked once
+    // per step after the final half-kick committed the momentum states, with
+    // the clock at end-of-step time. No extra update() here — the symplectic
+    // path keeps its force-evaluation count; derived outputs refresh at the
+    // next step's first update().
+    dsf::util::TFunctor<Block>(root->getChildren(), &Block::constrain);
+
     clock->set(true);
 }
 

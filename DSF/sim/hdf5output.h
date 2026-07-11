@@ -171,6 +171,10 @@ namespace dsf
                 conversions.push_back(conversion);
                 var_groups.push_back(current_group);
                 used_groups.insert(current_group);
+                // Late (post-createFile) registration: create the dataset now.
+                if (file_ready)
+                    createDatasetAt(title, H5::PredType::NATIVE_DOUBLE,
+                                    ensureGroup(current_group), units, title, conversion);
             }
 
             void add(dsf::util::Vec3 &v, std::string title, std::string units, double conversion=1.0)
@@ -181,6 +185,12 @@ namespace dsf
                 vec_conversions.push_back(conversion);
                 vec_var_groups.push_back(current_group);
                 used_groups.insert(current_group);
+                if (file_ready) {
+                    H5::Group* g = ensureGroup(current_group);
+                    createDatasetAt(title + "_x", H5::PredType::NATIVE_DOUBLE, g, units, title + " (x)", conversion);
+                    createDatasetAt(title + "_y", H5::PredType::NATIVE_DOUBLE, g, units, title + " (y)", conversion);
+                    createDatasetAt(title + "_z", H5::PredType::NATIVE_DOUBLE, g, units, title + " (z)", conversion);
+                }
             }
 
             void add(dsf::util::Quaternion &q, std::string title, std::string units, double conversion=1.0)
@@ -191,6 +201,13 @@ namespace dsf
                 quat_conversions.push_back(conversion);
                 quat_var_groups.push_back(current_group);
                 used_groups.insert(current_group);
+                if (file_ready) {
+                    H5::Group* g = ensureGroup(current_group);
+                    createDatasetAt(title + "_x", H5::PredType::NATIVE_DOUBLE, g, units, title + " (x)", conversion);
+                    createDatasetAt(title + "_y", H5::PredType::NATIVE_DOUBLE, g, units, title + " (y)", conversion);
+                    createDatasetAt(title + "_z", H5::PredType::NATIVE_DOUBLE, g, units, title + " (z)", conversion);
+                    createDatasetAt(title + "_w", H5::PredType::NATIVE_DOUBLE, g, units, title + " (w)", conversion);
+                }
             }
             
             void add(dsf::util::Mat3 &m, std::string title, std::string units, double conversion=1.0)
@@ -201,6 +218,14 @@ namespace dsf
                 mat_conversions.push_back(conversion);
                 mat_var_groups.push_back(current_group);
                 used_groups.insert(current_group);
+                if (file_ready) {
+                    H5::Group* g = ensureGroup(current_group);
+                    for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++)
+                        createDatasetAt(title + "_" + std::to_string(i) + std::to_string(j),
+                                        H5::PredType::NATIVE_DOUBLE, g, units,
+                                        title + " (" + std::to_string(i) + "," + std::to_string(j) + ")",
+                                        conversion);
+                }
             }
 
             void report(double t)
@@ -345,6 +370,24 @@ namespace dsf
                 if (gname.empty()) return nullptr;
                 auto it = groups.find(gname);
                 if (it != groups.end()) return it->second;
+                return nullptr;
+            }
+
+            /// Get-or-create a group by name (nullptr = file root). Unlike
+            /// groupFor(), this creates the HDF5 group on demand when the file is
+            /// already open — needed for channels registered AFTER createFile()
+            /// (e.g. a stage separated mid-run), so their datasets land in their
+            /// own group instead of colliding with same-named root datasets.
+            H5::Group* ensureGroup(const std::string& gname) {
+                if (gname.empty()) return nullptr;
+                auto it = groups.find(gname);
+                if (it != groups.end()) return it->second;
+                if (file_ready && file) {
+                    try {
+                        groups[gname] = new H5::Group(file->createGroup(gname));
+                        return groups[gname];
+                    } catch (...) { return nullptr; }
+                }
                 return nullptr;
             }
 

@@ -4,9 +4,13 @@ on:
   push:
   pull_request:
 
-# Note: the sibling `sixdof` model repo is not available in CI, so the
-# simulation tests that dlopen libsixdof.so are skipped automatically
-# (see python/tests/conftest.py::require_sixdof). Everything else runs.
+# The build-and-test job runs without the sibling `sixdof` model repo, so the
+# simulation tests that dlopen libsixdof.so are skipped there (see
+# python/tests/conftest.py::require_sixdof). The sixdof-canary job clones
+# sixdof (private — needs the SIXDOF_TOKEN secret) and runs the full suite,
+# catching DSF changes that break the downstream model library at PR time.
+# sixdof's own CI pins DSF by SHA (DSF_VERSION in that repo) — the pin-bump
+# commit over there is where accumulated DSF drift gets paid down.
 
 jobs:
   build-and-test:
@@ -93,3 +97,88 @@ jobs:
           ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: ctest -R "cpp_" --output-on-failure
+
+  sixdof-canary:
+    # Builds sixdof (at the branch matching this one, else its default branch)
+    # against the DSF commit under test and runs the full pytest suite with the
+    # model library present — the sim tests that build-and-test skips. A red
+    # canary means this DSF change breaks the downstream model library.
+    # Caveat: it can also go red if sixdof's own tip is broken independently.
+    # For an *intentional* DSF breaking change, land the sixdof fix-up first
+    # (or accept the red canary and bump sixdof's DSF_VERSION pin right after).
+    name: sixdof canary (downstream models)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.repository == 'hahnpv/DSF'
+    env:
+      SIXDOF_TOKEN: ${{ secrets.SIXDOF_TOKEN }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 500M
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      CMAKE_ARGS: -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone sixdof (matching branch, else default)
+        run: |
+          if [ -z "$SIXDOF_TOKEN" ]; then
+            echo "::error::SIXDOF_TOKEN secret is not set — create a fine-grained PAT with contents:read on hahnpv/sixdof and add it to this repo's Actions secrets."
+            exit 1
+          fi
+          URL="https://x-access-token:${SIXDOF_TOKEN}@github.com/hahnpv/sixdof.git"
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          git clone --depth 1 --branch "$BRANCH" "$URL" ../sixdof 2>/dev/null \
+            || git clone --depth 1 "$URL" ../sixdof
+          echo "sixdof @ $(git -C ../sixdof rev-parse --short HEAD) (branch: $(git -C ../sixdof branch --show-current))"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake g++ ninja-build ccache \
+            libboost-dev libboost-program-options-dev libboost-system-dev \
+            libboost-serialization-dev \
+            libhdf5-dev \
+            xvfb libgl1 libegl1 libxkbcommon0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-canary-${{ github.sha }}
+          restore-keys: ccache-canary-
+
+      - name: Build DSF
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j
+
+      - name: Build sixdof against this DSF
+        run: |
+          cmake -S ../sixdof -B ../sixdof/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DDSF_DIR="$GITHUB_WORKSPACE"
+          cmake --build ../sixdof/build -j
+
+      - name: Install DSF Python package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install scikit-build-core
+          python -m pip install -e . --no-build-isolation
+          python -m pip install pytest pytest-qt
+
+      # The suite silently SKIPS sim tests when libsixdof.so is missing —
+      # assert it exists so a broken sixdof build can't pass green.
+      - name: Verify model library was built
+        run: test -f ../sixdof/build/libsixdof.so
+
+      - name: Python tests (full suite, sixdof present)
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/build:${{ github.workspace }}/../sixdof/build
+          QT_QPA_PLATFORM: offscreen
+        run: xvfb-run -a python -m pytest python/tests -q -rs

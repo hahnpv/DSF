@@ -33,12 +33,23 @@ public:
     /// Set min/max step bounds
     void set_step_bounds(double dt_min, double dt_max);
 
+private:
+    /// Classic fixed-step RK4 over one interval h, used as the stiff/non-smooth
+    /// fallback when the adaptive controller stalls. Assumes xdd[0] holds k1
+    /// (the derivative at the current state x0); advances the state and leaves
+    /// xdd[0] re-primed at the new state for FSAL continuity.
+    void rk4_fallback_step(Block* root, int n, double h);
+
+public:
+
     /// Get the current adaptive dt (may differ from Clock::dt)
     double current_dt() const { return dt_adapt_; }
 
     /// Step statistics
     int total_steps() const { return total_steps_; }
     int rejected_steps() const { return rejected_steps_; }
+    /// Number of macro steps finished with the fixed-RK4 stiff/non-smooth fallback
+    int stiff_fallbacks() const { return stiff_fallbacks_; }
 
 private:
     double atol_;
@@ -48,6 +59,8 @@ private:
     double dt_max_;             ///< Maximum allowed step
     int total_steps_;
     int rejected_steps_;
+    int stiff_fallbacks_ = 0;   ///< Macro steps that fell back to fixed RK4
+    bool stiff_warned_ = false; ///< One-time notice that the fallback engaged
 
     /// Dormand-Prince coefficients
     static const double a2, a3, a4, a5, a6;

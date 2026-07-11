@@ -65,6 +65,38 @@ namespace dsf
             
             virtual void init()     {};     ///< Initialize state variables and integrators.
             virtual void update()   {};     ///< Update dynamics (called each integration step).
+
+            /**
+             * @brief Post-integration constraint hook.
+             *
+             * Called by the integrator exactly ONCE per macro step, after all
+             * integrated states for the step have been committed and the clock
+             * is at the end-of-step time — and before event evaluation and
+             * reporting. This is the only place a block may legally:
+             * - project integrated states onto constraints (ground/water
+             *   contact, joint limits), and
+             * - change discrete mode flags (e.g. on_ground) that update()
+             *   reads, so that derivative evaluations are consistent across
+             *   all stages of a step.
+             *
+             * update() must NEVER mutate integrated states or mode flags —
+             * it runs once per integrator stage and such mutations corrupt
+             * the integrator's assumptions (RK stages see inconsistent
+             * dynamics). Default is a no-op.
+             *
+             * Integrator ordering guarantees:
+             * - RK4:  constrain() runs after the final (pass-3) state commit,
+             *         followed by one update() so derived outputs and the next
+             *         step's derivatives reflect the constrained state.
+             * - RK45: constrain() runs after the last accepted sub-step of the
+             *         macro step (clock already advanced), followed by one
+             *         update() for the same reason.
+             * - Verlet: constrain() runs after the final half-kick commit;
+             *         derived outputs refresh at the next step's first
+             *         update() (the symplectic path adds no extra force
+             *         evaluation).
+             */
+            virtual void constrain() {};
             virtual void rpt()      {};     ///< Output telemetry/reports.
             virtual void rptSim() { if( sample(rptRate) ) rpt(); }; ///< Conditional reporting based on sample rate.
             virtual void finalize() {};     ///< Cleanup at simulation end.

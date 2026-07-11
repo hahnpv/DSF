@@ -15,12 +15,22 @@ namespace dsf
 
 			clock->set(false);
 
-			for (unsigned int pass=0; pass<=3; pass++) 
+			for (unsigned int pass=0; pass<=3; pass++)
 			{
 				rk4( pass);
 
 				if (pass == 0 || pass == 2)
 					clock->increment();
+
+				// Post-integration constraint hook: pass 3 committed the
+				// step's final states, so let blocks project states onto
+				// constraints and update discrete modes ONCE per step
+				// (see Block::constrain). The update() below then
+				// re-evaluates derived outputs and derivatives at the
+				// constrained state, so events and reports observe
+				// post-constraint values.
+				if (pass == 3)
+					dsf::util::TFunctor<Block>( simulation->getChildren(), &Block::constrain);
 
 				dsf::util::TFunctor<Block>( simulation->getChildren(), &Block::update);
 			}

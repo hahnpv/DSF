@@ -31,6 +31,9 @@ namespace dsf
             /// WGS84 flattening [-]
             constexpr double F_EARTH      = 1.0 / 298.257223563;
 
+            /// Standard sea-level atmospheric density (US Standard Atmosphere 1976) [kg/m³]
+            constexpr double RHO_SL       = 1.225;
+
             /// WGS84 semi-minor axis (polar radius) [m]
             constexpr double RP_EARTH     = RE_EARTH * (1.0 - F_EARTH);
         }

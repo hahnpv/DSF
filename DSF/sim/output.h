@@ -170,7 +170,12 @@ namespace dsf
             // Priority Overloads
             void add(double &d, string t, string u, LogLevel p, double c=1.0)
             {
-                if (p <= csv_level) {
+                // CSV is a fixed-column table whose header is written once at the
+                // first report(); a channel registered later (e.g. a stage
+                // separated mid-run) cannot join it without corrupting the row
+                // width, so late channels are logged to HDF5 only (in their own
+                // group). See hdf5output.h dynamic registration.
+                if (p <= csv_level && !header_written) {
                     doubles.push_back(&d);
                     std::string csv_title = h5_group_name.empty() ? t : h5_group_name + "_" + t;
                     this->title[0].push_back(csv_title);
@@ -184,7 +189,7 @@ namespace dsf
 
             void add(dsf::util::Vec3 &v, string t, string u, LogLevel p, double c=1.0)
             {
-                if (p <= csv_level) {
+                if (p <= csv_level && !header_written) {   // late channels -> HDF5 only (see double add())
                     vectors.push_back(&v);
                     std::string csv_title = h5_group_name.empty() ? t : h5_group_name + "_" + t;
                     this->title[1].push_back(csv_title);
@@ -198,7 +203,7 @@ namespace dsf
 
             void add(dsf::util::Mat3 &m, std::string t, std::string u, LogLevel p, double c=1.0)
             {
-                if (p <= csv_level) {
+                if (p <= csv_level && !header_written) {   // late channels -> HDF5 only (see double add())
                     matrices.push_back(&m);
                     std::string csv_title = h5_group_name.empty() ? t : h5_group_name + "_" + t;
                     this->title[2].push_back(csv_title);

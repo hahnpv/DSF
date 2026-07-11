@@ -77,6 +77,47 @@ void IntegratorRK45::set_step_bounds(double dt_min, double dt_max)
  *   - FCS scheduling (blocks check clock time for phase transitions)
  *   - Backward compatibility (if tolerances are loose, takes a single step)
  */
+// Classic fixed-step RK4 over one interval h. Mirrors IntegratorRK4::rk4 but runs
+// as an in-line sub-step of the adaptive loop, so it does NOT touch the clock (the
+// enclosing propagate() advances the clock once for the whole macro step). On
+// entry d->x holds the sub-step start state and d->xdd[0] holds k1 = f(start);
+// on exit d->x is advanced by h and d->xdd[0] is re-evaluated at the new state.
+void IntegratorRK45::rk4_fallback_step(Block* root, int n, double h)
+{
+    auto* d = TClassIntegrandDict<Block>::Instance();
+
+    // x0 = current state; k1 already in xdd[0].
+    for (int i = 0; i < n; i++)
+        d->x0[i] = *d->x[i];
+
+    // k2 = f(x0 + h/2 k1)
+    for (int i = 0; i < n; i++)
+        *d->x[i] = d->x0[i] + 0.5 * h * d->xdd[0][i];
+    dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
+    for (int i = 0; i < n; i++) d->xdd[1][i] = *d->xd[i];
+
+    // k3 = f(x0 + h/2 k2)
+    for (int i = 0; i < n; i++)
+        *d->x[i] = d->x0[i] + 0.5 * h * d->xdd[1][i];
+    dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
+    for (int i = 0; i < n; i++) d->xdd[2][i] = *d->xd[i];
+
+    // k4 = f(x0 + h k3)
+    for (int i = 0; i < n; i++)
+        *d->x[i] = d->x0[i] + h * d->xdd[2][i];
+    dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
+    for (int i = 0; i < n; i++) d->xdd[3][i] = *d->xd[i];
+
+    // x = x0 + h/6 (k1 + 2k2 + 2k3 + k4)
+    for (int i = 0; i < n; i++)
+        *d->x[i] = d->x0[i] + (h / 6.0) * (d->xdd[0][i] + 2.0 * d->xdd[1][i]
+                                            + 2.0 * d->xdd[2][i] + d->xdd[3][i]);
+
+    // Re-prime k1 at the new state (FSAL continuity for the next macro step).
+    dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
+    for (int i = 0; i < n; i++) d->xdd[0][i] = *d->xd[i];
+}
+
 void IntegratorRK45::propagate(Block* root)
 {
     auto* d = TClassIntegrandDict<Block>::Instance();
@@ -112,11 +153,46 @@ void IntegratorRK45::propagate(Block* root)
     // time-dependent dynamics until the clock gains a continuous stage-time.
 
     // --- Sub-step loop: advance by exactly dt_nominal ---
+    //
+    // STIFF / NON-SMOOTH FALLBACK. An embedded error controller cannot cross a
+    // stiff mode or a *discontinuity* (e.g. Coulomb-friction sign flip at v=0 on
+    // a parked/rolling gear, or a hard contact transition): the local-error test
+    // never passes and h collapses toward dt_min, stalling the run. A fixed-step
+    // method has no such test — it simply steps over the non-smooth region, which
+    // is exactly why the RK4 decks fly the same scenarios. So when the adaptive
+    // step is clearly struggling THIS macro step (too many rejections or a runaway
+    // sub-step count), we finish the macro step with a single fixed RK4 step over
+    // the remaining interval (h <= dt_nominal, the RK4 decks' proven step) and
+    // move on. Smooth phases never trip this and keep full adaptive efficiency.
+    const int    STIFF_REJECT_LIMIT  = 6;    // rejections in one macro step -> stiff
+    const int    STIFF_SUBSTEP_LIMIT = 64;   // sub-steps in one macro step -> collapsing
+    int rejects_this_macro = 0;
+
     double t_covered = 0.0;
     int substep_guard = 0;
     const int MAX_SUBSTEPS = 100000;	// backstop against a non-converging step
     while (t_covered < dt_nominal - 1e-14)
     {
+        // Non-smooth/stiff detected: hand the rest of this macro step to fixed RK4.
+        if (rejects_this_macro >= STIFF_REJECT_LIMIT ||
+            substep_guard       >= STIFF_SUBSTEP_LIMIT)
+        {
+            rk4_fallback_step(root, n, dt_nominal - t_covered);
+            t_covered = dt_nominal;
+            stiff_fallbacks_++;
+            if (!stiff_warned_)
+            {
+                std::cerr << "IntegratorRK45: adaptive step stalled (stiff or "
+                          << "non-smooth dynamics, e.g. gear friction/contact); "
+                          << "falling back to fixed RK4 for affected steps"
+                          << std::endl;
+                stiff_warned_ = true;
+            }
+            // Optimistic reset: retry full adaptive stepping next macro step.
+            dt_adapt_ = dt_nominal;
+            break;
+        }
+
         if (++substep_guard > MAX_SUBSTEPS)
         {
             std::cerr << "IntegratorRK45: exceeded " << MAX_SUBSTEPS
@@ -225,34 +301,53 @@ void IntegratorRK45::propagate(Block* root)
         {
             // Reject — restore state, shrink h
             rejected_steps_++;
+            rejects_this_macro++;
             for (int i = 0; i < n; i++)
                 *d->x[i] = d->x0[i];
 
-            // If we are already at the minimum step and still failing (stiff
-            // dynamics, or a NaN derivative that shrinking cannot fix), stop
-            // rather than spin forever.
-            if (h <= dt_min_ * (1.0 + 1e-12))
+            // Re-evaluate derivatives at the restored state (also primes k1 for a
+            // possible RK4 fallback on the next loop iteration).
+            dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
+            for (int i = 0; i < n; i++)
+                d->xdd[0][i] = *d->xd[i];
+
+            // A non-finite derivative that shrinking cannot fix is unrecoverable;
+            // the fixed-RK4 fallback can't help either, so stop rather than spin.
+            if (nonfinite && h <= dt_min_ * (1.0 + 1e-12))
             {
-                std::cerr << "IntegratorRK45: step rejected at minimum step size "
-                          << (nonfinite ? "(non-finite derivatives)" : "(too stiff)")
-                          << "; ending simulation" << std::endl;
+                std::cerr << "IntegratorRK45: non-finite derivatives at minimum "
+                          << "step size; ending simulation" << std::endl;
                 clock->end();
                 break;
             }
 
+            // At the minimum step and still rejecting (finite): this is stiff /
+            // non-smooth, not an accuracy problem shrinking can solve. Force the
+            // fixed-RK4 fallback on the next loop iteration instead of ending.
+            if (h <= dt_min_ * (1.0 + 1e-12))
+            {
+                rejects_this_macro = STIFF_REJECT_LIMIT;
+                continue;
+            }
+
             double factor = nonfinite ? 0.1 : std::max(0.9 * std::pow(err_max, -0.25), 0.1);
             dt_adapt_ = std::max(h * factor, dt_min_);
-
-            // Re-evaluate derivatives at restored state
-            dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
-            for (int i = 0; i < n; i++)
-                d->xdd[0][i] = *d->xd[i];
         }
     }
 
     // --- Advance clock by nominal dt (2 ticks, same as RK4) ---
     clock->increment();
     clock->increment();
+
+    // Post-integration constraint hook (see Block::constrain): invoked once
+    // per macro step after the final accepted sub-step committed the states,
+    // with the clock at end-of-step time. The update() that follows refreshes
+    // derived outputs and derivatives at the constrained state (also
+    // re-priming the FSAL/initial derivative evaluated at the top of the next
+    // propagate() call).
+    dsf::util::TFunctor<Block>(root->getChildren(), &Block::constrain);
+    dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
+
     clock->set(true);
 }
 
