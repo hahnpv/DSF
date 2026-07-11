@@ -9,9 +9,13 @@
  *   - Vec3  component-wise equality / ordering                 [A18]
  *   - math constants precision (PI, RAD, J2)                   [A20]
  *   - Vec3/Mat3 singularity + out-of-range guards
+ *   - XML value parsing (Vec3/Mat3/bool attr forms)            [A24/A46]
+ *   - factory instantiation by class-name string               [A46]
  *
  * Built and registered by CMake as the `cpp_util_tests` ctest.
  */
+#include "../DSF/sim/block.h"
+#include "../DSF/sim/TRefDict.h"
 #include "../DSF/util/config_errors.h"
 #include "../DSF/util/xml/xml.h"
 #include "../DSF/util/xml/validate.h"
@@ -338,6 +342,77 @@ void test_constants()
     CHECK_NEAR(dsf::util::earth::J2_EARTH, 1.08262982e-3, 1e-9, "J2 WGS84");
 }
 
+// ---------------------------------------------------------------------------
+// XML value parsing [A24/A46] — the "silent zero-fill" class. attrAsVec3 /
+// attrAsMat3 must accept comma- AND whitespace-separated components; a
+// malformed value falls back to zero/identity WITH a warning (xml.h),
+// never a silent partial parse. attrAsBool reads "true"/"1".
+// ---------------------------------------------------------------------------
+
+void test_xml_value_parsing()
+{
+    const char* path = "/tmp/dsf_test_values.xml";
+    {
+        std::ofstream f(path);
+        f << "<sim dt=\"0.1\" tmax=\"1\" "
+             "p_comma=\"1,2,3\" p_space=\"4 5 6\" p_mixed=\"7, 8,\t9\" "
+             "p_short=\"1,2\" "
+             "b_true=\"true\" b_one=\"1\" b_false=\"false\" b_zero=\"0\" "
+             "m_mixed=\"1,0,0 0,1,0 0,0,2\" />";
+    }
+    dsf::xml::xml doc(path);
+    doc.parse();
+    dsf::xml::xmlnode n = *doc.xmlRoot;
+    n.search("sim");
+
+    Vec3 a = n.attrAsVec3("p_comma");
+    CHECK(a.x == 1 && a.y == 2 && a.z == 3, "attrAsVec3 comma-separated");
+    Vec3 b = n.attrAsVec3("p_space");
+    CHECK(b.x == 4 && b.y == 5 && b.z == 6, "attrAsVec3 whitespace-separated");
+    Vec3 c = n.attrAsVec3("p_mixed");
+    CHECK(c.x == 7 && c.y == 8 && c.z == 9, "attrAsVec3 mixed separators");
+    Vec3 d = n.attrAsVec3("p_short");
+    CHECK(d.x == 0 && d.y == 0 && d.z == 0,
+          "attrAsVec3 malformed (2 numbers) falls back to zero, not partial");
+
+    CHECK(n.attrAsBool("b_true") == true,   "attrAsBool 'true'");
+    CHECK(n.attrAsBool("b_one") == true,    "attrAsBool '1'");
+    CHECK(n.attrAsBool("b_false") == false, "attrAsBool 'false'");
+    CHECK(n.attrAsBool("b_zero") == false,  "attrAsBool '0'");
+
+    Mat3 m = n.attrAsMat3("m_mixed");
+    CHECK(m[0].x == 1 && m[1].y == 1 && m[2].z == 2 && m[0].y == 0,
+          "attrAsMat3 mixed separators, row-major");
+}
+
+// ---------------------------------------------------------------------------
+// Factory instantiation by class-name string [A46] — the mechanism every
+// deck load relies on (TRefUnique<Block>(class_name)).
+// ---------------------------------------------------------------------------
+
+class UtilTestBlock : public dsf::sim::Block
+{
+public:
+    int marker = 41;
+};
+
+void test_factory_by_name()
+{
+    using namespace dsf::sim;
+    TClass<UtilTestBlock, Block>::Instance();   // register (as models do)
+
+    Block* b = TRefUnique<Block>("UtilTestBlock");
+    CHECK(b != nullptr, "factory: registered class instantiates by name");
+    UtilTestBlock* tb = dynamic_cast<UtilTestBlock*>(b);
+    CHECK(tb != nullptr && tb->marker == 41, "factory: correct derived type");
+
+    Block* b2 = TRefUnique<Block>("UtilTestBlock");
+    CHECK(b2 != nullptr && b2 != b, "factory: each TRefUnique is a NEW instance");
+
+    Block* miss = TRefUnique<Block>("NoSuchClass");
+    CHECK(miss == nullptr, "factory: unknown class name returns null, no crash");
+}
+
 int main()
 {
     std::cout << "=== DSF util unit tests ===\n";
@@ -355,6 +430,8 @@ int main()
     test_mat3();
     test_quat_dcm();
     test_constants();
+    test_xml_value_parsing();
+    test_factory_by_name();
 
     std::cout << "\n=== Results: " << tests_passed << " passed, "
               << tests_failed << " failed ===\n";

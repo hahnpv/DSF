@@ -5,6 +5,10 @@ set(util_source_files
   math/number.h
   math/mat3.cpp
   math/mat3.h
+  math/mat4.cpp
+  math/mat4.h
+  math/quat.cpp
+  math/quat.h
   math/vec3.cpp
   math/vec3.h
   parse.h
@@ -22,7 +26,7 @@ set(util_source_files
   xml/validate.h
   xml/validate.cpp
 )
-add_library(util ${util_source_files})
+add_library(util OBJECT ${util_source_files})
 # util is linked into the shared libDSF.so, so its objects must be
 # position-independent. Without this, the day a util-only source defines a
 # symbol, linking libDSF.so fails with an R_X86_64_PC32 relocation error.

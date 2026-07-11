@@ -35,6 +35,18 @@ inline void apply_monte_carlo(Block* root, dsf::xml::xmlnode sim_node,
     MonteCarloCase mc = parse_mc_xml(sim_node);
     mc.case_id   = case_id;
     mc.case_seed = case_seed;
+
+    // A deck that defines a dispersion set but is run as a single process
+    // (no case_id) executes the NOMINAL trajectory only. That is the correct
+    // per-case/nominal behavior, but silently ignoring the <monte_carlo>
+    // block misleads (TRIAGE #23) — say so, and point at the dispatcher.
+    if (!mc.is_mc() && mc.n_cases > 0)
+        std::cout << "[MC] Deck defines <monte_carlo n=\"" << mc.n_cases
+                  << "\"> but no case_id was given — running the NOMINAL "
+                     "trajectory (no dispersions applied).\n"
+                     "[MC] Run the dispersion set with: dsf mc run <deck>"
+                  << std::endl;
+
     apply_dispersions(root, mc);
 }
 

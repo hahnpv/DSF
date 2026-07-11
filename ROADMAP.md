@@ -28,11 +28,19 @@ times; documented as a known limitation in `integrator_rk45.cpp`. Use RK4
 for strongly time-dependent dynamics until the clock gains a continuous
 stage time. *(was A11)*
 
-### R3. Make C++ Monte Carlo dispersions fully honest
-The numpy pre-draws in `dsf/mc.py` are not transmitted into each C++ case,
-so reported per-case σ can diverge from what the sim applied. Either
-transmit the draws or read back what C++ drew; de-duplicate the stats code
-in `mc_cli.py` against `MonteCarlo` while there. *(was A8/A42)*
+### R3. ~~Make C++ Monte Carlo dispersions fully honest~~  *(DONE 2026-07-11)*
+The numpy pre-draws are now transmitted into each case's XML
+(`n_sigma_draw`/`drawn` attributes on `<dispersion>`) and the C++ engine
+applies them verbatim (`[pre-drawn]` in the case log), so `mc_draws.json`
+records exactly what each sim ran; standalone runs still fall back to the
+case-seeded C++ RNG. The stats code is de-duplicated (`load_draws` /
+`draw_stats` / `extreme_draws` in `dsf/mc.py`, used by `mc_cli`). Related
+`dsf run` fixes (sixdof TRIAGE #23): it now reads `case_id`/`seed` from
+`<sim>` so dispatcher case decks run identically through Python, and an MC
+deck run without a case prints a nominal-run notice instead of silently
+ignoring `<monte_carlo>` (whose dispatcher-only `workers`/`output_dir`
+attrs are now consumed, so MC decks pass strict). Pinned by `cpp_mc_tests`
+and `python/tests/test_mc_dispatch.py`. *(was A8/A42)*
 
 ### R4. Retire the legacy tables  *(blocked on sixdof)*
 `Table`/`Table2d` are deprecated in favor of `TableND`, but sixdof's
@@ -40,11 +48,18 @@ in `mc_cli.py` against `MonteCarlo` while there. *(was A8/A42)*
 migrate, delete `Table`/`Table2d`, their pybind bindings, and the duplicated
 interpolation code. *(was H13/A40)*
 
-### R5. Decide the `net/` module
-`NetClient.cpp`/`NetServer.cpp` are entirely stubbed (TODO bodies only).
-Either delete the dead module or define a real protocol. `TODO.md`'s
-standing recommendation: delete — couple to external visualizers over a
-defined protocol instead of writing our own distribution layer.
+### R5. ~~Decide the `net/` module~~  *(DONE — deleted in b73a8a4)*
+`DSF/net/` (stubbed `NetClient`/`NetServer`) was removed per `TODO.md`'s
+standing recommendation: couple to external visualizers over a defined
+protocol instead of writing our own distribution layer.
+
+### R8. Consolidate the C++ and Python sim loaders  *(proposal, pending review)*
+`examples/dynamic/main.cpp` and `dsf run` (`run.py` + `SimSession`) each
+re-implement the build sequence and have drifted (class-name fallback,
+log-level conventions, dlopen fallback, strict banner). Plan: push the
+build sequence down into shared C++ (bind `SimInput`, one
+`build_from_xml`, one strict path) — full write-up in
+`LOADER_CONSOLIDATION.md`.
 
 ## 2. Config & data plumbing
 
@@ -54,10 +69,17 @@ a recurring bug source. Minimum: a conventions document; better: unit
 annotations on block properties (the `PropertyMetadata` direction field
 shows the pattern) with conversion at parse time.
 
-### R7. Consolidate the duplicate Python data loaders
-`dsf/utils/data_loader.py` (structured H5, Vec3 reassembly) and
-`dsf/visualization/data_loader.py` (CSV/H5 with column guessing) overlap;
-one canonical loader.
+### R7. Finish the Python data-loader cleanup
+The file-level merge already happened — `dsf/visualization/data_loader.py`
+was migrated into `dsf/utils/data_loader.py` (shim re-export remains in
+`dsf/visualization/__init__.py`). Residual duplication: the Vec3-regrouping
+logic is copy-pasted between `load_h5`'s hierarchical/flat branches;
+`load_h5_trajectory` re-implements H5 reading instead of adapting
+`load_h5`; `load_csv_trajectory` appears to have no consumers; and three
+CLI views each carry their own position-channel guessing
+(`map_view` LAT/LON aliases, `globe_view` ECEF keys,
+`terrain_view.load_trajectory` — a whole third H5 reader). Fix: one
+channel-resolver next to `load_h5`; views become load→resolve→render.
 
 ## 3. JAX GPU Monte Carlo track
 

@@ -22,6 +22,12 @@ target_link_libraries(cpp_kernel_tests PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIB
 target_include_directories(cpp_kernel_tests PRIVATE ${Boost_INCLUDE_DIRS})
 add_test(NAME cpp_kernel_tests COMMAND cpp_kernel_tests)
 
+# Monte Carlo dispersion engine (transmitted draws, RNG fallback, strict).
+add_executable(cpp_mc_tests test_monte_carlo.cpp)
+target_link_libraries(cpp_mc_tests PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
+target_include_directories(cpp_mc_tests PRIVATE ${Boost_INCLUDE_DIRS})
+add_test(NAME cpp_mc_tests COMMAND cpp_mc_tests)
+
 # Numerical validation: integrators vs canonical ODEs with known solutions.
 add_executable(cpp_integrator_tests test_integrators.cpp)
 target_link_libraries(cpp_integrator_tests PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})

@@ -13,14 +13,22 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Find Dependencies
 find_package(Boost 1.56 COMPONENTS program_options system serialization REQUIRED)
-# find_package(pybind11 CONFIG REQUIRED)
-include(FetchContent)
-FetchContent_Declare(
-  pybind11
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        v2.11.1
-)
-FetchContent_MakeAvailable(pybind11)
+
+# pybind11: prefer an installed copy (pip install pybind11 / system package —
+# works offline), fall back to FetchContent for fresh online builds.
+find_package(pybind11 2.10 CONFIG QUIET)
+if(NOT pybind11_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+      pybind11
+      GIT_REPOSITORY https://github.com/pybind/pybind11.git
+      GIT_TAG        v2.11.1
+    )
+    FetchContent_MakeAvailable(pybind11)
+    message(STATUS "pybind11 not installed — fetched v2.11.1 (needs network on first configure)")
+else()
+    message(STATUS "Using installed pybind11 ${pybind11_VERSION}")
+endif()
 
 find_package(HDF5 COMPONENTS C CXX REQUIRED)
 include_directories(${HDF5_INCLUDE_DIRS})
@@ -54,29 +62,23 @@ endif()
 add_subdirectory(DSF/sim)
 add_subdirectory(DSF/util)
 
-# Create Main Library
+# Main shared library: aggregates the sim + util OBJECT libraries. Every
+# source is compiled exactly once (in its sublibrary); this list previously
+# re-compiled a drifted subset of them a second time into libDSF.so.
 add_library(DSF SHARED
-    DSF/sim/integratorRK4.cpp
-    DSF/sim/sim.cpp
-    DSF/util/math/mat3.cpp
-    DSF/util/math/mat4.cpp
-    DSF/util/math/quat.cpp
-    DSF/util/math/vec3.cpp
-    DSF/util/tbl/tbl.cpp
-    DSF/util/tbl/tablend.cpp
-    DSF/util/tbl/tbl2d.cpp
+    $<TARGET_OBJECTS:sim>
+    $<TARGET_OBJECTS:util>
 )
 
-
 # Target Properties
-target_include_directories(DSF PUBLIC 
+target_include_directories(DSF PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/DSF>
     $<INSTALL_INTERFACE:include>
     ${Boost_INCLUDE_DIRS}
 )
 
-target_link_libraries(DSF PUBLIC sim util ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
+target_link_libraries(DSF PUBLIC ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
 set_target_properties(DSF PROPERTIES LINKER_LANGUAGE CXX)
 
 # Python Bindings Module

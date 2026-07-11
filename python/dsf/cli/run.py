@@ -6,6 +6,71 @@ import os
 import importlib.util
 
 
+def _extension_candidates():
+    """All discoverable dsf_core extension copies, in preference order.
+
+    Preference: repo build/ (freshly cmake-built) → in-tree package copy →
+    pip-installed copies (scikit-build-core puts the compiled files in
+    site-packages/dsf/ even for editable installs of this source tree).
+    Within a directory, the exact ABI tag of THIS interpreter wins; a lone
+    foreign-ABI copy is still returned (sorted) as a last resort.
+    """
+    import sysconfig
+    ext_suffix = sysconfig.get_config_var("EXT_SUFFIX") or ".so"
+
+    here = os.path.dirname(__file__)
+    search_dirs = [
+        os.path.join(here, "../../../build"),   # repo build/
+        os.path.join(here, "../../build"),      # alt build/
+        os.path.join(here, ".."),               # python/dsf/ (in-tree copy)
+    ]
+    import site
+    site_dirs = list(getattr(site, "getsitepackages", lambda: [])())
+    user_site = getattr(site, "getusersitepackages", lambda: None)()
+    if user_site:
+        site_dirs.append(user_site)
+    search_dirs += [os.path.join(sp, "dsf") for sp in site_dirs]
+
+    candidates = []
+    for d in search_dirs:
+        if not os.path.isdir(d):
+            continue
+        exact = os.path.join(d, "dsf_core" + ext_suffix)
+        if os.path.exists(exact):
+            candidates.append(exact)
+            continue
+        candidates.extend(os.path.join(d, f) for f in
+                          sorted(f for f in os.listdir(d)
+                                 if f.startswith("dsf_core") and f.endswith(".so")))
+    return candidates
+
+
+def _warn_if_stale(loaded_path):
+    """Warn when another dsf_core copy is newer than the one in use.
+
+    The repo build/ copy and the pip-installed copy go stale relative to each
+    other (CLAUDE.md gotcha): which one wins depends on whether the package or
+    this module imports first, and a stale winner silently runs old C++. The
+    mismatch is cheap to detect — make it self-diagnosing instead of a
+    debugging session.
+    """
+    try:
+        loaded_mtime = os.path.getmtime(loaded_path)
+        newer = [c for c in _extension_candidates()
+                 if not os.path.samefile(c, loaded_path)
+                 and os.path.getmtime(c) > loaded_mtime + 1.0]
+        if newer:
+            print(f"WARNING: the loaded dsf_core extension\n"
+                  f"    {loaded_path}\n"
+                  f"  is OLDER than another copy on this system:\n"
+                  f"    {newer[0]}\n"
+                  f"  C++ changes may be missing from this run. Re-sync with\n"
+                  f"  `pip install -e . --no-build-isolation` (refreshes the pip copy)\n"
+                  f"  or rebuild in build/ (see CLAUDE.md).", file=sys.stderr)
+    except OSError:
+        pass
+
+
 def _load_dsf_core():
     """Load the ``dsf_core`` C++ extension exactly once.
 
@@ -18,36 +83,17 @@ def _load_dsf_core():
 
     Returns the module, or None if the extension cannot be found/loaded.
     """
-    # Already loaded (e.g. the package was imported first)? Reuse it.
+    # Already loaded (e.g. the package was imported first)? Reuse it — but
+    # check it isn't a stale copy shadowing a fresher build.
     if "dsf.dsf_core" in sys.modules:
-        return sys.modules["dsf.dsf_core"]
+        mod = sys.modules["dsf.dsf_core"]
+        loaded = getattr(mod, "__file__", None)
+        if loaded:
+            _warn_if_stale(loaded)
+        return mod
 
-    here = os.path.dirname(__file__)
-    # Prefer a freshly-built extension, then the copy inside the package,
-    # then a pip-installed copy (scikit-build-core puts the compiled files in
-    # site-packages/dsf/ even for editable installs of this source tree).
-    search_dirs = [
-        os.path.join(here, "../../../build"),   # repo build/
-        os.path.join(here, "../../build"),      # alt build/
-        os.path.join(here, ".."),               # python/dsf/ (in-tree copy)
-    ]
-    import site
-    site_dirs = list(getattr(site, "getsitepackages", lambda: [])())
-    user_site = getattr(site, "getusersitepackages", lambda: None)()
-    if user_site:
-        site_dirs.append(user_site)
-    search_dirs += [os.path.join(sp, "dsf") for sp in site_dirs]
-    so_path = None
-    for d in search_dirs:
-        if not os.path.isdir(d):
-            continue
-        # Match the exact extension name; sort for determinism (avoids the old
-        # arbitrary os.listdir order that could pick a stale ABI).
-        cands = sorted(f for f in os.listdir(d)
-                       if f.startswith("dsf_core") and f.endswith(".so"))
-        if cands:
-            so_path = os.path.join(d, cands[0])
-            break
+    cands = _extension_candidates()
+    so_path = cands[0] if cands else None
 
     old_flags = sys.getdlopenflags()
     try:
@@ -59,6 +105,7 @@ def _load_dsf_core():
             sys.modules["dsf.dsf_core"] = mod
             sys.modules.setdefault("dsf_core", mod)
             spec.loader.exec_module(mod)
+            _warn_if_stale(so_path)
             return mod
         # Last resort: an installed extension importable as a top-level module.
         import dsf as pkg
@@ -153,6 +200,13 @@ def main():
     atol = sim_node.attrAsDouble("atol") if sim_node.attrAsString("atol") else 1e-8
     rtol = sim_node.attrAsDouble("rtol") if sim_node.attrAsString("rtol") else 1e-6
 
+    # Monte-Carlo case identity (matching C++ SimInput): the dsf.mc dispatcher
+    # patches seed/case_id into each case's XML. Without reading these, a case
+    # deck run through `dsf run` silently executed the NOMINAL trajectory —
+    # per-case runs only worked through the C++ `dynamic` executable.
+    case_id = int(sim_node.attrAsDouble("case_id")) if sim_node.attrAsString("case_id") else -1
+    case_seed = int(sim_node.attrAsDouble("seed")) if sim_node.attrAsString("seed") else 0
+
     # Resolve Log Levels
     def resolve_level(specific, global_val):
         if specific: return map_level(specific)
@@ -198,6 +252,7 @@ def main():
         console_rate=rate_console, file_rate=rate_file,
         integrator=integrator_type, atol=atol, rtol=rtol,
         csv=is_csv, hdf5=is_hdf5, csv_level=csv_level, h5_level=h5_level,
+        case_id=case_id, case_seed=case_seed,
         strict=not args.not_strict,
     )
 

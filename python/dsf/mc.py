@@ -9,7 +9,13 @@ Usage:
     mc = MonteCarlo("vehicle.xml")
     mc.run(workers=8)
     mc.build_index()
-    mc.extremes("Altitude")
+    mc.extremes(threshold_sigma=2.0)
+
+Honesty guarantee: the values recorded in mc_draws.json are the values each
+case APPLIES. The pre-drawn values are patched into every case's XML
+(n_sigma_draw / drawn attributes on <dispersion>) and the C++ engine uses
+them verbatim instead of re-drawing, so reported statistics cannot diverge
+from what the sims actually ran.
 """
 
 import os
@@ -29,6 +35,63 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 MC_STATE_FILE = '.dsf_mc.json'
 MC_STOP_FILE  = '.dsf_mc_stop'
 MC_LOG_FILE   = '.dsf_mc.log'
+MC_DRAWS_FILE = 'mc_draws.json'
+
+
+# ─── Draw-record helpers (single source for the runner AND the CLI) ───
+
+def load_draws(output_dir):
+    """Load the mc_draws.json record from a batch output dir (None if absent)."""
+    draws_file = Path(output_dir) / MC_DRAWS_FILE
+    if not draws_file.exists():
+        return None
+    return json.loads(draws_file.read_text())
+
+
+def draw_stats(draws):
+    """Per-parameter statistics over a list of per-case draw dicts.
+
+    Returns {key: {'distribution', 'mean', 'std', 'min', 'max'}} where the
+    values are in sigma units for gaussian draws and absolute for uniform.
+    """
+    stats = {}
+    if not draws:
+        return stats
+    for key in draws[0].keys():
+        values = []
+        dist = draws[0][key].get('distribution', 'gaussian')
+        for case_draws in draws:
+            d = case_draws.get(key, {})
+            if d.get('distribution') == 'gaussian':
+                values.append(d.get('n_sigma_draw', 0.0))
+            elif d.get('distribution') == 'uniform':
+                values.append(d.get('drawn', 0.0))
+        if not values:
+            continue
+        arr = np.array(values)
+        stats[key] = {
+            'distribution': dist,
+            'mean': float(arr.mean()), 'std': float(arr.std()),
+            'min': float(arr.min()), 'max': float(arr.max()),
+        }
+    return stats
+
+
+def extreme_draws(draws, threshold_sigma=2.0):
+    """Cases with any gaussian draw beyond threshold_sigma.
+
+    Returns [{'case_id', 'parameter', 'n_sigma'}], most extreme first.
+    """
+    results = []
+    for case_id, case_draws in enumerate(draws):
+        for key, d in case_draws.items():
+            if d.get('distribution') != 'gaussian':
+                continue
+            ns = d.get('n_sigma_draw', 0.0)
+            if abs(ns) > threshold_sigma:
+                results.append({'case_id': case_id, 'parameter': key,
+                                'n_sigma': ns})
+    return sorted(results, key=lambda e: abs(e['n_sigma']), reverse=True)
 
 
 def _derive_case_seed(master_seed, case_id):
@@ -90,7 +153,8 @@ class MonteCarlo:
 
         # Extract sim config
         self.library = self.sim_node.get('library', '')
-        self.dynamic_bin = self._find_dynamic()
+        self.dynamic_bin = None   # resolved lazily in run() — analysis-only
+                                  # uses (draws, case XML) need no executable
 
         # Pre-draw values
         self.draws = self._pre_draw()
@@ -164,6 +228,22 @@ class MonteCarlo:
         sim_node.set('seed', str(case_seed))
         sim_node.set('case_id', str(case_id))
 
+        # Transmit this case's pre-drawn values into the <dispersion> elements
+        # so the C++ engine applies EXACTLY what mc_draws.json records
+        # (gaussian: n_sigma units, nominal added C++-side after configure();
+        # uniform: absolute value). Without these attrs the C++ engine draws
+        # its own values and the dispatcher's records are fiction.
+        case_draws = self.draws[case_id]
+        for dnode in sim_node.find('monte_carlo').findall('dispersion'):
+            key = f"{dnode.get('block')}.{dnode.get('property')}"
+            info = case_draws.get(key)
+            if info is None:
+                continue
+            if info['distribution'] == 'gaussian':
+                dnode.set('n_sigma_draw', repr(info['n_sigma_draw']))
+            else:
+                dnode.set('drawn', repr(info['drawn']))
+
         # Symlink sibling data files so relative paths work from case dir
         src_dir = self.xml_path.parent
         for f in src_dir.iterdir():
@@ -189,6 +269,8 @@ class MonteCarlo:
             fg: If True, run in foreground. If False, daemonize.
         """
         n_workers = workers or self.workers
+        if self.dynamic_bin is None:
+            self.dynamic_bin = self._find_dynamic()
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         state_file = self.output_dir / MC_STATE_FILE
@@ -225,7 +307,7 @@ class MonteCarlo:
         state_file.write_text(json.dumps(state, indent=2))
 
         # Save pre-drawn values
-        draws_file = self.output_dir / 'mc_draws.json'
+        draws_file = self.output_dir / MC_DRAWS_FILE
         draws_file.write_text(json.dumps({
             'master_seed': self.master_seed,
             'n_cases': self.n_cases,
@@ -351,16 +433,6 @@ class MonteCarlo:
     def extremes(self, threshold_sigma=2.0):
         """Find cases with any draw exceeding threshold_sigma.
 
-        Returns list of (case_id, param_name, n_sigma) tuples.
+        Returns list of {'case_id', 'parameter', 'n_sigma'} dicts.
         """
-        results = []
-        for case_id, case_draws in enumerate(self.draws):
-            for key, draw_info in case_draws.items():
-                if draw_info['distribution'] == 'gaussian':
-                    if abs(draw_info.get('n_sigma_draw', 0)) > threshold_sigma:
-                        results.append({
-                            'case_id': case_id,
-                            'parameter': key,
-                            'n_sigma': draw_info['n_sigma_draw'],
-                        })
-        return results
+        return extreme_draws(self.draws, threshold_sigma)

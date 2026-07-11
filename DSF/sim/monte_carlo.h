@@ -52,6 +52,14 @@ struct Dispersion
     double min_val = 0.0;
     double max_val = 0.0;
 
+    /// Pre-drawn value transmitted by the dispatcher (dsf.mc patches it into
+    /// each case's XML), so the value the sim APPLIES is exactly the value the
+    /// dispatcher REPORTS. Gaussian: `draw` is in sigma units (n_sigma);
+    /// uniform: `draw` is the absolute value. Absent → this process draws its
+    /// own via the case-seeded RNG (standalone `dynamic` runs).
+    bool has_draw = false;
+    double draw = 0.0;
+
     // Computed at draw time
     double nominal = 0.0;       ///< Value after configure() (before dispersion)
     double drawn = 0.0;         ///< Actual dispersed value applied
@@ -97,6 +105,11 @@ inline MonteCarloCase parse_mc_xml(dsf::xml::xmlnode sim_node)
         mc.n_cases = (int)child.attrAsDouble("n");
         mc.master_seed = (unsigned int)child.attrAsDouble("seed");
 
+        // Dispatcher-only attributes (consumed by dsf.mc, not this engine).
+        // Read them so strict-mode validation doesn't flag them as unused.
+        if (child.findAttr("workers"))    child.attrAsString("workers");
+        if (child.findAttr("output_dir")) child.attrAsString("output_dir");
+
         // Parse <dispersion> children
         for (int j = 0; j < child.numchild(); j++)
         {
@@ -114,11 +127,21 @@ inline MonteCarloCase parse_mc_xml(dsf::xml::xmlnode sim_node)
                 d.distribution = MCDistribution::UNIFORM;
                 d.min_val = dnode.attrAsDouble("min");
                 d.max_val = dnode.attrAsDouble("max");
+                if (dnode.findAttr("drawn"))
+                {
+                    d.has_draw = true;
+                    d.draw = dnode.attrAsDouble("drawn");
+                }
             }
             else
             {
                 d.distribution = MCDistribution::GAUSSIAN;
                 d.sigma = dnode.attrAsDouble("sigma");
+                if (dnode.findAttr("n_sigma_draw"))
+                {
+                    d.has_draw = true;
+                    d.draw = dnode.attrAsDouble("n_sigma_draw");
+                }
             }
 
             mc.dispersions.push_back(d);
@@ -236,16 +259,27 @@ inline void apply_dispersions(Block* root, MonteCarloCase& mc)
             reinterpret_cast<char*>(block) + offset);
         d.nominal = *member_ptr;
 
-        // Draw dispersed value
+        // Dispersed value: use the dispatcher's pre-drawn value when one was
+        // transmitted (keeps the dispatcher's records exactly what this case
+        // applied), otherwise draw here via the case-seeded RNG.
         switch (d.distribution)
         {
         case MCDistribution::GAUSSIAN:
-            d.drawn = dsf::util::get_gauss(d.nominal, d.sigma);
-            d.n_sigma = (d.sigma > 0.0) ? (d.drawn - d.nominal) / d.sigma : 0.0;
+            if (d.has_draw)
+            {
+                d.drawn = d.nominal + d.draw * d.sigma;
+                d.n_sigma = d.draw;
+            }
+            else
+            {
+                d.drawn = dsf::util::get_gauss(d.nominal, d.sigma);
+                d.n_sigma = (d.sigma > 0.0) ? (d.drawn - d.nominal) / d.sigma : 0.0;
+            }
             break;
 
         case MCDistribution::UNIFORM:
-            d.drawn = dsf::util::getUniform(d.min_val, d.max_val);
+            d.drawn = d.has_draw ? d.draw
+                                 : dsf::util::getUniform(d.min_val, d.max_val);
             d.n_sigma = 0.0;  // not meaningful for uniform
             break;
         }
@@ -257,6 +291,8 @@ inline void apply_dispersions(Block* root, MonteCarloCase& mc)
                   << ": nominal=" << d.nominal << " drawn=" << d.drawn;
         if (d.distribution == MCDistribution::GAUSSIAN)
             std::cout << " (" << d.n_sigma << " sigma)";
+        if (d.has_draw)
+            std::cout << " [pre-drawn]";
         std::cout << std::endl;
     }
     std::cout << std::endl;

@@ -9,8 +9,6 @@ Monte Carlo CLI subcommands for DSF.
 """
 
 import click
-import json
-from pathlib import Path
 
 
 @click.group()
@@ -54,46 +52,26 @@ def status(output_dir):
 @click.argument('output_dir', type=click.Path(exists=True), default='mc_results')
 def results(output_dir):
     """Build aggregated index and report statistics."""
-    draws_file = Path(output_dir) / 'mc_draws.json'
-    if not draws_file.exists():
+    from dsf.mc import load_draws, draw_stats
+    data = load_draws(output_dir)
+    if data is None:
         click.echo(f"No mc_draws.json found in {output_dir}")
         return
 
-    data = json.loads(draws_file.read_text())
     draws = data.get('draws', [])
-    n = len(draws)
-
-    click.echo(f"MC Results: {n} cases")
+    click.echo(f"MC Results: {len(draws)} cases")
     click.echo(f"Master seed: {data.get('master_seed')}")
     click.echo(f"\nDispersions:")
 
-    # Collect statistics per parameter
-    import numpy as np
-    if n == 0:
-        return
-
-    all_keys = list(draws[0].keys()) if draws else []
-    for key in all_keys:
-        values = []
-        for case_draws in draws:
-            d = case_draws.get(key, {})
-            if d.get('distribution') == 'gaussian':
-                values.append(d.get('n_sigma_draw', 0.0))
-            elif d.get('distribution') == 'uniform':
-                values.append(d.get('drawn', 0.0))
-
-        if not values:
-            continue
-
-        arr = np.array(values)
-        if draws[0][key].get('distribution') == 'gaussian':
-            click.echo(f"  {key}: mean_sigma={arr.mean():.3f}, "
-                       f"std_sigma={arr.std():.3f}, "
-                       f"min={arr.min():.3f}, max={arr.max():.3f}")
+    for key, s in draw_stats(draws).items():
+        if s['distribution'] == 'gaussian':
+            click.echo(f"  {key}: mean_sigma={s['mean']:.3f}, "
+                       f"std_sigma={s['std']:.3f}, "
+                       f"min={s['min']:.3f}, max={s['max']:.3f}")
         else:
-            click.echo(f"  {key}: mean={arr.mean():.4f}, "
-                       f"std={arr.std():.4f}, "
-                       f"min={arr.min():.4f}, max={arr.max():.4f}")
+            click.echo(f"  {key}: mean={s['mean']:.4f}, "
+                       f"std={s['std']:.4f}, "
+                       f"min={s['min']:.4f}, max={s['max']:.4f}")
 
 
 @mc.command()
@@ -102,32 +80,19 @@ def results(output_dir):
               help='Sigma threshold for extreme cases')
 def extremes(output_dir, threshold):
     """Show cases with parameter draws exceeding threshold sigma."""
-    draws_file = Path(output_dir) / 'mc_draws.json'
-    if not draws_file.exists():
+    from dsf.mc import load_draws, extreme_draws
+    data = load_draws(output_dir)
+    if data is None:
         click.echo(f"No mc_draws.json found in {output_dir}")
         return
 
-    data = json.loads(draws_file.read_text())
-    draws = data.get('draws', [])
-
-    extreme_cases = []
-    for case_id, case_draws in enumerate(draws):
-        for key, d in case_draws.items():
-            if d.get('distribution') == 'gaussian':
-                ns = abs(d.get('n_sigma_draw', 0.0))
-                if ns > threshold:
-                    extreme_cases.append({
-                        'case_id': case_id,
-                        'parameter': key,
-                        'n_sigma': d['n_sigma_draw'],
-                    })
-
+    extreme_cases = extreme_draws(data.get('draws', []), threshold)
     if not extreme_cases:
         click.echo(f"No cases with draws exceeding {threshold}σ")
         return
 
     click.echo(f"Cases with draws > {threshold}σ:")
-    for e in sorted(extreme_cases, key=lambda x: abs(x['n_sigma']), reverse=True):
+    for e in extreme_cases:
         click.echo(f"  Case {e['case_id']:4d}: {e['parameter']} = "
                    f"{e['n_sigma']:+.2f}σ")
 

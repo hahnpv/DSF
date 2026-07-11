@@ -21,5 +21,7 @@ set(sim_source_files
   TClassDict.h
   TRefDict.h
 )
-add_library(sim ${sim_source_files})
+# OBJECT library: compiled once, aggregated into libDSF.so by the
+# top-level CMakeLists (no second compilation, no separate archive).
+add_library(sim OBJECT ${sim_source_files})
 set_target_properties(sim PROPERTIES POSITION_INDEPENDENT_CODE ON)
