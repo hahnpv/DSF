@@ -332,6 +332,19 @@ def _build_run_command(xml_file: str, library: str = None) -> tuple:
             lib_path = sim_node.get('library', '')
         else:
             lib_path = ''
+        # Contain XML-embedded library PATHS the same way explicit `library`
+        # args are contained (they go through resolve_path). A bare soname
+        # ("libsixdof.so", no separator) is left for normal linker search;
+        # anything with a path component must stay inside FILE_ROOT — else a
+        # crafted deck could LD_PRELOAD an arbitrary .so.
+        if lib_path and os.sep in lib_path:
+            p = Path(lib_path)
+            p = (xml_dir / p).resolve() if not p.is_absolute() else p.resolve()
+            if p != FILE_ROOT and FILE_ROOT not in p.parents:
+                raise ValueError(
+                    f"Security error: library path in XML ('{lib_path}') "
+                    f"escapes FILE_ROOT '{FILE_ROOT}'")
+            lib_path = str(p)
 
     # Build environment
     env = os.environ.copy()
@@ -374,6 +387,24 @@ def run_sim(
     xml_path = Path(xml_file).resolve()
     if not xml_path.exists():
         return safe_dumps({"error": f"XML file not found: {xml_file}"})
+
+    # Honor tmax by running a patched copy of the deck (written next to the
+    # original so relative data paths still resolve, and left in place like
+    # dsf_patch_run_xml's output). This parameter used to be silently dropped.
+    if tmax and tmax > 0:
+        try:
+            import xml.etree.ElementTree as ET
+            tree = ET.parse(str(xml_path))
+            root = tree.getroot()
+            sim_node = root if root.tag == 'sim' else root.find('sim')
+            if sim_node is None:
+                return safe_dumps({"error": "tmax override: no <sim> node in deck"})
+            sim_node.set('tmax', str(tmax))
+            patched = xml_path.with_name(f"{xml_path.stem}_tmax{tmax:g}.xml")
+            tree.write(str(patched), encoding="utf-8", xml_declaration=True)
+            xml_path = patched
+        except Exception as e:
+            return safe_dumps({"error": f"tmax override failed: {e}"})
 
     try:
         cmd, env, cwd = _build_run_command(str(xml_path), library or None)

@@ -16,16 +16,10 @@ class XMLGenerator:
         
         # Identify top-level blocks (those without a parent)
         items = [i for i in self.scene.items() if isinstance(i, BlockItem)]
-        for b in items:
-            p_id = b.parent_block.instance_id if b.parent_block else "NONE"
-            print(f"DEBUG XML GEN: Block {b.instance_id} parent is {p_id}")
-            
         root_blocks = [b for b in items if b.parent_block is None]
-        print(f"XML Generation: Scaling {len(items)} items, finding {len(root_blocks)} roots.")
-        
+
         # Recursively build XML starting from root blocks
         for block in root_blocks:
-            print(f"  Root: {block.instance_id} ({len(block.child_blocks)} children)")
             node = self._build_recursive_node(block)
             sim_root.append(node)
 

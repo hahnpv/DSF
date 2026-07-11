@@ -1,4 +1,5 @@
 #include <time.h>
+#include <stdexcept>
 
 #include "sim.h"
 #include "integrator_base.h"
@@ -33,6 +34,11 @@ namespace dsf
 
 		void Sim::step()
 		{
+			// Guard against stepping an unloaded Sim (clock/integrator are only
+			// created by load()). Without this, dsf.Sim().step() from Python is
+			// a null-deref segfault instead of a catchable error. [A7]
+			if (!clock || !i || simulation.empty())
+				throw std::runtime_error("Sim::step() called before Sim::load()");
 			i->propagate(simulation[0]);							// integrate
 			EventBus::Instance()->evaluate(clock->t(), clock->dt());	// event detection
 			EventBus::Instance()->latch();							// save state for next step
@@ -47,6 +53,9 @@ namespace dsf
 
 		void Sim::exec()
 		{
+			if (!clock || !i || simulation.empty())
+				throw std::runtime_error("Sim::exec() called before Sim::load()");
+
 			time_t seconds = time(NULL);
 
 			while ( (clock->t() < clock->tmax()) && clock->is_running() )
