@@ -44,7 +44,7 @@
 **P3 closeout (2026-07-11):** A41/A43-artifacts/A44 were already clean (verified: no tracked binaries/egg-info/dead test dirs; `.gitignore`'s repo-wide `*.txt`/`*.csv` kept deliberately with `!CMakeLists.txt`-style negations). A46 gaps filled: XML value parsing (`attrAsVec3/Mat3/Bool` comma/whitespace/malformed forms) and factory-by-name tests added to `cpp_util_tests` (74 checks). A40 superseded by ROADMAP R4 (legacy tables are deletion-bound, not consolidation-bound).
 
 **Deferred (documented, not code-changed)** — reason noted inline:
-- **A11** (RK45 per-stage clock time) — architecture-blocked: the tick-based clock (2 ticks/dt) can't represent Dormand-Prince stage times; documented as a known limitation in `integrator_rk45.cpp`. Use RK4 for strongly time-dependent dynamics.
+- **A11** — RESOLVED 2026-07-11 (was deferred as architecture-blocked; it wasn't). A continuous `stage_offset` appended to `Clock` carries true stage times (t_covered + c_i*h) through `t()` while `Sample()`/reports stay pure-tick; RK4/Verlet migrated to the same mechanism (also fixing Verlet's step-3 force eval, which ran at t+dt/2 instead of t+dt). Acceptance met: y'=cos(t) integrates to 1e-9 under RK45 (was ~O(dt)); pinned by `test_nonautonomous_rk45/_verlet` + a stage-time probe in `cpp_integrator_tests`. Field appended LAST so a stale `libsixdof.so` fails soft (sees macro time); sixdof rebuilt and the `f16_*_rk45` decks re-verified 2026-07-11 (ROADMAP R2 closed).
 - **A15** (`.dsf`-as-directory) — the format is a JSON file in practice; CLAUDE.md now says so rather than implementing the unused directory layout.
 - **A40** (fully merge the 3 interp implementations) — the correctness bugs are fixed and covered by tests; the DRY consolidation is cosmetic and deferred.
 
@@ -78,7 +78,7 @@ Priority tiers:
 ## P1 — Correctness bugs
 
 - [x] **A10. RK45: cap rejections and reject NaN.** Add a max-iteration/failure escape; treat NaN error as a rejected step (don't let `std::max(x,NaN)` accept it). `DSF/sim/integrator_rk45.cpp:199-213` — *Accept:* a NaN-producing model terminates with an error instead of hanging/propagating NaN.
-- [ ] **A11. RK45: advance clock per stage.** Evaluate stage times at `t + a_i*h`. `DSF/sim/integrator_rk45.cpp:96-218` — *Accept:* a time-explicit forcing term integrates to the analytic result to method order.
+- [x] **A11. RK45: advance clock per stage.** Evaluate stage times at `t + a_i*h`. `DSF/sim/integrator_rk45.cpp:96-218` — *Accept:* a time-explicit forcing term integrates to the analytic result to method order.
 - [x] **A12. Integrand/event deregistration.** Add `remove`/`clear` to `TIntDict` and call it on block teardown and Sim reload; call `EventBus::clear()` on teardown. `DSF/sim/TIntDict.h`, `DSF/sim/sim.cpp`, `DSF/sim/event.cpp:117-124` — *Accept:* two consecutive `Sim::load`/`run` cycles in one process don't integrate stale pointers (ASan clean).
 - [x] **A13. Validate `dt`/`tmax` from XML.** Reject missing/zero/negative `dt` and `tmax` with a clear error. `DSF/sim/sim.cpp:75`, `DSF/util/xml/xml.h` — *Accept:* a deck missing `dt` errors out instead of looping forever.
 - [x] **A14. Recurring events.** Only latch `armed=false` when `one_shot`; don't let `fired` permanently block re-fire. `DSF/sim/event.cpp:16-17,191-193` — *Accept:* a `one_shot=false` event fires on every threshold crossing.

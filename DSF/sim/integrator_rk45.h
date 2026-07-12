@@ -38,7 +38,7 @@ private:
     /// fallback when the adaptive controller stalls. Assumes xdd[0] holds k1
     /// (the derivative at the current state x0); advances the state and leaves
     /// xdd[0] re-primed at the new state for FSAL continuity.
-    void rk4_fallback_step(Block* root, int n, double h);
+    void rk4_fallback_step(Block* root, int n, double t0, double h);
 
 public:
 

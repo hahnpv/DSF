@@ -26,25 +26,14 @@ def run_globe(h5_path: str):
     color_idx = 0
     found_any = False
 
-    for block_id, props in data.items():
-        xyz = None
+    # find_ecef owns the position-channel preference (Earth-fixed first;
+    # ECI only as a flagged fallback — wrong for ground tracks).
+    from dsf.utils.data_loader import find_ecef
+    for block_id, (xyz, frame_kind) in find_ecef(data).items():
+        if frame_kind == "eci":
+            print(f"  Warning: '{block_id}' using ECI XYZ (no ECEF data found)")
 
-        # Prefer ECEF position datasets (Earth-fixed, correct for ground track)
-        for ecef_key in ("XYZ_ECEF", "xyz_e"):
-            if ecef_key in props:
-                arr = props[ecef_key]
-                if arr.ndim == 2 and arr.shape[1] == 3:
-                    xyz = arr
-                    break
-
-        # Fallback only if no ECEF data available — note XYZ is ECI (not Earth-fixed)
-        if xyz is None and "XYZ" in props:
-            arr = props["XYZ"]
-            if arr.ndim == 2 and arr.shape[1] == 3:
-                xyz = arr
-                print(f"  Warning: '{block_id}' using ECI XYZ (no ECEF data found)")
-
-        if xyz is not None and len(xyz) > 2:
+        if len(xyz) > 2:
             c = colors[color_idx % len(colors)]
             print(f"  Block '{block_id}': {len(xyz)} XYZ points → {c}")
             gp.add_trajectory(xyz, name=f"Traj_{block_id}", color=c, line_width=2, stop_marker=True)

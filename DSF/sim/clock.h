@@ -48,9 +48,16 @@ namespace dsf
 
             /**
              * @brief Get current simulation time.
+             *
+             * Tick time plus the integrator's continuous stage offset. The
+             * offset is nonzero only mid-integration (safe_sample == false),
+             * where it carries the intra-step stage time that integer ticks
+             * cannot represent (Dormand-Prince c = 1/5, 3/10, ...). At every
+             * macro-step boundary it is identically zero, so sampled/reported
+             * time remains pure tick arithmetic (no floating-point drift).
              * @return Time [s].
              */
-            double t()              { return (double)time/error; }
+            double t()              { return (double)time/error + stage_offset; }
 
             /**
              * @brief Get maximum simulation time.
@@ -113,7 +120,24 @@ namespace dsf
             }
 
             void increment()        { time++; }             ///< Advance clock by dt/2.
-            void set(bool _safe_sample) { safe_sample = _safe_sample; } ///< Set integration state.
+
+            /**
+             * @brief Set the continuous stage-time offset [s past tick time].
+             *
+             * Integrators call this before each stage derivative evaluation so
+             * time-dependent models see the true stage time (t0 + c_i*h) even
+             * when it falls between ticks (adaptive sub-steps, DP fractions).
+             * Only meaningful mid-integration; set(true) resets it to zero.
+             */
+            void set_stage_offset(double s) { stage_offset = s; }
+
+            /// Set integration state. Leaving integration (true) also clears
+            /// the stage offset — sampled time is always pure tick time.
+            void set(bool _safe_sample)
+            {
+                safe_sample = _safe_sample;
+                if (_safe_sample) stage_offset = 0.0;
+            }
             void end()              { state = false; }      ///< Signal simulation termination.
             bool is_running()       { return state; }       ///< Check if simulation should continue.
 
@@ -123,6 +147,13 @@ namespace dsf
             bool safe_sample;       ///< True when not mid-integration step.
             unsigned long int time; ///< Current time in ticks.
             bool state;             ///< Simulation run state (true=running).
+            /// Continuous intra-step stage time [s past tick time]. Appended
+            /// LAST deliberately: a model library built against the old Clock
+            /// layout reads the earlier fields correctly and its stale inline
+            /// t() simply misses the offset (sees macro time — the pre-R2
+            /// behavior) instead of corrupting memory. Rebuild model libs to
+            /// get true stage times.
+            double stage_offset = 0.0;
         };
     }
 }

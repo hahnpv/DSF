@@ -12,7 +12,8 @@
  *   - Exponential decay  y' = -λy            → convergence order (RK4 ~4th)
  *   - Simple harmonic osc  x'=v, v'=-ω²x     → energy conservation, Verlet vs RK4
  *   - Two-body / Kepler  r'' = -μ r/|r|³     → orbit closure, energy + ang.mom.
- *   - Non-autonomous  y' = cos(t)            → clock advances stage times (RK4)
+ *   - Non-autonomous  y' = cos(t)            → stage times (RK4/RK45/Verlet, R2)
+ *   - Stage-time probe                        → models observe DP c-fractions
  *
  * Registered by CMake as the `cpp_integrator_tests` ctest.
  */
@@ -29,6 +30,7 @@
 #include <cmath>
 #include <string>
 #include <functional>
+#include <vector>
 
 using namespace dsf::sim;
 using dsf::util::Vec3;
@@ -253,12 +255,87 @@ void test_twobody_circular_orbit()
 void test_nonautonomous_rk4()
 {
     // y' = cos(t), y(0)=0 → y(t)=sin(t). If stage times were frozen at the
-    // start of the step, this would be visibly wrong; RK4 advances the clock at
-    // half/full step, so it is accurate.
+    // start of the step, this would be visibly wrong; stage offsets present
+    // k2/k3 at t+dt/2 and k4 at t+dt, so it is accurate.
     IntegratorRK4 rk4;
     CosForcing m;
     integrate(m, rk4, 0.001, M_PI / 2.0);
     CHECK_NEAR(m.y, 1.0, 1e-4, "RK4 non-autonomous y(pi/2)=sin(pi/2)");
+}
+
+void test_nonautonomous_rk45()
+{
+    // The A11/R2 acceptance: a time-explicit forcing integrates to the analytic
+    // result under RK45. Before the stage-offset fix, every Dormand-Prince
+    // stage saw the frozen start-of-step time, degrading y(pi/2) to ~1e-3
+    // error at dt=0.01 regardless of tolerance; with true stage times the
+    // tolerance governs.
+    // tmax is an exact multiple of dt (160 steps) so the endpoint is exact —
+    // an irrational tmax like pi/2 stops a half-tick short and the comparison
+    // against the analytic value picks up an O(dt) endpoint artifact that
+    // swamps the integrator error.
+    IntegratorRK45 rk45(1e-10, 1e-10);
+    rk45.set_step_bounds(1e-9, 0.1);
+    CosForcing m;
+    integrate(m, rk45, 0.01, 1.6);
+    CHECK_NEAR(m.y, std::sin(1.6), 1e-9, "RK45 non-autonomous y(1.6)=sin(1.6)");
+}
+
+void test_nonautonomous_verlet()
+{
+    // Verlet on y'=cos(t) (GENERIC state → kick-integrated) is the trapezoid
+    // rule: y += dt/2 (cos t_n + cos t_{n+1}). This requires the second kick's
+    // forcing to be evaluated at t+dt — the step-3 evaluation used to run at
+    // t+dt/2 (single tick), a stage-time bug that biased time-dependent forces
+    // (~2.5e-4 here); with the end-of-step stage offset it is 2nd order.
+    IntegratorVerlet v;
+    CosForcing m;
+    integrate(m, v, 0.001, M_PI / 2.0);
+    CHECK_NEAR(m.y, 1.0, 1e-5, "Verlet non-autonomous y(pi/2)=sin(pi/2)");
+}
+
+// ---------------------------------------------------------------------------
+// Stage-time probe — the times models actually SEE during update()
+// ---------------------------------------------------------------------------
+
+class TimeProbe : public Block {
+public:
+    double y = 0.0, dy = 0.0;
+    std::vector<double> times;
+    void init() override {
+        TClassIntegrandDict<Block>::Instance()->add(
+            TClass<TimeProbe, Block>::Instance(), y, dy);
+    }
+    void update() override { dy = 1.0; times.push_back(t()); }
+};
+
+void test_rk45_stage_times_observed()
+{
+    // One macro step of y'=1 (zero error → a single full-dt sub-step): models
+    // must observe the true Dormand-Prince stage times, not just tick times.
+    const double dt = 0.1;
+    IntegratorRK45 rk45(1e-6, 1e-6);
+    TimeProbe m;
+    integrate(m, rk45, dt, dt);
+
+    bool in_range = true;
+    for (double tv : m.times)
+        if (tv < -1e-12 || tv > dt + 1e-12) in_range = false;
+    CHECK(in_range, "RK45 stage times stay within [t0, t0+dt]");
+
+    // The DP fractions (c2=1/5, c5=8/9) are NOT representable on half-dt
+    // ticks — seeing them proves the stage offset reaches the model.
+    auto seen = [&](double target) {
+        for (double tv : m.times)
+            if (std::fabs(tv - target) < 1e-9) return true;
+        return false;
+    };
+    CHECK(seen(dt / 5.0),       "RK45 model sees c2 = dt/5 stage time");
+    CHECK(seen(dt * 8.0 / 9.0), "RK45 model sees c5 = 8dt/9 stage time");
+    CHECK(seen(dt),             "RK45 model sees end-of-step time");
+
+    // After propagate() the offset must be cleared: reported time is tick time.
+    CHECK(std::fabs(m.t() - dt) < 1e-12, "clock back on pure tick time after step");
 }
 
 int main()
@@ -271,6 +348,9 @@ int main()
     test_sho_verlet_energy_conservation();
     test_twobody_circular_orbit();
     test_nonautonomous_rk4();
+    test_nonautonomous_rk45();
+    test_nonautonomous_verlet();
+    test_rk45_stage_times_observed();
 
     std::cout << "\n=== Results: " << tests_passed << " passed, "
               << tests_failed << " failed ===\n";

@@ -59,9 +59,11 @@ void IntegratorVerlet::propagate(Block* root)
         *d->x[i] += dt * (*d->xd[i]);
     }
 
-    clock->increment();
-
-    // Step 3: Re-evaluate derivatives at new position (forces at q_{n+1})
+    // Step 3: Re-evaluate derivatives at the new position (forces at q_{n+1},
+    // which velocity-Verlet defines at t+dt). This used to run after a single
+    // tick — i.e. at t+dt/2 — which mistimed time-dependent forces; the stage
+    // offset carries the correct end-of-step time. [R2]
+    clock->set_stage_offset(dt);
     dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
 
     // Step 4: Half-kick — advance momentum by another dt/2
@@ -73,6 +75,10 @@ void IntegratorVerlet::propagate(Block* root)
         *d->x[i] += half_dt * (*d->xd[i]);
     }
 
+    // Commit the macro ticks together (offset back to zero first — end-of-step
+    // time is pure tick time for events/reports/constrain).
+    clock->set_stage_offset(0.0);
+    clock->increment();
     clock->increment();
 
     // Post-integration constraint hook (see Block::constrain): invoked once

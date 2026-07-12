@@ -77,12 +77,14 @@ void IntegratorRK45::set_step_bounds(double dt_min, double dt_max)
  *   - FCS scheduling (blocks check clock time for phase transitions)
  *   - Backward compatibility (if tolerances are loose, takes a single step)
  */
-// Classic fixed-step RK4 over one interval h. Mirrors IntegratorRK4::rk4 but runs
-// as an in-line sub-step of the adaptive loop, so it does NOT touch the clock (the
-// enclosing propagate() advances the clock once for the whole macro step). On
-// entry d->x holds the sub-step start state and d->xdd[0] holds k1 = f(start);
-// on exit d->x is advanced by h and d->xdd[0] is re-evaluated at the new state.
-void IntegratorRK45::rk4_fallback_step(Block* root, int n, double h)
+// Classic fixed-step RK4 over one interval h starting at stage time t0 (seconds
+// past the macro step's tick time). Mirrors IntegratorRK4 but runs as an in-line
+// sub-step of the adaptive loop, so it does NOT tick the clock — stage times are
+// carried via Clock::set_stage_offset (the enclosing propagate() advances the
+// ticks once for the whole macro step). On entry d->x holds the sub-step start
+// state and d->xdd[0] holds k1 = f(t0, start); on exit d->x is advanced by h and
+// d->xdd[0] is re-evaluated at the new state/time.
+void IntegratorRK45::rk4_fallback_step(Block* root, int n, double t0, double h)
 {
     auto* d = TClassIntegrandDict<Block>::Instance();
 
@@ -90,21 +92,23 @@ void IntegratorRK45::rk4_fallback_step(Block* root, int n, double h)
     for (int i = 0; i < n; i++)
         d->x0[i] = *d->x[i];
 
-    // k2 = f(x0 + h/2 k1)
+    // k2 = f(t0 + h/2, x0 + h/2 k1)
     for (int i = 0; i < n; i++)
         *d->x[i] = d->x0[i] + 0.5 * h * d->xdd[0][i];
+    clock->set_stage_offset(t0 + 0.5 * h);
     dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
     for (int i = 0; i < n; i++) d->xdd[1][i] = *d->xd[i];
 
-    // k3 = f(x0 + h/2 k2)
+    // k3 = f(t0 + h/2, x0 + h/2 k2)
     for (int i = 0; i < n; i++)
         *d->x[i] = d->x0[i] + 0.5 * h * d->xdd[1][i];
     dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
     for (int i = 0; i < n; i++) d->xdd[2][i] = *d->xd[i];
 
-    // k4 = f(x0 + h k3)
+    // k4 = f(t0 + h, x0 + h k3)
     for (int i = 0; i < n; i++)
         *d->x[i] = d->x0[i] + h * d->xdd[2][i];
+    clock->set_stage_offset(t0 + h);
     dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
     for (int i = 0; i < n; i++) d->xdd[3][i] = *d->xd[i];
 
@@ -113,7 +117,7 @@ void IntegratorRK45::rk4_fallback_step(Block* root, int n, double h)
         *d->x[i] = d->x0[i] + (h / 6.0) * (d->xdd[0][i] + 2.0 * d->xdd[1][i]
                                             + 2.0 * d->xdd[2][i] + d->xdd[3][i]);
 
-    // Re-prime k1 at the new state (FSAL continuity for the next macro step).
+    // Re-prime k1 at the new state/time (FSAL continuity for the next macro step).
     dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
     for (int i = 0; i < n; i++) d->xdd[0][i] = *d->xd[i];
 }
@@ -145,12 +149,13 @@ void IntegratorRK45::propagate(Block* root)
         d->xdd[0][i] = *d->xd[i];  // k1
     }
 
-    // NOTE (known limitation): stage derivatives are evaluated with the Clock
-    // held at the start-of-step time (the clock is only advanced after the macro
-    // step). The tick-based Clock (2 ticks per dt) cannot represent Dormand-Prince
-    // stage times (c = 1/5, 3/10, 4/5, ...), so explicitly time-dependent models
-    // integrated under RK45 see constant time across stages. Use RK4 for strongly
-    // time-dependent dynamics until the clock gains a continuous stage-time.
+    // Stage times: the tick clock (2 ticks per dt) cannot represent
+    // Dormand-Prince stage fractions or adaptive sub-step boundaries, so each
+    // stage evaluation carries its true time (t_covered + c_i*h, seconds past
+    // the macro tick time) via Clock::set_stage_offset — time-dependent models
+    // reading t() in update() see correct stage times. The offset is cleared
+    // before the macro-step tick advance below, so events, reports, and FCS
+    // scheduling still see pure tick time. [R2 / A11]
 
     // --- Sub-step loop: advance by exactly dt_nominal ---
     //
@@ -177,7 +182,7 @@ void IntegratorRK45::propagate(Block* root)
         if (rejects_this_macro >= STIFF_REJECT_LIMIT ||
             substep_guard       >= STIFF_SUBSTEP_LIMIT)
         {
-            rk4_fallback_step(root, n, dt_nominal - t_covered);
+            rk4_fallback_step(root, n, t_covered, dt_nominal - t_covered);
             t_covered = dt_nominal;
             stiff_fallbacks_++;
             if (!stiff_warned_)
@@ -221,12 +226,14 @@ void IntegratorRK45::propagate(Block* root)
         // Stage 2
         for (int i = 0; i < n; i++)
             *d->x[i] = d->x0[i] + h * b21 * d->xdd[0][i];
+        clock->set_stage_offset(t_covered + a2 * h);
         dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
         for (int i = 0; i < n; i++) d->xdd[1][i] = *d->xd[i];
 
         // Stage 3
         for (int i = 0; i < n; i++)
             *d->x[i] = d->x0[i] + h * (b31 * d->xdd[0][i] + b32 * d->xdd[1][i]);
+        clock->set_stage_offset(t_covered + a3 * h);
         dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
         for (int i = 0; i < n; i++) d->xdd[2][i] = *d->xd[i];
 
@@ -234,6 +241,7 @@ void IntegratorRK45::propagate(Block* root)
         for (int i = 0; i < n; i++)
             *d->x[i] = d->x0[i] + h * (b41 * d->xdd[0][i] + b42 * d->xdd[1][i]
                                         + b43 * d->xdd[2][i]);
+        clock->set_stage_offset(t_covered + a4 * h);
         dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
         for (int i = 0; i < n; i++) d->xdd[3][i] = *d->xd[i];
 
@@ -241,6 +249,7 @@ void IntegratorRK45::propagate(Block* root)
         for (int i = 0; i < n; i++)
             *d->x[i] = d->x0[i] + h * (b51 * d->xdd[0][i] + b52 * d->xdd[1][i]
                                         + b53 * d->xdd[2][i] + b54 * d->xdd[3][i]);
+        clock->set_stage_offset(t_covered + a5 * h);
         dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
         for (int i = 0; i < n; i++) d->xdd[4][i] = *d->xd[i];
 
@@ -249,6 +258,7 @@ void IntegratorRK45::propagate(Block* root)
             *d->x[i] = d->x0[i] + h * (b61 * d->xdd[0][i] + b62 * d->xdd[1][i]
                                         + b63 * d->xdd[2][i] + b64 * d->xdd[3][i]
                                         + b65 * d->xdd[4][i]);
+        clock->set_stage_offset(t_covered + a6 * h);
         dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
         for (int i = 0; i < n; i++) d->xdd[5][i] = *d->xd[i];
 
@@ -258,7 +268,8 @@ void IntegratorRK45::propagate(Block* root)
                                         + c4 * d->xdd[3][i] + c5 * d->xdd[4][i]
                                         + c6 * d->xdd[5][i]);
 
-        // k7 (FSAL) for error estimate
+        // k7 (FSAL) for error estimate — at the end-of-sub-step time
+        clock->set_stage_offset(t_covered + h);
         dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
         for (int i = 0; i < n; i++) d->xdd[6][i] = *d->xd[i];
 
@@ -305,8 +316,9 @@ void IntegratorRK45::propagate(Block* root)
             for (int i = 0; i < n; i++)
                 *d->x[i] = d->x0[i];
 
-            // Re-evaluate derivatives at the restored state (also primes k1 for a
-            // possible RK4 fallback on the next loop iteration).
+            // Re-evaluate derivatives at the restored state and its time (also
+            // primes k1 for a possible RK4 fallback on the next loop iteration).
+            clock->set_stage_offset(t_covered);
             dsf::util::TFunctor<Block>(root->getChildren(), &Block::update);
             for (int i = 0; i < n; i++)
                 d->xdd[0][i] = *d->xd[i];
@@ -336,6 +348,9 @@ void IntegratorRK45::propagate(Block* root)
     }
 
     // --- Advance clock by nominal dt (2 ticks, same as RK4) ---
+    // Stage offset back to zero first: from here on (constrain/update, events,
+    // reports) time is the macro boundary, pure tick arithmetic.
+    clock->set_stage_offset(0.0);
     clock->increment();
     clock->increment();
 

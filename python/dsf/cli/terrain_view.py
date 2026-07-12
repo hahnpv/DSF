@@ -131,56 +131,25 @@ def load_dted_tile(path: str):
 
 
 def load_trajectory(h5_path: str):
-    """Load lat/lon/alt from an H5 output file. Returns dict."""
-    import h5py
-    f = h5py.File(h5_path, 'r')
-    
-    result = {}
-    
-    # Find Time
-    if 'Time' in f:
-        result['time'] = f['Time'][:]
-    
-    # Search for lat/lon/alt in vehicle groups
-    for key in f.keys():
-        grp = f[key]
-        if not isinstance(grp, h5py.Group):
-            continue
-        
-        for ds_name in grp.keys():
-            ds = grp[ds_name]
-            name_lower = ds_name.lower()
-            
-            if 'latitude' in name_lower and 'lat' not in result:
-                data = ds[:]
-                units = ds.attrs.get('units', 'rad')
-                if units == 'rad':
-                    data = np.degrees(data)
-                result['lat'] = data.flatten()
-                
-            elif 'earth longitude' in name_lower and 'lon' not in result:
-                data = ds[:]
-                units = ds.attrs.get('units', 'rad')
-                if units == 'rad':
-                    data = np.degrees(data)
-                result['lon'] = data.flatten()
-                
-            elif name_lower == 'longitude' and 'lon_inertial' not in result:
-                data = ds[:]
-                units = ds.attrs.get('units', 'rad')
-                if units == 'rad':
-                    data = np.degrees(data)
-                result['lon_inertial'] = data.flatten()
-                
-            elif 'altitude' == name_lower and 'alt' not in result:
-                result['alt'] = ds[:].flatten()
-    
-    # If no Earth Longitude, use inertial longitude
-    if 'lon' not in result and 'lon_inertial' in result:
-        result['lon'] = result['lon_inertial']
-    
-    f.close()
-    return result
+    """Load lat/lon/alt (degrees/meters) from an H5 output file. Returns dict.
+
+    Thin wrapper over the shared loader + channel resolver — takes the first
+    block that has both lat and lon (channels are stored in radians;
+    converted to degrees here for the terrain math).
+    """
+    from dsf.utils.data_loader import load_h5, find_geodetic
+
+    _, data = load_h5(h5_path)
+    for geo in find_geodetic(data).values():
+        if 'lat' in geo and 'lon' in geo:
+            result = {
+                'lat': np.degrees(geo['lat']).flatten(),
+                'lon': np.degrees(geo['lon']).flatten(),
+            }
+            if 'alt' in geo:
+                result['alt'] = np.asarray(geo['alt']).flatten()
+            return result
+    return {}
 
 
 def find_tiles_for_bbox(terrain_dir: str, lat_min: float, lat_max: float,

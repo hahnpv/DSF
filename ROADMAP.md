@@ -13,20 +13,45 @@ section is resolved; the visualization/GRAM ideas below absorb the rest.
 
 ## 1. Architecture
 
-### R1. Retire the process-global singletons  *(highest leverage remaining)*
-`TClassDict`, the integrand dictionary (`TIntDict`), `EventBus`, and the
-newer `PropertyNameRegistry` / `config_errors()` are process-global with no
-ownership. Clear-on-load patches the symptom; the design is why GUI /
-MCP-session / Monte-Carlo hosts are fragile — a second sim in one process
-walks on the first's state. Real fix: each `Sim` **owns** its integrand
-registry and event bus (dependency-injected). Meaningful refactor; retires a
-whole class of latent bugs. *(was H4)*
+### R1. Retire the process-global singletons  *(planned — see `R1_SINGLETONS.md`)*
+The integrand dictionary (`TIntDict`), `EventBus`, and `config_errors()`
+are process-global mutable state; clear-on-load (A12) protects sequential
+reuse by breaking interleaved reuse. Plan (2026-07-11): `Sim` owns its
+integrand registry + event bus; `Instance()` becomes a thread_local
+"active registry" context the Sim swaps in (no model source changes, no
+Block ABI break); `config_errors()` goes thread_local. The factory
+(`TClassDict`) and `PropertyNameRegistry` stay global **by design**
+(dlopen-time metadata). Requires a sixdof rebuild + pin bump. Full write-up: `R1_SINGLETONS.md`.
+*(was H4)*
 
-### R2. RK45 per-stage clock time  *(blocked by R1's clock work)*
-The tick-based clock (2 ticks/dt) can't represent Dormand-Prince stage
-times; documented as a known limitation in `integrator_rk45.cpp`. Use RK4
-for strongly time-dependent dynamics until the clock gains a continuous
-stage time. *(was A11)*
+### R2. ~~RK45 per-stage clock time~~  *(DONE 2026-07-11)*
+The tick-based clock (2 ticks/dt, purpose-built for RK4's c = 0,½,½,1)
+can't represent Dormand-Prince stage times, so RK45 held `t()` frozen at
+start-of-step for every stage of every adaptive sub-step — silently ~1st
+order for time-forced models. Fix: a continuous `stage_offset` appended to
+`Clock` (`t()` = tick time + offset; `Sample()`/report gating stay pure-tick;
+offset forced to 0 whenever not mid-integration). Integrators set the offset
+per stage; RK4/Verlet migrate to the same mechanism for uniform `t()`
+semantics (this also fixes Verlet's step-3 force eval, which ran at t+dt/2
+instead of t+dt). Not actually blocked by R1 — the offset is additive on the
+existing per-Sim Clock. **Field appended at end of Clock so a stale
+`libsixdof.so` fails soft** (sees macro time — the pre-fix behavior).
+sixdof rebuilt against the new headers and the RK45 decks
+(`f16_*_rk45`) re-verified 2026-07-11. *(was A11)*
+
+### R2b. Adaptive macro stepping  *(future — the "longer steps" payoff)*
+Today RK45 adapts **downward only**: sub-steps refine within the deck's
+fixed macro `dt` (`h` is clipped to the remaining macro interval), so RK45
+can never take a longer step than RK4 — its value is error control and
+robustness, at ~2× the per-step cost. Letting the integrator *stretch* the
+macro step during smooth flight (orbit coast at seconds-long steps) needs:
+(a) an integrator policy driving `Clock::set_dt()` between steps — the
+clock already supports rescaled dynamic dt and the `Sample()` report gate
+is already robust to arbitrary dt/rate ratios (A6 fix); (b) an audit of
+blocks whose discrete logic latches `dt()` at init (filter gains, FCS
+integrators, Dryden shaping) to read it per-step instead. Payoff is
+long-coast orbit decks (GPS fixtures); aircraft/missile decks are FCS-rate
+-bound and gain little. Do after R2.
 
 ### R3. ~~Make C++ Monte Carlo dispersions fully honest~~  *(DONE 2026-07-11)*
 The numpy pre-draws are now transmitted into each case's XML
@@ -69,17 +94,21 @@ a recurring bug source. Minimum: a conventions document; better: unit
 annotations on block properties (the `PropertyMetadata` direction field
 shows the pattern) with conversion at parse time.
 
-### R7. Finish the Python data-loader cleanup
-The file-level merge already happened — `dsf/visualization/data_loader.py`
-was migrated into `dsf/utils/data_loader.py` (shim re-export remains in
-`dsf/visualization/__init__.py`). Residual duplication: the Vec3-regrouping
-logic is copy-pasted between `load_h5`'s hierarchical/flat branches;
-`load_h5_trajectory` re-implements H5 reading instead of adapting
-`load_h5`; `load_csv_trajectory` appears to have no consumers; and three
-CLI views each carry their own position-channel guessing
-(`map_view` LAT/LON aliases, `globe_view` ECEF keys,
-`terrain_view.load_trajectory` — a whole third H5 reader). Fix: one
-channel-resolver next to `load_h5`; views become load→resolve→render.
+### R7. ~~Finish the Python data-loader cleanup~~  *(DONE 2026-07-11)*
+`load_h5` is now the only code that opens an output H5 (shared
+`_regroup_vec3` for both formats; `load_h5_trajectory` is an adapter;
+consumer-less `load_csv_trajectory` deleted). The three per-view
+position-channel tables collapsed into `find_geodetic`/`find_ecef` next to
+`load_h5`; map/globe/terrain views are load→resolve→render. **Real bug
+found and fixed in the process:** angle units vary by model (Equinoctial
+logs Latitude/Longitude in *degrees*, 6DOF/Hydro in radians) and the HDF5
+`units` attribute says which — `load_h5` now preserves it
+(`BlockData.units`) and `find_geodetic` normalizes to radians, fixing
+`map_view`'s blanket radians assumption, which was silently wrong for
+orbit decks (54 "rad" ≈ 3100°). Pinned by `test_data_loader.py` (units,
+aliases, ECEF/ECI preference, flat-format regroup) and verified against a
+live Equinoctial deck. The per-model units mess itself is R6's problem —
+this at least makes the readers honest about it.
 
 ## 3. JAX GPU Monte Carlo track
 
