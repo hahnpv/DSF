@@ -22,6 +22,12 @@ target_link_libraries(cpp_kernel_tests PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIB
 target_include_directories(cpp_kernel_tests PRIVATE ${Boost_INCLUDE_DIRS})
 add_test(NAME cpp_kernel_tests COMMAND cpp_kernel_tests)
 
+# Multi-Sim isolation (R1: Sim-owned integrand registry + event bus).
+add_executable(cpp_multisim_tests test_multisim.cpp)
+target_link_libraries(cpp_multisim_tests PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES} pthread)
+target_include_directories(cpp_multisim_tests PRIVATE ${Boost_INCLUDE_DIRS})
+add_test(NAME cpp_multisim_tests COMMAND cpp_multisim_tests)
+
 # Shared deck loader (SimInput parsing, fallback rule, strict resolution).
 add_executable(cpp_loader_tests test_loader.cpp)
 target_link_libraries(cpp_loader_tests PRIVATE DSF dl ${Boost_LIBRARIES} ${HDF5_LIBRARIES})

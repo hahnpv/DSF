@@ -83,11 +83,19 @@ public:
     std::optional<double> check(double t, double dt) const;
 };
 
-/// Central event bus — singleton evaluated once per integration step.
+/// Central event bus, evaluated once per integration step. Each Sim OWNS
+/// one (R1); Instance() returns the running Sim's bus via a thread_local
+/// context, falling back to a process-wide bus for standalone use.
 class EventBus
 {
 public:
+    EventBus() = default;
+
     static EventBus* Instance();
+    /// Set/clear the thread's active bus (Sim-internal; RAII-guarded).
+    static void make_current(EventBus* b);
+    /// The thread's active bus (null when no Sim is running).
+    static EventBus* current();
 
     /// Register an event. Returns event ID.
     int add(Event e);
@@ -113,8 +121,8 @@ public:
     void clear();
 
 private:
-    EventBus() = default;
     static EventBus* instance_;
+    static thread_local EventBus* current_;   ///< Sim-scoped active bus [R1].
 
     std::vector<Event> events_;
     std::vector<FiredEvent> history_;

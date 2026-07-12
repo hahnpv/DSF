@@ -16,6 +16,8 @@
 #pragma once
 
 #include "output.h"
+#include "event.h"
+#include "TIntDict.h"
 #include <vector>
 #include <string>
 
@@ -87,7 +89,16 @@ namespace dsf
             Clock *clock = nullptr;                 ///< Simulation clock.
             Output *output = nullptr;               ///< Telemetry output handler.
 
+            /// This Sim's OWN integrand registry and event bus (R1 — no more
+            /// process-global mutable state). Made "current" (thread_local)
+            /// for the duration of load/init/step/exec/finalize, so model
+            /// code calling the Instance() accessors lands here.
+            TClassIntegrandDict<Block>* integrands() { return &integrands_; }
+            EventBus* events() { return &events_; }
+
         private:
+            TClassIntegrandDict<Block> integrands_; ///< Sim-owned integrands [R1].
+            EventBus events_;                       ///< Sim-owned event bus [R1].
             double rptRate = 0.0;                   ///< Console report rate [s].
             std::vector<Block*>simulation;          ///< Root block tree.
             IntegratorBase *i = nullptr;            ///< Active integrator.

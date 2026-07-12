@@ -43,17 +43,31 @@ namespace dsf
         {
         public:
             /**
-             * @brief Get singleton dictionary instance.
-             * @return Pointer to singleton.
+             * @brief Get the ACTIVE integrand registry.
+             *
+             * Returns the Sim-owned registry made current by the running
+             * Sim (thread_local — set for the duration of load/init/step/
+             * exec/finalize), so model init() code calling
+             * `Instance()->add(...)` lands in the owning Sim without any
+             * model changes. Falls back to a process-wide registry for
+             * standalone use (integrator test harnesses, no Sim). [R1]
+             * @return Pointer to the active registry.
              */
             static TClassIntegrandDict<TClass> * Instance()
             {
+                if (current_) return current_;
                 if (SingletonInstance == NULL)
                 {
                     SingletonInstance = new TClassIntegrandDict<TClass>;
                 }
                 return SingletonInstance;
             };
+
+            /// Set/clear the thread's active registry (Sim-internal; use a
+            /// RAII guard so exceptions restore the previous one).
+            static void make_current(TClassIntegrandDict<TClass>* r) { current_ = r; }
+            /// The thread's active registry (null when no Sim is running).
+            static TClassIntegrandDict<TClass>* current() { return current_; }
 
             /**
              * @brief Register a Vec3 state-derivative pair.
@@ -185,21 +199,25 @@ namespace dsf
                 }
             }
 
-        private:
+        public:
+            /// Public since R1: each Sim owns one as a plain member (the old
+            /// private-ctor singleton discipline no longer applies).
             TClassIntegrandDict()
             {
                 xdd.resize(4);
             }
-        public:
+
             std::vector<double*>x;                          ///< State value pointers.
             std::vector<double>x0;                          ///< Initial values (start of step).
             std::vector<double*>xd;                         ///< Derivative pointers.
             std::vector< std::vector<double> > xdd;         ///< Intermediate stage values.
             std::vector<dsf::sim::IntegrandType> types;     ///< Per-integrand type tags.
             std::vector<TClassBase<TClass > >classDict;     ///< Owner blocks for each integrand.
-            static TClassIntegrandDict<TClass> * SingletonInstance; ///< Singleton pointer.
+            static TClassIntegrandDict<TClass> * SingletonInstance;
+            static thread_local TClassIntegrandDict<TClass>* current_;  ///< Sim-scoped active registry [R1]. ///< Singleton pointer.
         };
         /// Static member initialization
         template<class TClass> TClassIntegrandDict<TClass> * TClassIntegrandDict<TClass>::SingletonInstance =0;
+        template<class TClass> thread_local TClassIntegrandDict<TClass>* TClassIntegrandDict<TClass>::current_ = nullptr;
     }
 }

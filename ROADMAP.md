@@ -13,16 +13,20 @@ section is resolved; the visualization/GRAM ideas below absorb the rest.
 
 ## 1. Architecture
 
-### R1. Retire the process-global singletons  *(planned — see `R1_SINGLETONS.md`)*
-The integrand dictionary (`TIntDict`), `EventBus`, and `config_errors()`
-are process-global mutable state; clear-on-load (A12) protects sequential
-reuse by breaking interleaved reuse. Plan (2026-07-11): `Sim` owns its
-integrand registry + event bus; `Instance()` becomes a thread_local
-"active registry" context the Sim swaps in (no model source changes, no
-Block ABI break); `config_errors()` goes thread_local. The factory
+### R1. Retire the process-global singletons  *(Phases 1+2 DONE 2026-07-11)*
+Each `Sim` now OWNS its integrand registry and event bus; `Instance()`
+resolves through a thread_local "active registry" context the Sim scopes
+around load/init/step/exec/finalize (RAII), with a process fallback for
+standalone harnesses — no model source changes, no Block ABI break.
+Retired bugs, pinned by `cpp_multisim_tests` (17 checks, ASan/UBSan
+clean) + `python/tests/test_multisim.py` (two interleaved SimSessions):
+load-B-wipes-live-A, cross-sim event evaluation/dangling pointers,
+destroy-one-continue-other, and cross-thread interference. The factory
 (`TClassDict`) and `PropertyNameRegistry` stay global **by design**
-(dlopen-time metadata). Requires a sixdof rebuild + pin bump. Full write-up: `R1_SINGLETONS.md`.
-*(was H4)*
+(dlopen-time metadata). Remaining: Phase 3 (`config_errors()` →
+thread_local) and optional Phase 4 (`Block::addIntegrand` sugar) — see
+`R1_SINGLETONS.md`. sixdof rebuilt + pin bumped same day (NOT fail-soft:
+a stale model lib registers into the dead global). *(was H4)*
 
 ### R2. ~~RK45 per-stage clock time~~  *(DONE 2026-07-11)*
 The tick-based clock (2 ticks/dt, purpose-built for RK4's c = 0,½,½,1)

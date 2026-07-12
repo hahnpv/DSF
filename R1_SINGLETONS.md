@@ -1,6 +1,8 @@
 # Plan: R1 — retire the process-global singletons
 
-*Status: PLAN — pending review. Written 2026-07-11. ROADMAP R1.*
+*Status: Phases 1+2 IMPLEMENTED 2026-07-11 (this document was the plan;
+deviations noted inline). Phase 3 (config_errors → thread_local) and the
+optional Phase 4 remain. ROADMAP R1.*
 
 One process, one simulation: that assumption is baked in as four
 process-global registries. It is why a second `Sim` in the same process
@@ -88,10 +90,12 @@ for other reasons; it is NOT required to fix the bugs.
 - `EventBus`: same treatment (`Instance()` → thread_local current with
   fallback), `Sim::step` uses `events_` directly, `xml_config.h` uses
   `sim.events()`. sixdof has zero references — no model impact.
-- Integrators: `IntegratorBase` gains `TClassIntegrandDict<Block>*
-  integrands` (set in `Sim::load`, beside `clock`); the three
-  `propagate()` implementations use it instead of `Instance()`. The
-  standalone test harness sets it explicitly (or relies on the fallback).
+- Integrators: UNCHANGED (deviation from the original plan, simpler):
+  they keep calling `Instance()`, which resolves to the owning Sim's
+  registry because `Sim::step/exec` hold the scoped context around
+  `propagate()` — and to the fallback in standalone harnesses. Zero
+  integrator churn, and every step exercises the same context path the
+  models use.
 - Bindings: nothing user-visible changes (`apply_monte_carlo` walks the
   *factory* metadata, which stays global; `register_events` already takes
   the Sim).

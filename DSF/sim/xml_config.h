@@ -116,7 +116,7 @@ inline void register_events(Sim& sim, dsf::xml::xmlnode sim_node)
                           << "' for '" << name << "'" << std::endl;
             }
 
-            int id = EventBus::Instance()->add(event);
+            int id = sim.events()->add(event);
             std::cout << "[Event] Registered '" << name << "' (id=" << id
                       << " type=" << type_s << " var=" << var_s
                       << " val=" << value << " action=" << action << ")" << std::endl;
@@ -124,7 +124,7 @@ inline void register_events(Sim& sim, dsf::xml::xmlnode sim_node)
     }
 
     // Latch initial values so crossing detection has a baseline.
-    EventBus::Instance()->latch();
+    sim.events()->latch();
 }
 
 } // namespace sim

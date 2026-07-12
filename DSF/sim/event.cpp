@@ -118,13 +118,18 @@ std::optional<double> Event::check(double t, double dt) const
 // EventBus singleton
 // -------------------------------------------------------------------------
 EventBus* EventBus::instance_ = nullptr;
+thread_local EventBus* EventBus::current_ = nullptr;
 
 EventBus* EventBus::Instance()
 {
+    if (current_) return current_;      // the running Sim's own bus [R1]
     if (!instance_)
         instance_ = new EventBus;
-    return instance_;
+    return instance_;                    // fallback: standalone/no-Sim use
 }
+
+void EventBus::make_current(EventBus* b) { current_ = b; }
+EventBus* EventBus::current() { return current_; }
 
 int EventBus::add(Event e)
 {

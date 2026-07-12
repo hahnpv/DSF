@@ -21,6 +21,29 @@ namespace dsf
 {
 	namespace sim 
 	{
+		namespace {
+		/// Make this Sim's registries the thread's active ones for the
+		/// duration of a lifecycle call (RAII: restores the previous
+		/// context on scope exit, so nesting and exceptions are safe). [R1]
+		struct ScopedSimContext
+		{
+			TClassIntegrandDict<Block>* prev_i;
+			EventBus* prev_e;
+			ScopedSimContext(TClassIntegrandDict<Block>* i, EventBus* e)
+				: prev_i(TClassIntegrandDict<Block>::current()),
+				  prev_e(EventBus::current())
+			{
+				TClassIntegrandDict<Block>::make_current(i);
+				EventBus::make_current(e);
+			}
+			~ScopedSimContext()
+			{
+				TClassIntegrandDict<Block>::make_current(prev_i);
+				EventBus::make_current(prev_e);
+			}
+		};
+		} // namespace
+
 		void Sim::run() 
 		{
 			init();
@@ -29,6 +52,7 @@ namespace dsf
 
 		void Sim::init()
 		{
+			ScopedSimContext ctx(&integrands_, &events_);
 			dsf::util::TFunctor<Block>(simulation, &Block::init);
 		}
 
@@ -39,6 +63,7 @@ namespace dsf
 			// a null-deref segfault instead of a catchable error. [A7]
 			if (!clock || !i || simulation.empty())
 				throw std::runtime_error("Sim::step() called before Sim::load()");
+			ScopedSimContext ctx(&integrands_, &events_);
 			i->propagate(simulation[0]);							// integrate
 			EventBus::Instance()->evaluate(clock->t(), clock->dt());	// event detection
 			EventBus::Instance()->latch();							// save state for next step
@@ -47,6 +72,7 @@ namespace dsf
 
 		void Sim::finalize()
 		{
+			ScopedSimContext ctx(&integrands_, &events_);
 			dsf::util::TFunctor<Block>(simulation, &Block::rpt);		// final report, all models.
 			dsf::util::TFunctor<Block>(simulation, &Block::finalize);
 		}
@@ -55,6 +81,7 @@ namespace dsf
 		{
 			if (!clock || !i || simulation.empty())
 				throw std::runtime_error("Sim::exec() called before Sim::load()");
+			ScopedSimContext ctx(&integrands_, &events_);
 
 			time_t seconds = time(NULL);
 
@@ -80,12 +107,14 @@ namespace dsf
 		               const std::string& integrator_type, double atol, double rtol)
 		{
 			rptRate = _console;
+			ScopedSimContext ctx(&integrands_, &events_);
 
-			// Start from a clean integrand table and event bus. In a long-lived
-			// process (GUI / MCP session / Monte Carlo) a previous run's state
-			// pointers would otherwise still be registered and get integrated.
-			TClassIntegrandDict<Block>::Instance()->clear();
-			EventBus::Instance()->clear();
+			// Start from a clean integrand table and event bus — OUR OWN (R1):
+			// this makes re-load() on the same Sim instance well-defined and,
+			// unlike the old global clear, cannot wipe another live Sim's
+			// registered state out from under it.
+			integrands_.clear();
+			events_.clear();
 
 			// Validate timing parameters. A missing/zero dt attribute previously
 			// produced error=inf and an infinite loop with zero state advance.
