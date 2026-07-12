@@ -177,4 +177,8 @@ void init_util(py::module_ &m) {
         d["missing"] = r.missing;           // lookups that defaulted — informational
         return d;
     }, "Diff a parsed deck against its attribute-usage record (strict mode)");
+
+    m.def("strict_banner_text", &dsf::xml::strict_banner_text,
+          py::arg("n_unused"), py::arg("n_table"),
+          "The strict-mode refusal banner (one copy, shared with the C++ loader)");
 }

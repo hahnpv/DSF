@@ -78,13 +78,17 @@ interpolation code. *(was H13/A40)*
 standing recommendation: couple to external visualizers over a defined
 protocol instead of writing our own distribution layer.
 
-### R8. Consolidate the C++ and Python sim loaders  *(proposal, pending review)*
-`examples/dynamic/main.cpp` and `dsf run` (`run.py` + `SimSession`) each
-re-implement the build sequence and have drifted (class-name fallback,
-log-level conventions, dlopen fallback, strict banner). Plan: push the
-build sequence down into shared C++ (bind `SimInput`, one
-`build_from_xml`, one strict path) — full write-up in
-`LOADER_CONSOLIDATION.md`.
+### R8. ~~Consolidate the C++ and Python sim loaders~~  *(DONE 2026-07-11)*
+All sim-construction logic now lives in C++ once — `sim/SimInput.h` +
+`sim/sim_loader.h` (dlopen, output defaults, tree build with ONE
+class-name fallback rule, MC application, strict resolution + banner) —
+and both loaders are thin callers: `main.cpp` directly, `dsf run` /
+`SimSession` via bindings. Python keeps only non-loading work
+(`.dsf`→XML conversion, RunConfig→options, watch/introspection loops).
+Behavior note: the `dynamic` loader adopted the former Python fallback
+(capitalized tag, `name=` honored); its old class=id fallback was
+vestigial. Pinned by `cpp_loader_tests`; loaders verified byte-identical
+on a live deck. Details: `LOADER_CONSOLIDATION.md`.
 
 ## 2. Config & data plumbing
 

@@ -1,6 +1,26 @@
 # Proposal: consolidate the C++ and Python sim loaders
 
-*Status: PROPOSAL — not started, pending review. Written 2026-07-11.*
+*Status: IMPLEMENTED 2026-07-11.* All three phases landed: `SimInput`
+moved to `DSF/sim/` and bound (run.py's hand-rolled `<sim>` parsing and
+log-level mapping deleted); `sim/sim_loader.h` owns dlopen (deck-relative
+fallback, dlerror captured once), output defaults, the
+instantiate+configure tree build with the UNIFIED fallback rule
+(capitalized tag, `name=` honored — the former Python rule), and
+`build_from_xml`; strict resolution (`resolve_strict`) and the refusal
+banner (`strict_banner_text`) exist once and are bound. `main.cpp` and
+`SimSession.build_tree` are thin callers of the same code. Pinned by
+`cpp_loader_tests` (25 checks); verified byte-identical trajectories and
+identical strict refusals from both loaders on a live deck.
+
+**End state (decided):** every piece of sim-construction logic lives in
+C++ exactly once, and Python reaches it through bindings — Python cannot
+diverge from the C++ loader because it no longer has its own copy of
+anything. `SimSession.build_tree` and `run.py`'s `<sim>` parsing collapse
+into calls to bound C++; `examples/dynamic/main.cpp` becomes a thin caller
+of the same functions. Python keeps only what is genuinely not
+sim-loading: `.dsf`/JSON→XML conversion, `RunConfig` metadata → an options
+struct handed to C++, watch lists, and the per-step
+introspection/telemetry loop (which drives the already-bound `Sim`).
 
 The two entry points that build a sim from a deck — the C++ `dynamic`
 executable (`examples/dynamic/main.cpp`) and the Python `dsf run` path
@@ -35,10 +55,9 @@ and it has drifted.
 
 The shared core must be C++ (the `dynamic` executable cannot depend on
 Python), so the approach is *push down and bind* — extend the
-`sim/xml_config.h` pattern that already worked for Monte Carlo and events.
-Python keeps only its genuine value-add: `.dsf`/JSON→XML conversion,
-`RunConfig` metadata overrides, watch lists, the per-step loop, and
-introspection (`collect_state`, header prefixing).
+`sim/xml_config.h` pattern that already worked for Monte Carlo and events
+(both loaders now run the same MC/event code; this plan finishes the job
+for the rest of the build sequence).
 
 ### Phase 1 — bind `SimInput`
 `main.cpp:20` already carries `// FIXME relocate to DSF with SimInput`.

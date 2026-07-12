@@ -7,6 +7,8 @@
 #include "sim/TRefDict.h"
 #include "sim/TClassDict.h" // Added include
 #include "sim/xml_config.h" // events + Monte Carlo registration from XML
+#include "sim/SimInput.h"   // THE <sim> attribute reader (shared with dynamic)
+#include "sim/sim_loader.h" // THE deck build sequence (shared with dynamic)
 #include "util/math/quat.h" // Added for Quaternion introspection
 
 using namespace dsf::sim;
@@ -200,6 +202,43 @@ void init_sim(py::module_ &m) {
           py::arg("case_id") = -1, py::arg("case_seed") = 0);
     m.def("register_events", &dsf::sim::register_events,
           py::arg("sim"), py::arg("sim_node"));
+
+    // ── The shared loader (sim/SimInput.h + sim/sim_loader.h) ──────────────
+    // dsf run / SimSession call the SAME code the `dynamic` executable runs;
+    // Python holds no sim-construction logic of its own (R8).
+    py::class_<SimInput>(m, "SimInput")
+        .def(py::init<dsf::xml::xmlnode>(), py::arg("sim_node"))
+        .def("tmax", &SimInput::tmax)
+        .def("dt", &SimInput::dt)
+        .def("rate_console", &SimInput::rateConsole)
+        .def("rate_file", &SimInput::rateFile)
+        .def("library", &SimInput::library)
+        .def("integrator", &SimInput::integrator)
+        .def("atol", &SimInput::atol)
+        .def("rtol", &SimInput::rtol)
+        .def("seed", &SimInput::seed)
+        .def("case_id", &SimInput::caseId)
+        .def("is_csv", &SimInput::isCSV)
+        .def("is_hdf5", &SimInput::isHDF5)
+        .def("csv_level", &SimInput::csvLevel)
+        .def("hdf5_level", &SimInput::hdf5Level);
+
+    m.def("load_model_library", &dsf::sim::load_model_library,
+          py::arg("library"), py::arg("xml_dir") = "",
+          "dlopen a model library (RTLD_GLOBAL, deck-relative fallback)");
+    m.def("apply_output_defaults", &dsf::sim::apply_output_defaults,
+          py::arg("input"),
+          "Apply the deck's output policy to the Output defaults");
+    m.def("build_tree", &dsf::sim::build_tree, py::arg("sim_node"),
+          py::return_value_policy::take_ownership,
+          "Instantiate + configure the block tree (unified fallback rule)");
+    m.def("build_from_xml", &dsf::sim::build_from_xml,
+          py::arg("sim_node"), py::arg("input"), py::arg("xml_dir") = "",
+          py::return_value_policy::take_ownership,
+          "Full build sequence: library, output defaults, tree, Monte Carlo");
+    m.def("resolve_strict", &dsf::sim::resolve_strict,
+          py::arg("sim_node"), py::arg("cli_not_strict"),
+          "Strict-mode resolution (deck opt-out + CLI opt-out)");
 
     py::class_<PropertyMetadata>(m, "PropertyMetadata")
         .def_readonly("name", &PropertyMetadata::name)

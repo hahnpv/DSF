@@ -115,9 +115,9 @@ void ValidationReport::print(std::ostream& os) const
     }
 }
 
-void ValidationReport::print_strict_banner(std::ostream& os) const
+std::string strict_banner_text(std::size_t n_unused, std::size_t n_table)
 {
-    os <<
+    return
 "======================================================================\n"
 " CONFIG VALIDATION FAILED — this deck did not pass strict mode\n"
 "======================================================================\n"
@@ -136,9 +136,14 @@ void ValidationReport::print_strict_banner(std::ostream& os) const
 "   --not-strict on the command line   (this invocation only)\n"
 "   <sim strict=\"false\" ...>           (permanently, per deck)\n"
 "======================================================================\n"
-       << " Refusing to run: " << unused.size()
-       << " unused attribute(s)/element(s), " << table_errors.size()
-       << " table error(s).\n";
+" Refusing to run: " + std::to_string(n_unused)
+       + " unused attribute(s)/element(s), " + std::to_string(n_table)
+       + " table error(s).\n";
+}
+
+void ValidationReport::print_strict_banner(std::ostream& os) const
+{
+    os << strict_banner_text(unused.size(), table_errors.size());
 }
 
 } // namespace xml

@@ -7,7 +7,6 @@ introspection so neither caller has to duplicate this logic.
 """
 
 from __future__ import annotations
-import ctypes
 import os
 import sys
 from typing import List, Tuple, Any, Dict, Optional
@@ -80,17 +79,11 @@ class SimSession:
         return self._sim
 
     def _load_library(self):
-        """dlopen the model library (RTLD_GLOBAL so it can resolve DSF symbols),
-        falling back to a path relative to the XML file — matching the C++ loader
-        and the previous `dsf run` behavior."""
-        try:
-            ctypes.CDLL(self.lib_path, mode=os.RTLD_GLOBAL | os.RTLD_NOW)
-        except OSError:
-            alt = os.path.join(os.path.dirname(os.path.abspath(self.xml_path)), self.lib_path)
-            if alt != self.lib_path and os.path.exists(alt):
-                ctypes.CDLL(alt, mode=os.RTLD_GLOBAL | os.RTLD_NOW)
-            else:
-                raise
+        """dlopen the model library via the shared C++ loader (RTLD_GLOBAL so
+        it can resolve DSF symbols, with a deck-relative path fallback) — the
+        SAME code path the `dynamic` executable uses."""
+        self._dsf.load_model_library(
+            self.lib_path, os.path.dirname(os.path.abspath(self.xml_path)))
 
     def build_tree(self):
         """Load library, parse XML, construct + configure the block tree, and
@@ -100,7 +93,8 @@ class SimSession:
         import dsf as _dsf
         self._dsf = _dsf
 
-        self._load_library()
+        if self.lib_path:
+            self._load_library()
 
         # Apply output policy (leave the C++ defaults where unset).
         if self.csv is not None:       _dsf.Output.defaultCSV = self.csv
@@ -119,39 +113,22 @@ class SimSession:
         sim_node = xml_input.xmlRoot.search("sim")
         self._sim_node = sim_node   # reused by init() for <events> registration
 
-        # Build block tree
-        self._sim_root = _dsf.Block()
+        # Build the block tree via the shared C++ loader (sim/sim_loader.h):
+        # instantiate + configure + typo check, ONE fallback rule — the same
+        # code the `dynamic` executable runs, so the paths cannot drift.
+        self._sim_root = _dsf.build_tree(sim_node)
+
+        # Rebuild the (block, xml_node, id) introspection list the step-loop
+        # callers (watch/GUI/MCP) use: C++ built children in deck order,
+        # skipping id-less elements — walk the two in lockstep.
+        blocks = self._sim_root.getChildren()
+        bi = 0
         for child in sim_node.children():
-            child_id    = child.attrAsString("id")
-            child_name  = child.attrAsString("name")
-            child_class = child.attrAsString("class")
-            if not child_id:
+            if not child.attrAsString("id"):
                 continue
-
-            final_id  = child_name if child_name else child_id
-            raw_tag   = child.name()
-            class_to_use = (child_class if child_class
-                            else (raw_tag[0].upper() + raw_tag[1:] if raw_tag else ""))
-
-            block = _dsf.make_block(class_to_use)
-            if block is None:
-                raise RuntimeError(
-                    f"Factory returned None for class '{class_to_use}' (id={child_id}). "
-                    "Is the library loaded and the class name correct?"
-                )
-            block.setName(final_id)
-            self._sim_root.addChild(block)
-            self._all_blocks.append((block, child, final_id))
-
-        # Configure pass
-        for block, node, name_override in self._all_blocks:
-            block.configure(node)
-            # Configure-time metadata check: flag deck attributes this block's
-            # DSF_PROPERTY metadata does not declare (likely typos). Advisory
-            # only — the strict-mode unused-attribute validation stays fatal.
-            warn_unknown = getattr(_dsf, "warn_unknown_attributes", None)
-            if warn_unknown is not None:
-                warn_unknown(block, node)
+            block = blocks[bi]
+            self._all_blocks.append((block, child, block.get_name()))
+            bi += 1
 
         # Apply Monte-Carlo dispersions (after configure, before load — matching
         # the C++ loader). No-op for a nominal run (case_id < 0).
@@ -195,35 +172,14 @@ class SimSession:
         self._validate_config()
         self._final_headers = self._build_headers()
 
-    STRICT_BANNER = """\
-======================================================================
- CONFIG VALIDATION FAILED — this deck did not pass strict mode
-======================================================================
- Strict mode is now the DEFAULT. The [config] lines above list:
-
-   * UNUSED attributes/elements — present in the deck but never read
-     by any model. Usually a typo'd name: the model looked up the
-     correct spelling, found nothing, and silently used 0.
-
-   * TABLE errors — a lookup table failed to load, so the model would
-     interpolate 0 everywhere (e.g. an aero deck flying ballistic).
-
- Decks with these problems used to run anyway — and were quietly
- wrong. Fix the deck (usual case), or opt out of strict mode:
-
-   dsf run <deck> --not-strict        (this invocation only)
-   <sim strict="false" ...>           (permanently, per deck)
-======================================================================"""
-
     def _validate_config(self):
         """Config validation: diff the deck against what the models
         actually read. Unused attributes (typos) and failed table loads are
         fatal by default; opt out with --not-strict (session strict=False)
-        or <sim strict=\"false\">. Matches the C++ loader in main.cpp."""
-        strict = self.strict
-        if strict and self._sim_node.findAttr("strict") \
-                and not self._sim_node.attrAsBool("strict"):
-            strict = False   # deck explicitly opts out
+        or <sim strict=\"false\">. Resolution + banner are the SAME bound
+        C++ the `dynamic` loader uses."""
+        strict = self._dsf.resolve_strict(self._sim_node,
+                                          cli_not_strict=not self.strict)
         report = self._dsf.validate_config(self._xml_input)
         for u in report["unused"]:
             print(f"[config] UNUSED (possible typo — value silently ignored): {u}",
@@ -235,7 +191,9 @@ class SimSession:
                   "(absent attribute/element; often optional)", file=sys.stderr)
         fatal = len(report["unused"]) + len(report["table_errors"])
         if strict and fatal:
-            print(self.STRICT_BANNER, file=sys.stderr)
+            print(self._dsf.strict_banner_text(len(report["unused"]),
+                                               len(report["table_errors"])),
+                  file=sys.stderr, end="")
             raise RuntimeError(
                 f"config validation failed: {len(report['unused'])} unused "
                 f"attribute(s)/element(s), {len(report['table_errors'])} table "

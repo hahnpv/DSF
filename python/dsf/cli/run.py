@@ -130,13 +130,6 @@ def parse_args():
                              "mode is the default.")
     return parser.parse_args()
 
-def map_level(level_str):
-    if level_str == "verbose":
-        return dsf.LogLevel.LOG_VERBOSE
-    if level_str == "critical":
-        return dsf.LogLevel.LOG_CRITICAL
-    return dsf.LogLevel.LOG_NORMAL
-
 def main():
     if dsf is None:
         print("Error: Could not load the dsf_core C++ extension. "
@@ -180,45 +173,19 @@ def main():
     
     root_node = xml_input.xmlRoot
     sim_node = root_node.search("sim")
-    
-    # 2. Parse Simulation Settings (SimInput logic)
-    # SimInput parsing logic manually implemented here since SimInput class isn't bound (and is simple enough)
-    
-    tmax = sim_node.attrAsDouble("tmax")
-    dt = sim_node.attrAsDouble("dt")
-    rate_console = sim_node.attrAsDouble("console")
-    rate_file = sim_node.attrAsDouble("file")
-    library_path = sim_node.attrAsString("library")
-    output_cfg = sim_node.attrAsString("output") # e.g. "csv", "hdf5", or empty (default csv)
-    
-    log_level_str = sim_node.attrAsString("log_level")
-    csv_log_level_str = sim_node.attrAsString("csv_log_level")
-    hdf5_log_level_str = sim_node.attrAsString("hdf5_log_level")
-    
-    # Integrator selection (default: RK4)
-    integrator_type = sim_node.attrAsString("integrator") or "RK4"
-    atol = sim_node.attrAsDouble("atol") if sim_node.attrAsString("atol") else 1e-8
-    rtol = sim_node.attrAsDouble("rtol") if sim_node.attrAsString("rtol") else 1e-6
 
-    # Monte-Carlo case identity (matching C++ SimInput): the dsf.mc dispatcher
-    # patches seed/case_id into each case's XML. Without reading these, a case
-    # deck run through `dsf run` silently executed the NOMINAL trajectory —
-    # per-case runs only worked through the C++ `dynamic` executable.
-    case_id = int(sim_node.attrAsDouble("case_id")) if sim_node.attrAsString("case_id") else -1
-    case_seed = int(sim_node.attrAsDouble("seed")) if sim_node.attrAsString("seed") else 0
-
-    # Resolve Log Levels
-    def resolve_level(specific, global_val):
-        if specific: return map_level(specific)
-        if global_val: return map_level(global_val)
-        return dsf.LogLevel.LOG_NORMAL
-
-    csv_level = resolve_level(csv_log_level_str, log_level_str)
-    h5_level = resolve_level(hdf5_log_level_str, log_level_str)
-
-    # Configure Global Output Defaults
-    is_csv = (not output_cfg) or ("csv" in output_cfg)
-    is_hdf5 = bool(output_cfg and "hdf5" in output_cfg)
+    # 2. Parse simulation settings via the BOUND SimInput — the same reader
+    # the C++ `dynamic` loader uses, so the two paths cannot drift (times,
+    # output policy, log levels, integrator, Monte-Carlo case identity).
+    si = dsf.SimInput(sim_node)
+    tmax, dt = si.tmax(), si.dt()
+    rate_console, rate_file = si.rate_console(), si.rate_file()
+    library_path = si.library()
+    integrator_type = si.integrator() or "RK4"
+    atol, rtol = si.atol(), si.rtol()
+    case_id, case_seed = si.case_id(), si.seed()
+    is_csv, is_hdf5 = si.is_csv(), si.is_hdf5()
+    csv_level, h5_level = si.csv_level(), si.hdf5_level()
 
     # If a RunConfig was loaded from .dsf metadata, let it override XML-derived settings.
     # This allows the JSON project file to be the authoritative source of output policy

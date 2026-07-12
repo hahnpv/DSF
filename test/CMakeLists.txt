@@ -22,6 +22,12 @@ target_link_libraries(cpp_kernel_tests PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIB
 target_include_directories(cpp_kernel_tests PRIVATE ${Boost_INCLUDE_DIRS})
 add_test(NAME cpp_kernel_tests COMMAND cpp_kernel_tests)
 
+# Shared deck loader (SimInput parsing, fallback rule, strict resolution).
+add_executable(cpp_loader_tests test_loader.cpp)
+target_link_libraries(cpp_loader_tests PRIVATE DSF dl ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
+target_include_directories(cpp_loader_tests PRIVATE ${Boost_INCLUDE_DIRS})
+add_test(NAME cpp_loader_tests COMMAND cpp_loader_tests)
+
 # Monte Carlo dispersion engine (transmitted draws, RNG fallback, strict).
 add_executable(cpp_mc_tests test_monte_carlo.cpp)
 target_link_libraries(cpp_mc_tests PRIVATE DSF ${Boost_LIBRARIES} ${HDF5_LIBRARIES})

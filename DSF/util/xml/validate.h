@@ -56,5 +56,9 @@ struct ValidationReport {
 /// pending table load errors. Call after the configure pass.
 ValidationReport validate_config(const xml& doc);
 
+/// The strict-mode refusal banner as a string — ONE copy of the text, shared
+/// by the C++ loader (print_strict_banner) and the Python path (bound).
+std::string strict_banner_text(std::size_t n_unused, std::size_t n_table);
+
 } // namespace xml
 } // namespace dsf
