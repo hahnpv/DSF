@@ -24,6 +24,14 @@ namespace dsf
 			Table() {};
 			Table(std::string fname, std::string tabName);
 			Table(std::string csv_file, std::string x_col, std::string y_col, bool isCSV);
+			~Table();
+
+			// Raw double** storage: movable (model members are assigned from
+			// loader temporaries), not copyable (would double-free).
+			Table(const Table&) = delete;
+			Table& operator=(const Table&) = delete;
+			Table(Table&& o) noexcept;
+			Table& operator=(Table&& o) noexcept;
 			double interp(double x);
 			double operator()(double x)
 			{

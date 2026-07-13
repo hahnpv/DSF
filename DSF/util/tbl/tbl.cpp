@@ -7,6 +7,7 @@
 
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 using namespace std;
 
@@ -14,6 +15,43 @@ namespace dsf
 {
 	namespace util
 	{
+		Table::~Table()
+		{
+			if (table)
+			{
+				for (int i = 0; i <= max; i++) delete[] table[i];
+				delete[] table;
+			}
+		}
+
+		Table::Table(Table&& o) noexcept
+			: tableName(std::move(o.tableName)), min(o.min), max(o.max), table(o.table)
+		{
+			o.table = nullptr;
+			o.min = 0;
+			o.max = -1;
+		}
+
+		Table& Table::operator=(Table&& o) noexcept
+		{
+			if (this != &o)
+			{
+				if (table)
+				{
+					for (int i = 0; i <= max; i++) delete[] table[i];
+					delete[] table;
+				}
+				tableName = std::move(o.tableName);
+				min = o.min;
+				max = o.max;
+				table = o.table;
+				o.table = nullptr;
+				o.min = 0;
+				o.max = -1;
+			}
+			return *this;
+		}
+
 		/// Table custom constructor.
 		/// \param fname is the filename containing the file.
 		/// \param tabName is the header of the table to look for.

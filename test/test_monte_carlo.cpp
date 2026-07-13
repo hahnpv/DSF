@@ -147,6 +147,9 @@ void test_apply_transmitted_draws_verbatim()
     CHECK(body->cd == 3.25, "uniform applied verbatim");
     CHECK(mc.dispersions[0].n_sigma == 2.0, "reported n_sigma is the transmitted draw");
     CHECK(mc.dispersions[0].nominal == 100.0, "nominal captured before overwrite");
+
+    delete body;
+    delete root;
 }
 
 void test_apply_rng_fallback_deterministic()
@@ -159,18 +162,23 @@ void test_apply_rng_fallback_deterministic()
     mc.case_seed = 777;
 
     MCTestBlock* b1 = nullptr;
-    apply_dispersions(make_tree(b1), mc);
+    Block* r1 = make_tree(b1);
+    apply_dispersions(r1, mc);
     double mass1 = b1->mass, cd1 = b1->cd;
 
     MonteCarloCase mc2 = parse_mc_xml(dsf::xml::xmlnode(*doc.xmlRoot).search("sim"));
     mc2.case_id = 1;
     mc2.case_seed = 777;
     MCTestBlock* b2 = nullptr;
-    apply_dispersions(make_tree(b2), mc2);
+    Block* r2 = make_tree(b2);
+    apply_dispersions(r2, mc2);
 
     CHECK(mass1 == b2->mass && cd1 == b2->cd,
           "same case_seed reproduces the same fallback draws");
     CHECK(cd1 >= 1.0 && cd1 <= 4.0, "uniform fallback draw within [min,max]");
+
+    delete b1; delete r1;
+    delete b2; delete r2;
 }
 
 void test_nominal_run_is_untouched()
@@ -183,8 +191,12 @@ void test_nominal_run_is_untouched()
     CHECK(!mc.is_mc(), "case_id=-1 is not an MC case");
 
     MCTestBlock* body = nullptr;
-    apply_dispersions(make_tree(body), mc);
+    Block* root = make_tree(body);
+    apply_dispersions(root, mc);
     CHECK(body->mass == 100.0 && body->cd == 2.0, "nominal run applies nothing");
+
+    delete body;
+    delete root;
 }
 
 int main()

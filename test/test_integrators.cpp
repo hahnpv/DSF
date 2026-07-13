@@ -118,7 +118,7 @@ public:
 // ---------------------------------------------------------------------------
 
 template <class Model>
-void integrate(Model& model, IntegratorBase& integ, double dt, double tmax)
+double integrate(Model& model, IntegratorBase& integ, double dt, double tmax)
 {
     TClassIntegrandDict<Block>::Instance()->clear();
     Clock clock(dt, tmax);
@@ -133,6 +133,13 @@ void integrate(Model& model, IntegratorBase& integ, double dt, double tmax)
     const long MAX = 100000000;
     while (clock.t() < tmax - dt * 0.5 && ++guard < MAX)
         integ.propagate(&root);
+
+    // Sample the model-visible time while the stack Clock is still alive,
+    // then detach: the model must not keep a pointer to this dead frame
+    // (stack-use-after-return under ASan).
+    double t_end = model.t();
+    model.ClockRef(nullptr);
+    return t_end;
 }
 
 // ---------------------------------------------------------------------------
@@ -316,7 +323,7 @@ void test_rk45_stage_times_observed()
     const double dt = 0.1;
     IntegratorRK45 rk45(1e-6, 1e-6);
     TimeProbe m;
-    integrate(m, rk45, dt, dt);
+    double t_end = integrate(m, rk45, dt, dt);
 
     bool in_range = true;
     for (double tv : m.times)
@@ -335,7 +342,7 @@ void test_rk45_stage_times_observed()
     CHECK(seen(dt),             "RK45 model sees end-of-step time");
 
     // After propagate() the offset must be cleared: reported time is tick time.
-    CHECK(std::fabs(m.t() - dt) < 1e-12, "clock back on pure tick time after step");
+    CHECK(std::fabs(t_end - dt) < 1e-12, "clock back on pure tick time after step");
 }
 
 int main()

@@ -38,6 +38,10 @@ namespace dsf
          */
         class Sim {
         public:
+            /// Release the Sim-owned clock, output, and integrator. The
+            /// root block tree is caller-owned and is NOT deleted.
+            ~Sim();
+
             /// Run the complete simulation (init → loop → finalize).
             void run();
 

@@ -95,10 +95,17 @@ namespace dsf
 			cout << "Sim run time: " << time(NULL) - seconds << endl;
 		}
 
+		Sim::~Sim()
+		{
+			delete clock;
+			delete output;
+			delete i;
+		}
+
 		/// Provides the initial configuration of a simulation.
-		/// Sets the output and clock references in each Block object and 
+		/// Sets the output and clock references in each Block object and
 		/// time constraints.
-		void Sim::load(Block * root, double _dt, double _tmax, double _console, double _file) 
+		void Sim::load(Block * root, double _dt, double _tmax, double _console, double _file)
 		{
 			load(root, _dt, _tmax, _console, _file, "RK4", 1e-8, 1e-6);
 		}
@@ -107,6 +114,15 @@ namespace dsf
 		               const std::string& integrator_type, double atol, double rtol)
 		{
 			rptRate = _console;
+
+			// Re-load(): release the previous load's clock/output/integrator
+			// and forget the old tree (the root Block is caller-owned) so a
+			// second load() doesn't step both trees or leak the first set.
+			delete clock;  clock  = nullptr;
+			delete output; output = nullptr;
+			delete i;      i      = nullptr;
+			simulation.clear();
+
 			ScopedSimContext ctx(&integrands_, &events_);
 
 			// Start from a clean integrand table and event bus — OUR OWN (R1):

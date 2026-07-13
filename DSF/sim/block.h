@@ -116,7 +116,7 @@ namespace dsf
 
             /// @name Reference Functions
             /// @{
-            void ClockRef(Clock *_clock) { if (clock == nullptr) clock = _clock; };   ///< Set clock reference (called by Sim).
+            void ClockRef(Clock *_clock) { clock = _clock; };   ///< Set clock reference (called by Sim; unconditional so re-load() rebinds to the new clock, like OutputRef).
             void OutputRef(Output *_o) { o = _o; };  ///< Set output reference.
             /// @}
 

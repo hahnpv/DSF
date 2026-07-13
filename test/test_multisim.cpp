@@ -58,6 +58,7 @@ struct Rig
 {
     Sim* sim;
     Decay* model;
+    Block* root;
 };
 
 static Rig make_sim(double lambda, double dt = 0.01, double tmax = 1e6)
@@ -69,7 +70,16 @@ static Rig make_sim(double lambda, double dt = 0.01, double tmax = 1e6)
     auto* s = new Sim;
     s->load(root, dt, tmax, 0.0, 1e9);
     s->init();
-    return {s, m};
+    return {s, m, root};
+}
+
+// Sim frees its own clock/output/integrator; the block tree is ours.
+static void destroy(Rig& r)
+{
+    delete r.sim;
+    delete r.model;
+    delete r.root;
+    r = {};
 }
 
 void test_interleaved_matches_solo()
@@ -95,6 +105,8 @@ void test_interleaved_matches_solo()
           "A integrated correctly (y(1) = e^-1)");
     CHECK(std::fabs(b2.model->y - std::exp(-3.0)) < 1e-6,
           "B integrated correctly (y(1) = e^-3)");
+
+    destroy(a1); destroy(b1); destroy(a2); destroy(b2);
 }
 
 void test_event_isolation()
@@ -123,6 +135,8 @@ void test_event_isolation()
     CHECK(fired, "A's event fires from A's own step");
     CHECK(a.sim->events()->history().size() == 1, "exactly one firing recorded on A");
     CHECK(b.sim->events()->history().empty(), "B's bus history untouched");
+
+    destroy(a); destroy(b);
 }
 
 void test_destroy_one_continue_other()
@@ -134,11 +148,14 @@ void test_destroy_one_continue_other()
     // Destroy A entirely (its registry + bus die with it). On the old
     // globals, A's integrand pointers stayed registered → B's next steps
     // integrated freed memory (the ASan job verifies this stays clean).
-    delete a.sim;   // (Blocks/model intentionally leak — Sim doesn't own them)
+    delete a.sim;   // Blocks stay alive across the Sim's death — Sim doesn't own them
 
     for (int k = 0; k < 90; k++) b.sim->step();
     CHECK(std::fabs(b.model->y - std::exp(-2.0)) < 1e-6,
           "B unaffected by A's destruction (y(1) = e^-2)");
+
+    delete a.model; delete a.root;
+    destroy(b);
 }
 
 void test_two_threads_concurrent()
@@ -148,6 +165,7 @@ void test_two_threads_concurrent()
         Rig r = make_sim(lambda);
         for (int k = 0; k < 100; k++) r.sim->step();
         *out = r.model->y;
+        destroy(r);
     };
     std::thread ta(worker, 1.0, &ya);
     std::thread tb(worker, 4.0, &yb);
@@ -175,6 +193,8 @@ void test_no_sim_fallback_registry()
     CHECK(TClassIntegrandDict<Block>::Instance()->x.empty(),
           "Sim registrations land in the Sim, not the fallback");
     CHECK(a.sim->integrands()->x.size() == 1, "Sim owns its one integrand");
+
+    destroy(a);
 }
 
 int main()

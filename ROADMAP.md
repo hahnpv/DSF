@@ -28,6 +28,23 @@ thread_local) and optional Phase 4 (`Block::addIntegrand` sugar) — see
 `R1_SINGLETONS.md`. sixdof rebuilt + pin bumped same day (NOT fail-soft:
 a stale model lib registers into the dead global). *(was H4)*
 
+**ASan job ran 2026-07-12** — dedicated ASan+UBSan trees (`build-asan`
+here and in sixdof, configured with
+`-DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g"`
+plus the same flags on all linker vars; run ctest with
+`LD_LIBRARY_PATH=build-asan:…` FIRST so the release `libDSF.so` doesn't
+shadow it, `ASAN_OPTIONS=detect_stack_use_after_return=1`). All 7 C++
+suites now pass ASan+UBSan+LSan-clean. The job surfaced and fixed:
+missing `Sim` destructor + re-`load()` cleanup (clock/output/integrator
+leaked per load; re-load also stepped both trees), legacy 1-D `Table`
+leaking its `double**` arrays (dtor + move ops added, copies deleted),
+`ClockRef` made unconditional so re-load rebinds blocks to the live
+clock, and a test-harness dangling stack `Clock` in
+`test_integrators.cpp` (real stack-use-after-return, test-only). Python
+decks under ASan need
+`LD_PRELOAD="<gcc libasan.so> <conda libstdc++.so.6>"`; sixdof's
+`tow_test` (TRIAGE #14b) ran 22× clean this way.
+
 ### R2. ~~RK45 per-stage clock time~~  *(DONE 2026-07-11)*
 The tick-based clock (2 ticks/dt, purpose-built for RK4's c = 0,½,½,1)
 can't represent Dormand-Prince stage times, so RK45 held `t()` frozen at

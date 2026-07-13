@@ -113,6 +113,7 @@ void test_build_tree_fallback_rule()
     CHECK(dynamic_cast<LoaderProbe*>(kids[1]) != nullptr,
           "capitalized-tag fallback instantiated (loaderProbe → LoaderProbe)");
     CHECK(kids[2]->getName() == "Custom", "name= overrides id");
+    for (Block* k : kids) delete k;   // ~Block doesn't delete children
     delete root;
     delete doc;
 }

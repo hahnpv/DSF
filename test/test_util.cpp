@@ -411,6 +411,9 @@ void test_factory_by_name()
 
     Block* miss = TRefUnique<Block>("NoSuchClass");
     CHECK(miss == nullptr, "factory: unknown class name returns null, no crash");
+
+    delete b;
+    delete b2;
 }
 
 int main()
