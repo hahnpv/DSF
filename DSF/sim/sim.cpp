@@ -50,10 +50,28 @@ namespace dsf
 			exec();
 		}
 
+		namespace {
+		// Init traversal with per-block output-group hygiene: the group name
+		// is sticky state on the shared Output, so it is reset before EVERY
+		// block's init(). A block's channels are grouped only if that block
+		// calls setGroupName() itself — no more inheriting whatever group the
+		// previously-initialized block happened to leave behind.
+		void initTree(std::vector<Block*> blocks)   // by value: getChildren() returns a copy (same as TFunctor)
+		{
+			for (auto* b : blocks) {
+				if (!b) continue;
+				b->resetOutputGroup();
+				b->init();
+				if (b->has_children())
+					initTree(b->getChildren());
+			}
+		}
+		} // namespace
+
 		void Sim::init()
 		{
 			ScopedSimContext ctx(&integrands_, &events_);
-			dsf::util::TFunctor<Block>(simulation, &Block::init);
+			initTree(simulation);
 		}
 
 		void Sim::step()

@@ -60,7 +60,16 @@ namespace dsf
             virtual void configure(dsf::xml::xmlnode n)
             {
                 rptRate = n.attrAsDouble("rpt");
-                name = n.parent().attrAsString("name");
+                // Never clobber a name that was already assigned: containers
+                // (stageMass, Vehicle, the sim loader) setName() each child
+                // from its deck id at instantiation, BEFORE configure runs.
+                // The old unconditional overwrite here blanked those names
+                // with the parent's usually-absent `name` attribute — which
+                // is why every logging block re-does setName(id) in its own
+                // configure. The parent-name read survives only as a legacy
+                // fallback for blocks nothing has named.
+                if (name.empty())
+                    name = n.parent().attrAsString("name");
             }
             
             virtual void init()     {};     ///< Initialize state variables and integrators.
@@ -118,6 +127,18 @@ namespace dsf
             /// @{
             void ClockRef(Clock *_clock) { clock = _clock; };   ///< Set clock reference (called by Sim; unconditional so re-load() rebinds to the new clock, like OutputRef).
             void OutputRef(Output *_o) { o = _o; };  ///< Set output reference.
+
+            /** @brief Reset the shared Output's group name to the root group.
+             *
+             *  Called by Sim::init() before each block's init(): the output
+             *  group is sticky state on the SHARED Output object, so a block
+             *  that called setGroupName() during its init used to leak its
+             *  group onto every later-initializing block that didn't set one
+             *  (e.g. actuator channels landing under a tank's group). With
+             *  this reset, a block's channels are grouped ONLY if that block
+             *  set a group itself; otherwise they log at the root.
+             *  (Defined in output.cpp — Output is incomplete here.) */
+            void resetOutputGroup();
             /// @}
 
             /// @name Graph Topology Functions

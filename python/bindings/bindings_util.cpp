@@ -12,6 +12,7 @@
 #include "util/tbl/tbl.h"
 #include "util/tbl/tbl2d.h"
 #include "util/file/get_unique_file.h"
+#include "util/gauss.h"
 
 using namespace dsf::xml;
 using namespace dsf::util;
@@ -181,4 +182,26 @@ void init_util(py::module_ &m) {
     m.def("strict_banner_text", &dsf::xml::strict_banner_text,
           py::arg("n_unused"), py::arg("n_table"),
           "The strict-mode refusal banner (one copy, shared with the C++ loader)");
+
+    // Monte Carlo RNG (util/gauss.h) — the exact draw functions the MC
+    // dispatcher uses, exposed so the statistical V&V tests exercise the
+    // same code path. Batch variants avoid per-call binding overhead.
+    m.def("set_seed", &dsf::util::set_seed, py::arg("seed"),
+          "Seed the MC random number generator (srand)");
+    m.def("get_gauss", &dsf::util::get_gauss, py::arg("mean"), py::arg("stdev"),
+          "One draw from N(mean, stdev^2) via polar Box-Muller");
+    m.def("get_uniform", &dsf::util::getUniform, py::arg("min"), py::arg("max"),
+          "One draw from U[min, max]");
+    m.def("gauss_samples", [](double mean, double stdev, size_t n) {
+        std::vector<double> v(n);
+        for (size_t i = 0; i < n; ++i) v[i] = dsf::util::get_gauss(mean, stdev);
+        return v;
+    }, py::arg("mean"), py::arg("stdev"), py::arg("n"),
+       "n draws from N(mean, stdev^2)");
+    m.def("uniform_samples", [](double min, double max, size_t n) {
+        std::vector<double> v(n);
+        for (size_t i = 0; i < n; ++i) v[i] = dsf::util::getUniform(min, max);
+        return v;
+    }, py::arg("min"), py::arg("max"), py::arg("n"),
+       "n draws from U[min, max]");
 }
