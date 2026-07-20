@@ -41,13 +41,24 @@ GOLDEN_GPS = os.path.join(FIXTURES_DIR, "golden_gps_1hr.json")
 GOLDEN_LEO = os.path.join(FIXTURES_DIR, "golden_leo_equatorial.json")
 
 
+def _block(data, name):
+    """Vehicle output group, tolerating both layouts: per-vehicle H5 groups
+    and the current root-level contract (sixdof da47f13), where a single
+    vehicle's channels load under the loader's flat-file key 'simulation'."""
+    if name in data:
+        return data[name]
+    assert "simulation" in data, \
+        f"neither group '{name}' nor flat root output present (keys: {list(data)})"
+    return data["simulation"]
+
+
 def _eci_state(data, group, pos="XYZ", vel="UVW"):
     """(N,3) position, (N,3) velocity from a loaded .h5 dict.
 
     Dataset names differ by EOM: Equinoctial logs XYZ/UVW, OblateEarth
     logs XYZ_ECI (velocity only in the body frame).
     """
-    g = data[group]
+    g = _block(data, group)
     r = np.asarray(g[pos], dtype=float)
     v = np.asarray(g[vel], dtype=float) if vel else None
     return r, v
@@ -148,7 +159,7 @@ def test_gps_elements_bounded(xml_h5):
     drift. Bands are ~3x the observed oscillation amplitudes (688 m,
     3.6e-5, 8.8e-6 rad respectively)."""
     _, data = xml_h5
-    g = data[GPS_GROUP]
+    g = _block(data, GPS_GROUP)
     assert np.ptp(np.asarray(g["a"])) < 2000.0            # m
     assert np.ptp(np.asarray(g["eccentricity"])) < 1e-4
     assert np.ptp(np.asarray(g["inc"])) < 3e-5            # rad
@@ -158,7 +169,7 @@ def test_gps_raan_regresses(xml_h5):
     """J2 makes a prograde orbit's node regress (westward): dRAAN/dt < 0,
     small. Catches a J2 sign error, which would flip the drift."""
     _, data = xml_h5
-    raan = np.asarray(data[GPS_GROUP]["RAAN"])
+    raan = np.asarray(_block(data, GPS_GROUP)["RAAN"])
     drift = raan[-1] - raan[0]
     assert drift < 0.0
     assert abs(drift) < 3e-4  # rad over 1 h; secular+short-period is ~5e-5
@@ -173,7 +184,7 @@ def test_gps_raan_regresses(xml_h5):
 def _check_golden(times, data, golden_path, rtol, atol_overrides=None):
     with open(golden_path) as f:
         ref = json.load(f)
-    group = data[ref["group"]] if ref["group"] else data
+    group = _block(data, ref["group"]) if ref["group"] else data
     ref_t = np.asarray(ref["time"])
     # Sample the run at the golden timestamps (output cadence must match).
     idx = np.searchsorted(times, ref_t)

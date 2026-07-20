@@ -282,6 +282,75 @@ void test_vector_interp()
 }
 
 // ============================================================================
+// Grid convergence (code verification)
+// ============================================================================
+//
+// The tests above use data that linear interpolation reproduces EXACTLY, so
+// they cannot see a weighting defect that stays exact at nodes and midpoints
+// (e.g. a smoothstepped fraction). Sampling a curved analytic function pins
+// the order of accuracy: linear interpolation error is ~h²/8·|f''|, so
+// halving the grid spacing must cut the max error ~4x.
+
+void test_1d_grid_convergence()
+{
+    // f(x) = sin(x) on [0, pi]; max|f''| = 1.
+    auto max_err = [](int n) {
+        std::vector<double> x(n), y(n);
+        for (int i = 0; i < n; i++) {
+            x[i] = M_PI * i / (n - 1);
+            y[i] = std::sin(x[i]);
+        }
+        TableND t(x, y);
+        double e = 0.0;
+        for (int k = 0; k <= 400; k++) {
+            double p = M_PI * k / 400.0;
+            e = std::max(e, std::fabs(t.interp(p) - std::sin(p)));
+        }
+        return e;
+    };
+    double h  = M_PI / 8.0;
+    double e1 = max_err(9);      // spacing h
+    double e2 = max_err(17);     // spacing h/2
+    CHECK(e1 < 0.3 * h * h,      // theory: e1 ~ h²/8 ≈ 0.019
+          std::string("1D interp error magnitude ~h^2/8, got ") + std::to_string(e1));
+    double ratio = e1 / (e2 + 1e-300);
+    CHECK(ratio > 3.2 && ratio < 4.8,
+          std::string("1D interp error ratio (h halved) ~4, got ") + std::to_string(ratio));
+}
+
+void test_2d_grid_convergence()
+{
+    // f(x,y) = sin(x)·cos(y) on [0, pi]²; bilinear error ~(h²/8)(|fxx|+|fyy|).
+    auto max_err = [](int n) {
+        std::vector<double> ax(n);
+        for (int i = 0; i < n; i++)
+            ax[i] = M_PI * i / (n - 1);
+        std::vector<std::vector<double>> grid(n, std::vector<double>(n));
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++)
+                grid[i][j] = std::sin(ax[i]) * std::cos(ax[j]);
+        TableND t(ax, ax, grid);
+        double e = 0.0;
+        for (int ki = 0; ki <= 100; ki++)
+            for (int kj = 0; kj <= 100; kj++) {
+                double px = M_PI * ki / 100.0;
+                double py = M_PI * kj / 100.0;
+                e = std::max(e, std::fabs(t.interp(px, py)
+                                          - std::sin(px) * std::cos(py)));
+            }
+        return e;
+    };
+    double h  = M_PI / 8.0;
+    double e1 = max_err(9);      // spacing h
+    double e2 = max_err(17);     // spacing h/2
+    CHECK(e1 < 0.6 * h * h,      // theory: e1 ~ h²/4 ≈ 0.039
+          std::string("2D interp error magnitude ~h^2/4, got ") + std::to_string(e1));
+    double ratio = e1 / (e2 + 1e-300);
+    CHECK(ratio > 3.2 && ratio < 4.8,
+          std::string("2D interp error ratio (h halved) ~4, got ") + std::to_string(ratio));
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -301,6 +370,8 @@ int main()
     test_legacy_format();
     test_2_point_table();
     test_vector_interp();
+    test_1d_grid_convergence();
+    test_2d_grid_convergence();
 
     std::cout << "\n=== Results: " << tests_passed << " passed, "
               << tests_failed << " failed ===" << std::endl;

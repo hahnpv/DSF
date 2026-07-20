@@ -9,16 +9,24 @@
  * No sixdof dependency.
  *
  * Canonical problems:
- *   - Exponential decay  y' = -λy            → convergence order (RK4 ~4th)
- *   - Simple harmonic osc  x'=v, v'=-ω²x     → energy conservation, Verlet vs RK4
- *   - Two-body / Kepler  r'' = -μ r/|r|³     → orbit closure, energy + ang.mom.
+ *   - Exponential decay  y' = -λy            → convergence order (RK4 ~4th),
+ *                                              RK45 tolerance proportionality
+ *   - Simple harmonic osc  x'=v, v'=-ω²x     → energy conservation, Verlet vs RK4,
+ *                                              Verlet convergence order (~2nd),
+ *                                              time reversibility, event crossing time
+ *   - Two-body / Kepler  r'' = -μ r/|r|³     → orbit closure, energy + ang.mom.,
+ *                                              Verlet time reversibility
+ *   - Torque-free rigid body (Euler top)     → symmetric-top closed form,
+ *                                              KE + |H|² conservation
  *   - Non-autonomous  y' = cos(t)            → stage times (RK4/RK45/Verlet, R2)
  *   - Stage-time probe                        → models observe DP c-fractions
+ *   - Clock tick arithmetic                   → t is exact tick math, no accumulation
  *
  * Registered by CMake as the `cpp_integrator_tests` ctest.
  */
 #include "sim/block.h"
 #include "sim/clock.h"
+#include "sim/event.h"
 #include "sim/TClassDict.h"
 #include "sim/TIntDict.h"
 #include "sim/integratorRK4.h"
@@ -99,6 +107,27 @@ public:
     }
     double energy() { return 0.5 * v.dot(v) - mu / r.mag(); }
     Vec3   angmom() { return r.cross(v); }
+};
+
+// Torque-free rigid body: Euler's equations for the body-frame rate vector.
+//   I1 ω1' = (I2-I3) ω2 ω3   (and cyclic).
+// Exact invariants: rotational KE and |H|². For a symmetric top (I1=I2) the
+// solution is closed form: ω3 const, (ω1,ω2) rotates at λ = (I3-I1)/I1 · ω3.
+class EulerTop : public Block {
+public:
+    Vec3 w{1, 0, 1}, dw{0, 0, 0};
+    double I1 = 1.0, I2 = 1.0, I3 = 2.0;
+    void init() override {
+        TClassIntegrandDict<Block>::Instance()->add(
+            TClass<EulerTop, Block>::Instance(), w, dw);
+    }
+    void update() override {
+        dw = Vec3((I2 - I3) / I1 * w.y * w.z,
+                  (I3 - I1) / I2 * w.z * w.x,
+                  (I1 - I2) / I3 * w.x * w.y);
+    }
+    double ke() const { return 0.5 * (I1*w.x*w.x + I2*w.y*w.y + I3*w.z*w.z); }
+    double h2() const { return I1*I1*w.x*w.x + I2*I2*w.y*w.y + I3*I3*w.z*w.z; }
 };
 
 // y' = cos(t): non-autonomous. Uses t() → exercises clock stage-time advance.
@@ -345,6 +374,256 @@ void test_rk45_stage_times_observed()
     CHECK(std::fabs(t_end - dt) < 1e-12, "clock back on pure tick time after step");
 }
 
+// ---------------------------------------------------------------------------
+// Observed order of accuracy — Verlet (~2nd) and RK45 tolerance response
+// ---------------------------------------------------------------------------
+
+void test_verlet_convergence_order()
+{
+    // Velocity Verlet is 2nd order: halving dt should cut the global error by
+    // ~4x. Same signature logic as the RK4 order test — this is what confirms
+    // the kick-drift-kick stages are weighted/staged correctly.
+    auto err = [](double dt) {
+        IntegratorVerlet v;
+        SHO m; m.x = 1.0; m.v = 0.0; m.omega = 2.0; m.symplectic_tags = true;
+        integrate(m, v, dt, 2.0);              // tmax an exact multiple of dt
+        return std::fabs(m.x - std::cos(4.0)); // x(t)=cos(2t)
+    };
+    double e1 = err(0.02);
+    double e2 = err(0.01);
+    double ratio = e1 / e2;
+    CHECK(ratio > 3.0 && ratio < 5.5,
+          std::string("Verlet error ratio (dt halved) ~4, got ") + std::to_string(ratio));
+}
+
+void test_rk45_tolerance_proportionality()
+{
+    // The adaptive controller's contract: the achieved global error tracks the
+    // requested tolerance. A broken error estimate or step controller passes a
+    // single-tolerance accuracy check but fails this sweep.
+    auto err = [](double tol) {
+        IntegratorRK45 rk45(tol, tol);
+        rk45.set_step_bounds(1e-9, 0.1);
+        ExpDecay m; m.y = 1.0; m.lambda = 1.0;
+        integrate(m, rk45, 0.1, 2.0);
+        return std::fabs(m.y - std::exp(-2.0));
+    };
+    double e6  = err(1e-6);
+    double e10 = err(1e-10);
+    CHECK(e6 < 1e-4,  std::string("RK45 err at tol=1e-6 bounded, got ") + std::to_string(e6));
+    CHECK(e10 < 1e-8, std::string("RK45 err at tol=1e-10 bounded, got ") + std::to_string(e10));
+    CHECK(e10 < e6 && e6 / (e10 + 1e-300) > 10.0,
+          std::string("RK45 error tracks tolerance (e6=") + std::to_string(e6)
+          + " e10=" + std::to_string(e10) + ")");
+}
+
+// ---------------------------------------------------------------------------
+// Time reversibility — integrate forward, negate velocities, integrate back
+// ---------------------------------------------------------------------------
+
+void test_verlet_time_reversibility()
+{
+    // Velocity Verlet is time-symmetric: reversing the momenta and integrating
+    // the same span must retrace the trajectory to floating-point roundoff,
+    // regardless of truncation error. Extremely sensitive to stage-ordering
+    // and state-mutation bugs that accuracy tests average away.
+    IntegratorVerlet v1, v2;
+    SHO m; m.x = 1.0; m.v = 0.0; m.omega = 2.0; m.symplectic_tags = true;
+    integrate(m, v1, 0.05, 200.0);      // 4000 steps out
+    m.v = -m.v;
+    integrate(m, v2, 0.05, 200.0);      // 4000 steps back
+    CHECK_NEAR(m.x, 1.0, 1e-9, "Verlet SHO reversibility x -> x0");
+    CHECK_NEAR(m.v, 0.0, 1e-9, "Verlet SHO reversibility v -> -v0");
+
+    IntegratorVerlet v3, v4;
+    TwoBody tb; tb.symplectic_tags = true;
+    tb.r = Vec3(1, 0, 0); tb.v = Vec3(0, 1, 0); tb.mu = 1.0;
+    integrate(tb, v3, 0.01, 3.0);
+    tb.v = Vec3(-tb.v.x, -tb.v.y, -tb.v.z);
+    integrate(tb, v4, 0.01, 3.0);
+    CHECK((tb.r - Vec3(1, 0, 0)).mag() < 1e-9, "Verlet two-body reversibility r -> r0");
+    CHECK((tb.v - Vec3(0, -1, 0)).mag() < 1e-9, "Verlet two-body reversibility v -> -v0");
+}
+
+void test_rk4_time_reversibility()
+{
+    // RK4 is not time-symmetric, but the round trip must still close to the
+    // truncation-error level, O(dt^4) — a gross asymmetry (stale stage state,
+    // wrong stage time) shows up as an O(1) or O(dt) miss.
+    IntegratorRK4 r1, r2;
+    SHO m; m.x = 1.0; m.v = 0.0; m.omega = 2.0;
+    integrate(m, r1, 0.01, 10.0);
+    m.v = -m.v;
+    integrate(m, r2, 0.01, 10.0);
+    CHECK_NEAR(m.x, 1.0, 1e-4, "RK4 SHO round trip x -> x0 at O(dt^4)");
+    CHECK_NEAR(m.v, 0.0, 1e-4, "RK4 SHO round trip v -> -v0 at O(dt^4)");
+}
+
+// ---------------------------------------------------------------------------
+// Torque-free rigid body — closed form (symmetric top) + exact invariants
+// ---------------------------------------------------------------------------
+
+void test_euler_top_symmetric_analytic()
+{
+    // I1=I2=1, I3=2, ω0=(1,0,1): ω3 is constant and the transverse rate
+    // rotates at λ = (I3-I1)/I1·ω3 = 1 rad/s → ω1=cos(t), ω2=sin(t).
+    // This is the attitude-dynamics analogue of the Kepler test: a full
+    // nonlinear 6-DOF rotational path with an exact reference.
+    IntegratorRK4 rk4;
+    EulerTop m;                       // defaults: I=(1,1,2), w0=(1,0,1)
+    integrate(m, rk4, 0.001, 2.0);
+    CHECK_NEAR(m.w.x, std::cos(2.0), 1e-9,  "symmetric top w1(2)=cos(2)");
+    CHECK_NEAR(m.w.y, std::sin(2.0), 1e-9,  "symmetric top w2(2)=sin(2)");
+    CHECK_NEAR(m.w.z, 1.0,           1e-11, "symmetric top w3 constant");
+}
+
+void test_euler_top_asymmetric_conservation()
+{
+    // Fully asymmetric inertia, tumbling initial rate: no closed form needed —
+    // rotational KE and |H|² are exact invariants of the continuous dynamics
+    // and RK4 must hold them to truncation level over many characteristic times.
+    IntegratorRK4 rk4;
+    EulerTop m;
+    m.I1 = 1.0; m.I2 = 2.0; m.I3 = 3.0;
+    m.w = Vec3(1.0, 1.0, 1.0);
+    double ke0 = m.ke(), h20 = m.h2();
+    integrate(m, rk4, 0.001, 10.0);
+    CHECK(std::fabs(m.ke() - ke0) / ke0 < 1e-9,
+          std::string("Euler top KE conserved, rel err ")
+          + std::to_string(std::fabs(m.ke() - ke0) / ke0));
+    CHECK(std::fabs(m.h2() - h20) / h20 < 1e-9,
+          std::string("Euler top |H|^2 conserved, rel err ")
+          + std::to_string(std::fabs(m.h2() - h20) / h20));
+}
+
+// ---------------------------------------------------------------------------
+// Event crossing-time interpolation — accuracy + convergence order
+// ---------------------------------------------------------------------------
+
+// Step SHO x(t)=cos(2t) under RK4 and detect x falling through 0.5 with a
+// standalone EventBus (evaluate/latch once per step, like Sim::run). Returns
+// the interpolated fire_time.
+static double sho_crossing_fire_time(double dt)
+{
+    TClassIntegrandDict<Block>::Instance()->clear();
+    Clock clock(dt, 1.0);
+    IntegratorRK4 rk4;
+    rk4.clock = &clock;
+
+    SHO m; m.x = 1.0; m.v = 0.0; m.omega = 2.0;
+    Block root;
+    root.addChild(&m);
+    m.ClockRef(&clock);
+    m.init();
+
+    EventBus bus;
+    Event e;
+    e.name = "x_falls_half";
+    e.condition.type = EventType::FALLING;
+    e.condition.variable = &m.x;
+    e.condition.threshold = 0.5;
+    bus.add(e);
+    bus.latch();
+
+    double fire = -1.0;
+    while (clock.t() < 1.0 - dt * 0.5) {
+        rk4.propagate(&root);
+        auto fired = bus.evaluate(clock.t(), clock.dt());
+        if (!fired.empty() && fire < 0.0)
+            fire = fired[0].fire_time;
+        bus.latch();
+    }
+    m.ClockRef(nullptr);
+    return fire;
+}
+
+void test_event_crossing_time_convergence()
+{
+    // x=cos(2t) falls through 0.5 at t* = acos(0.5)/2 = pi/6. The EventBus
+    // linearly interpolates the crossing within the step [t0, t0+dt], whose
+    // leading error is the interpolation remainder
+    //     e ≈ ½ |x''/x'|_{t*} (t*-t0)(t1-t*)   — O(dt²), phase-dependent.
+    // Checking the measured error against this prediction at two dts verifies
+    // both the magnitude and the dt-scaling of the localization (a plain
+    // dt-halving ratio is polluted by the crossing phase shifting between
+    // grids). This is the framework's event-localization contract — without
+    // it every discontinuity in a deck degrades the whole run to 1st order.
+    // NOTE: if the interpolation is ever upgraded (e.g. quadratic/root-refined)
+    // the lower bounds here fail — update the predicted model deliberately.
+    const double t_star = std::acos(0.5) / 2.0;         // pi/6
+    const double gpp = 2.0;                             // |x''| = ω²·x* = 4·0.5
+    const double gp  = 2.0 * std::sin(2.0 * t_star);    // |x'|  = 2·sin(pi/3)
+    auto predicted = [&](double dt) {
+        double t0 = std::floor(t_star / dt) * dt;
+        return 0.5 * (gpp / gp) * (t_star - t0) * (t0 + dt - t_star);
+    };
+
+    for (double dt : {0.02, 0.01}) {
+        double fire = sho_crossing_fire_time(dt);
+        CHECK(fire > 0.0, "crossing event fired");
+        double e = std::fabs(fire - t_star);
+        double p = predicted(dt);
+        CHECK(e > 0.3 * p && e < 2.5 * p,
+              std::string("event fire-time error matches interpolation theory at dt=")
+              + std::to_string(dt) + " (err=" + std::to_string(e)
+              + " predicted=" + std::to_string(p) + ")");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Clock tick arithmetic — reported time is exact, not accumulated
+// ---------------------------------------------------------------------------
+
+class UpdateCounter : public Block {
+public:
+    double y = 0.0, dy = 0.0;
+    long n = 0;
+    void init() override {
+        TClassIntegrandDict<Block>::Instance()->add(
+            TClass<UpdateCounter, Block>::Instance(), y, dy);
+    }
+    void update() override { dy = 1.0; n++; }
+};
+
+void test_clock_tick_time_exactness()
+{
+    // dt=0.01 is not binary-representable; a t += dt loop drifts ~1e-13 over
+    // 1000 steps. The tick clock computes t = ticks/(2/dt), so it must land
+    // on tmax exactly (2/0.01 == 200.0 in IEEE double) and never worse than
+    // the accumulator.
+    double t_acc = 0.0;
+    for (int i = 0; i < 1000; i++) t_acc += 0.01;
+    double acc_err = std::fabs(t_acc - 10.0);
+
+    IntegratorRK4 rk4;
+    UpdateCounter m;
+    double t_end = integrate(m, rk4, 0.01, 10.0);
+    double clk_err = std::fabs(t_end - 10.0);
+    CHECK(clk_err < 1e-13, std::string("tick-clock t(1000 steps of 0.01) exact, err ")
+          + std::to_string(clk_err));
+    CHECK(clk_err <= acc_err, "tick clock no worse than naive accumulation");
+
+    // Exactly 1000 macro steps must have run: measure RK4's update calls per
+    // step on a 1-step run, then require the full run to be 1000x that. An
+    // off-by-one step count (t drift crossing the loop guard) breaks this.
+    IntegratorRK4 rk4b;
+    UpdateCounter probe;
+    integrate(probe, rk4b, 0.01, 0.01);
+    long per_step = probe.n;
+    CHECK(per_step > 0, "update called at least once per step");
+    CHECK(m.n == 1000 * per_step,
+          std::string("exactly 1000 steps of dt=0.01 over 10 s (updates=")
+          + std::to_string(m.n) + " per_step=" + std::to_string(per_step) + ")");
+
+    // Non-commensurate dt: still within a few ulp of the exact product.
+    IntegratorRK4 rk4c;
+    UpdateCounter m3;
+    double t3 = integrate(m3, rk4c, 0.03, 30.0);
+    CHECK(std::fabs(t3 - 30.0) < 1e-12,
+          std::string("tick-clock t(1000 steps of 0.03) within ulps, err ")
+          + std::to_string(std::fabs(t3 - 30.0)));
+}
+
 int main()
 {
     std::cout << "=== DSF integrator validation (framework, no sixdof) ===\n";
@@ -358,6 +637,14 @@ int main()
     test_nonautonomous_rk45();
     test_nonautonomous_verlet();
     test_rk45_stage_times_observed();
+    test_verlet_convergence_order();
+    test_rk45_tolerance_proportionality();
+    test_verlet_time_reversibility();
+    test_rk4_time_reversibility();
+    test_euler_top_symmetric_analytic();
+    test_euler_top_asymmetric_conservation();
+    test_event_crossing_time_convergence();
+    test_clock_tick_time_exactness();
 
     std::cout << "\n=== Results: " << tests_passed << " passed, "
               << tests_failed << " failed ===\n";
