@@ -52,15 +52,15 @@ namespace dsf
 
 		namespace {
 		// Init traversal with per-block output-group hygiene: the group name
-		// is sticky state on the shared Output, so it is reset before EVERY
-		// block's init(). A block's channels are grouped only if that block
-		// calls setGroupName() itself — no more inheriting whatever group the
-		// previously-initialized block happened to leave behind.
+		// is sticky state on the shared Output, so it is re-pointed before
+		// EVERY block's init() at that block's own vehicle_group (deliberate
+		// per-vehicle grouping — "F16_Altitude") instead of inheriting
+		// whatever group the previously-initialized block left behind.
 		void initTree(std::vector<Block*> blocks)   // by value: getChildren() returns a copy (same as TFunctor)
 		{
 			for (auto* b : blocks) {
 				if (!b) continue;
-				b->resetOutputGroup();
+				b->applyOutputGroup();
 				b->init();
 				if (b->has_children())
 					initTree(b->getChildren());

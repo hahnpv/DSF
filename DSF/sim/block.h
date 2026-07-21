@@ -60,6 +60,14 @@ namespace dsf
             virtual void configure(dsf::xml::xmlnode n)
             {
                 rptRate = n.attrAsDouble("rpt");
+                // The parent element's `name` attribute (e.g. the vehicle's
+                // name="F16") is the per-vehicle output group: blocks opt in
+                // by calling o->setGroupName(vehicle_group) in their init(),
+                // which prefixes their CSV channels ("F16_Altitude") and
+                // groups their HDF5 datasets. Empty when the parent element
+                // has no name (e.g. sim-level assets) — such blocks log at
+                // the root.
+                vehicle_group = n.parent().attrAsString("name");
                 // Never clobber a name that was already assigned: containers
                 // (stageMass, Vehicle, the sim loader) setName() each child
                 // from its deck id at instantiation, BEFORE configure runs.
@@ -69,7 +77,7 @@ namespace dsf
                 // configure. The parent-name read survives only as a legacy
                 // fallback for blocks nothing has named.
                 if (name.empty())
-                    name = n.parent().attrAsString("name");
+                    name = vehicle_group;
             }
             
             virtual void init()     {};     ///< Initialize state variables and integrators.
@@ -128,17 +136,19 @@ namespace dsf
             void ClockRef(Clock *_clock) { clock = _clock; };   ///< Set clock reference (called by Sim; unconditional so re-load() rebinds to the new clock, like OutputRef).
             void OutputRef(Output *_o) { o = _o; };  ///< Set output reference.
 
-            /** @brief Reset the shared Output's group name to the root group.
+            /** @brief Point the shared Output's group at this block's vehicle.
              *
              *  Called by Sim::init() before each block's init(): the output
              *  group is sticky state on the SHARED Output object, so a block
              *  that called setGroupName() during its init used to leak its
-             *  group onto every later-initializing block that didn't set one
-             *  (e.g. actuator channels landing under a tank's group). With
-             *  this reset, a block's channels are grouped ONLY if that block
-             *  set a group itself; otherwise they log at the root.
+             *  group onto every later-initializing block. This hook replaces
+             *  the leak with deliberate per-vehicle grouping: each block's
+             *  channels land under its parent element's name= (captured as
+             *  vehicle_group in Block::configure), or at the root when the
+             *  parent has none. A block that setGroupName()s in its own
+             *  init() still overrides (e.g. Tank grouping by tank id).
              *  (Defined in output.cpp — Output is incomplete here.) */
-            void resetOutputGroup();
+            void applyOutputGroup();
             /// @}
 
             /// @name Graph Topology Functions
@@ -190,6 +200,11 @@ namespace dsf
             std::vector< Block *> getChildren() { return children; };   ///< Get all children.
             std::string getName() { return name; };                     ///< Get block instance name.
             void setName(std::string _name) { name = _name; };          ///< Set block instance name.
+            /** @brief Set the per-vehicle output group (see applyOutputGroup).
+             *  Containers (Vehicle, stage separation) stamp children at
+             *  instantiation so grouping works even for blocks that do not
+             *  chain Block::configure. */
+            void setVehicleGroup(const std::string& g) { vehicle_group = g; };
             /// @}
 
         protected:
@@ -199,6 +214,7 @@ namespace dsf
             Clock *clock;                   ///< Simulation clock reference.
             double rptRate;                 ///< Report sample rate [s].
             std::string name;               ///< Block instance name.
+            std::string vehicle_group;      ///< Parent element's name= (per-vehicle output group; "" = root). Captured by Block::configure.
         };
         extern template class TClassDict<Block>;
 
