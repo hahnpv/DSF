@@ -145,7 +145,9 @@ def test_crossing_event_fire_time_matches_trajectory(tmp_path):
     _, h5 = run(base, "probe")
     with h5py.File(h5, "r") as f:
         t = np.array(f["Time"])
-        key = [k for k in f.keys() if "tanom" in k][0]
+        keys = []
+        f.visit(keys.append)  # datasets sit under a per-vehicle group
+        key = [k for k in keys if "tanom" in k.rsplit("/", 1)[-1]][0]
         nu = np.array(f[key])
 
     # Threshold mid-run, off the sample grid; expected crossing interpolated

@@ -48,10 +48,19 @@ def _deck(tmp_path, dt):
     return str(p)
 
 
+def _dataset(f, name):
+    # Datasets live under a per-vehicle group (Block::applyOutputGroup);
+    # resolve by leaf name so the test is agnostic to the group layout.
+    hits = []
+    f.visit(lambda k: hits.append(k) if k.rsplit("/", 1)[-1] == name else None)
+    assert hits, f"dataset {name!r} not found; root keys: {list(f.keys())}"
+    return np.array(f[hits[0]])
+
+
 def _position(h5_path):
     with h5py.File(h5_path, "r") as f:
         t = np.array(f["Time"])
-        r = np.stack([np.array(f[f"XYZ_ECI_{c}"]) for c in "xyz"], axis=1)
+        r = np.stack([_dataset(f, f"XYZ_ECI_{c}") for c in "xyz"], axis=1)
     return t, r
 
 

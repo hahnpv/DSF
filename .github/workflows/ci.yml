@@ -55,7 +55,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install scikit-build-core
           python -m pip install -e . --no-build-isolation
-          python -m pip install pytest pytest-qt
+          python -m pip install pytest pytest-qt scipy
 
       - name: Python tests
         env:
@@ -86,7 +86,8 @@ jobs:
           cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g"
           cmake --build build-asan --target \
-            cpp_util_tests cpp_kernel_tests cpp_tablend_tests cpp_integrator_tests -j
+            cpp_util_tests cpp_kernel_tests cpp_tablend_tests cpp_integrator_tests \
+            cpp_multisim_tests cpp_loader_tests cpp_mc_tests -j
 
       - name: Run C++ tests under ASan/UBSan
         working-directory: build-asan
@@ -170,7 +171,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install scikit-build-core
           python -m pip install -e . --no-build-isolation
-          python -m pip install pytest pytest-qt
+          python -m pip install pytest pytest-qt scipy
 
       # The suite silently SKIPS sim tests when libsixdof.so is missing —
       # assert it exists so a broken sixdof build can't pass green.
