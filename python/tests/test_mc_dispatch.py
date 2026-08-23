@@ -111,3 +111,78 @@ def test_draw_stats_and_extremes_roundtrip(mc, tmp_path):
 
 def test_load_draws_missing_dir(tmp_path):
     assert load_draws(tmp_path) is None
+
+
+# ── path anchoring (relative refs survive the move into case dirs) ──
+
+PATH_DECK = """<sim dt="0.1" tmax="1.0" library="{library}" units="m/s">
+  <terrain id="Terrain" class="TerrainModel" data_dir="{terrain}"/>
+  <vehicle class="Vehicle" id="V1" name="GPS_BIIA-23_(PRN_18)">
+    <aero id="A1" class="Aero" filename="table.dat"/>
+  </vehicle>
+  <monte_carlo n="2" seed="42" workers="1" output_dir="{outdir}">
+    <dispersion block="A1" property="area" distribution="gaussian" sigma="1.0"/>
+  </monte_carlo>
+</sim>
+"""
+
+
+def _path_case(tmp_path, library="../lib/libfake.so"):
+    """A deck laid out like the real examples: shared assets live OUTSIDE
+    the deck dir, reached by relative paths that escape it."""
+    deck_dir = tmp_path / "examples" / "cruise"
+    deck_dir.mkdir(parents=True)
+    (tmp_path / "examples" / "lib").mkdir()
+    (tmp_path / "examples" / "lib" / "libfake.so").write_text("elf")
+    (tmp_path / "examples" / "terrain").mkdir()
+    (deck_dir / "table.dat").write_text("mach cl cd\n")
+
+    deck = deck_dir / "deck.xml"
+    deck.write_text(PATH_DECK.format(library=library, terrain="../terrain",
+                                     outdir="mc_out/"))
+    mc = MonteCarlo(str(deck))
+    xml_path, case_dir, _ = mc._make_case_xml(0)
+    root = ET.parse(xml_path).getroot()
+    return tmp_path, root, Path(case_dir)
+
+
+def test_relative_paths_are_anchored_on_the_deck_dir(tmp_path):
+    """The case runs two levels below the deck, so a relative reference in
+    the deck resolves to nothing from there — every case would die on load."""
+    _, root, _ = _path_case(tmp_path)
+    lib = root.get("library")
+    terrain = root.find("terrain").get("data_dir")
+
+    assert lib == str(tmp_path / "examples" / "lib" / "libfake.so")
+    assert terrain == str(tmp_path / "examples" / "terrain")
+    assert ".." not in lib and ".." not in terrain
+    assert Path(lib).exists() and Path(terrain).exists()
+
+
+def test_deck_local_data_files_are_anchored_too(tmp_path):
+    _, root, case_dir = _path_case(tmp_path)
+    fname = root.find(".//aero").get("filename")
+    assert fname == str(tmp_path / "examples" / "cruise" / "table.dat")
+    assert Path(fname).exists()
+    # the sibling symlink stays as a fallback for CWD-relative reads
+    assert (case_dir / "table.dat").exists()
+
+
+def test_bare_soname_is_left_for_the_dynamic_linker(tmp_path):
+    """`library="libsixdof.so"` must stay bare so LD_LIBRARY_PATH resolves
+    it — rewriting it would pin one build of the model library."""
+    _, root, _ = _path_case(tmp_path, library="libsixdof.so")
+    assert root.get("library") == "libsixdof.so"
+
+
+def test_non_path_attributes_are_untouched(tmp_path):
+    """Incidental slashes and names must not be mistaken for paths."""
+    _, root, _ = _path_case(tmp_path)
+    assert root.get("units") == "m/s"
+    assert root.find("vehicle").get("name") == "GPS_BIIA-23_(PRN_18)"
+    assert root.get("dt") == "0.1"
+
+
+def test_absolute_paths_pass_through_unchanged(tmp_path):
+    _, root, _ = _path_case(tmp_path, library="/usr/lib/libfake.so")
+    assert root.get("library") == "/usr/lib/libfake.so"

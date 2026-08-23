@@ -51,9 +51,13 @@ dsf watch project.dsf            # Python-driven step loop with live telemetry (
 dsf gui / dsf-gui                # PyQt6 GUI
 ./run_sixdof_example.sh <example.xml>          # C++ 'dynamic' executable against sixdof examples
 python -m dsf.mcp.server         # MCP server (workspace root via DSF_WORKSPACE env var)
+dsf mc run vehicle.xml           # Monte Carlo batch — see docs/monte_carlo.md
+dsf remote run vehicle.xml       # submit an MC batch to another box over ssh (docs/remote_runs.md)
 ```
 
 A `.dsf` project is a **directory** containing `project.xml`, `vehicles/`, `tables/`, etc. — see `DSF_FORMAT.md`. If a path argument is a directory, DSF looks for `project.xml` inside it; relative paths in XML resolve relative to the XML file's location.
+
+**Model libraries are named by bare soname** (`library="libsixdof.so"`), resolved by the dynamic linker from `LD_LIBRARY_PATH` — not by path. `load_model_library` (`DSF/sim/sim_loader.h`) hands the string to `dlopen`, so anything containing a slash is resolved against the **process CWD** (with the deck's own directory as a fallback), which is not where the deck lives once a case runs from `mc_results/case_NNNN/`. Relative library paths silently failed every Monte Carlo case until 2026-08-17; the examples now use the bare form, and `mc.py` anchors any remaining relative path attributes (`data_dir=`, `filename=`) on the deck's directory when it writes each `case.xml`.
 
 ## Architecture
 
@@ -68,7 +72,10 @@ Two layers, C++ and Python, joined by the `dsf_core` pybind11 module:
 **Python bindings (`python/bindings/`)** — pybind11 wrappers over Sim/Block/util, built by the top-level CMakeLists into `dsf_core.*.so`. `python/dsf/__init__.py` does `from .dsf_core import *` but tolerates a missing extension so pure-Python submodules (MCP server) still work. `dsf/cli/run.py` locates the `.so` in `build/` and loads it with `RTLD_GLOBAL` so model libraries can resolve DSF symbols.
 
 **Python package (`python/dsf/`)**
-- `cli/` — click-based `dsf` entry point (`run`, `watch`, `gui`, plot/map/globe views, Monte Carlo).
+- `cli/` — click-based `dsf` entry point (`run`, `watch`, `gui`, plot/map/globe views, Monte Carlo, remote runs).
+- `remote.py` — ssh/rsync transport for `dsf remote`: stages an MC case dir, rewrites path
+  references that escape it (`library=`, `data_dir=`) to the remote's roots via configured
+  maps, launches `dsf mc run` detached, and fetches results. No server or daemon.
 - `utils/` — the glue used everywhere: `.dsf` ↔ XML conversion (`convert_dsf_to_xml.py`, `run_config.py`), XML parse/generate, `sim_session.py` (per-step introspection driving `watch` and the MCP server).
 - `gui/` — PyQt6 app split into `core/` (model registry, commands, validation), `execution/` (headless runner, sim worker thread), `ui/` (canvas, inspector, plot/map windows).
 - `jax/` — JAX integration loop and Monte Carlo dispatcher; physics models come from `sixdof.py.jax` in the sibling repo.

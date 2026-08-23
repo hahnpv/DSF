@@ -6,6 +6,7 @@ Monte Carlo CLI subcommands for DSF.
     dsf mc status [output_dir]      — check progress
     dsf mc results <output_dir>     — aggregate statistics
     dsf mc extremes <output_dir>    — show >2σ cases
+    dsf mc stop <output_dir>        — signal a running batch to stop
 """
 
 import click
@@ -46,6 +47,19 @@ def status(output_dir):
         click.echo(f"Elapsed: {state['elapsed']}")
     if state.get('finished'):
         click.echo("Batch complete.")
+
+
+@mc.command()
+@click.argument('output_dir', type=click.Path(exists=True), default='mc_results')
+def stop(output_dir):
+    """Signal a running MC batch to stop after its in-flight cases.
+
+    Writes the .dsf_mc_stop sentinel the dispatcher polls between case
+    completions; already-running cases finish, queued ones are cancelled.
+    """
+    from dsf.mc import MonteCarlo
+    MonteCarlo.stop(output_dir)
+    click.echo(f"Stop signalled in {output_dir} — in-flight cases will finish.")
 
 
 @mc.command()

@@ -140,5 +140,9 @@ def cesium(input_file, port, terrain):
 from dsf.cli.mc_cli import mc
 cli.add_command(mc)
 
+# ── Remote-run subcommand group ──
+from dsf.cli.remote_cli import remote
+cli.add_command(remote)
+
 if __name__ == '__main__':
     cli()

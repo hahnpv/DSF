@@ -1525,8 +1525,8 @@ def patch_run_xml(
 # =========================================================================
 
 _BUILD_DIRS = {
-    "sixdof": "/home/philip/git/sixdof/build",
-    "dsf":    "/home/philip/git/DSF/build",
+    "sixdof": "/opt/sixdof/build",
+    "dsf":    "/opt/DSF/build",
 }
 
 @mcp.tool(name="dsf_build")

@@ -104,6 +104,14 @@ Options:
 
 Auto-generates a `<monte_carlo>` XML block by inspecting the blocks defined in the XML. Produces a ready-to-edit template with all dispersible properties defaulted to `sigma="0.0"`.
 
+### `dsf mc stop <output_dir>`
+
+Signals a running batch to stop. Writes the `.dsf_mc_stop` sentinel the dispatcher polls between case completions: in-flight cases finish, queued ones are cancelled.
+
+## Running batches on another machine
+
+A big batch does not have to run where you author it. `dsf remote run` pushes the case directory to a bigger box over ssh, starts the batch there detached, and pulls results back — see [remote_runs.md](remote_runs.md).
+
 ---
 
 ## Architecture
@@ -179,6 +187,30 @@ private:
 > **Design Intent**: Not all properties should be dispersible. `DSF_PROPERTY_BIND` is an explicit opt-in that forces model authors to declare which parameters are meaningful to vary in a Monte Carlo context.
 
 ---
+
+## Paths in a dispersed deck
+
+Each case runs from `mc_results/case_NNNN/`, two levels below the deck, and
+the loader resolves path-bearing attributes against the process CWD — not
+against where the deck lives. A relative reference in the deck would
+therefore miss from a case directory and kill every case before its first
+step.
+
+So when the dispatcher writes each `case.xml`, it **anchors relative path
+attributes on the deck's own directory**:
+
+```xml
+<!-- deck at examples/cruise/deck.xml -->        <!-- generated case.xml -->
+<terrain data_dir="../../data/terrain" />   →    <terrain data_dir="/abs/data/terrain" />
+<aero filename="cruise_aero.dat" />         →    <aero filename="/abs/examples/cruise/cruise_aero.dat" />
+```
+
+An attribute is treated as a path only if it names something that exists
+relative to the deck, which leaves values like `units="m/s"` alone. Bare
+sonames are deliberately untouched: write `library="libsixdof.so"` and let
+the dynamic linker resolve it from `LD_LIBRARY_PATH`, so a batch is not
+pinned to one build of the model library. Absolute paths pass through
+unchanged.
 
 ## Output Structure
 

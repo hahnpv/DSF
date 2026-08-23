@@ -165,7 +165,7 @@ class MonteCarlo:
         dsf_root = Path(__file__).parent.parent.parent  # python/dsf -> python -> DSF
         candidates = [
             dsf_root / 'build' / 'examples' / 'dynamic' / 'dynamic',
-            Path('/home/philip/git/DSF/build/examples/dynamic/dynamic'),
+            Path('/opt/DSF/build/examples/dynamic/dynamic'),
         ]
         for c in candidates:
             if c.exists():
@@ -206,14 +206,45 @@ class MonteCarlo:
 
         return draws
 
+    def _absolutize_paths(self, node):
+        """Rewrite relative path attributes to absolute, anchored on the
+        ORIGINAL deck's directory.
+
+        A case runs from output_dir/case_NNNN/, two levels below the deck,
+        and the loader resolves a path-bearing attribute against the process
+        CWD (dlopen) or the case dir (its xml_dir fallback) — never against
+        where the deck actually lives. So every relative reference in the
+        deck (`library="../../build/libsixdof.so"`, `data_dir="../terrain"`)
+        silently misses and the case dies before the first step. Anchoring
+        them here, once, at case-XML generation is the only point that still
+        knows where the deck came from.
+
+        An attribute is a path reference iff it names something that EXISTS
+        relative to the deck dir. That test is what keeps `units="m/s"` and
+        other incidental slashes out, and it deliberately leaves bare
+        sonames (`library="libsixdof.so"`) alone so the dynamic linker
+        resolves them from LD_LIBRARY_PATH as intended.
+
+        normpath, not realpath: `libsixdof.so` must not be rewritten to the
+        `libsixdof.so.1.0.0` it points at, or the case pins a soname the
+        build may not carry after a version bump.
+        """
+        deck_dir = str(self.xml_path.parent)
+        for elem in node.iter():
+            for attr, value in list(elem.attrib.items()):
+                if not value:
+                    continue
+                candidate = os.path.normpath(os.path.join(deck_dir, value))
+                if candidate != value and os.path.exists(candidate):
+                    elem.set(attr, candidate)
+
     def _make_case_xml(self, case_id):
         """Create a patched XML for a single MC case.
 
         Adds seed and case_id attributes to <sim> so the C++ MC engine
-        knows which case this is and can reproduce the RNG state.
-
-        Also symlinks sibling data files (aero tables, terrain, etc.)
-        into the case directory so relative paths resolve correctly.
+        knows which case this is and can reproduce the RNG state, and
+        rewrites the deck's relative paths so they still resolve from the
+        case directory.
         """
         case_dir = self.output_dir / f"case_{case_id:04d}"
         case_dir.mkdir(parents=True, exist_ok=True)
@@ -244,7 +275,13 @@ class MonteCarlo:
             else:
                 dnode.set('drawn', repr(info['drawn']))
 
-        # Symlink sibling data files so relative paths work from case dir
+        # Anchor relative paths on the deck dir before the case XML moves
+        # two levels away from it.
+        self._absolutize_paths(root)
+
+        # Belt and braces: data files are now referenced absolutely by the
+        # XML, but a table can name a companion file relative to the CWD it
+        # is read from. Symlinking the deck's siblings keeps those working.
         src_dir = self.xml_path.parent
         for f in src_dir.iterdir():
             if f.is_file() and f.suffix in ('.dat', '.dt2', '.tbl'):
