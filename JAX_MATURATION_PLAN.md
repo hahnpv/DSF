@@ -236,6 +236,84 @@ GPU-polite by default (no preallocation, mem_fraction/device knobs),
 `py/sixdof_jax/GPU_OPERATIONS.md`. Remote transport and the DGX Spark
 are deliberately deferred.
 
+### J6 — Full 6-DOF EOM (queued work order, not started)
+
+**Why now-ish:** nearly everything in the sixdof model tree (F-16,
+missiles, boosters, rotorcraft, X-37B) is a 6-DOF vehicle; a vetted JAX
+rigid-body core is the one piece that unlocks mirroring any of them for
+massive MC. The rigid-body dynamics are jit/vmap-friendly (~2–3× the
+flight-path EOM's per-step cost) — the J5 out-of-scope label was about
+the modeling ecosystem around the EOM, not the EOM. Sequenced so the
+core is never wasted regardless of what the capsule study finds:
+
+**J6a — rigid-body core.** Mirror `EOM/6DOF` (`OblateEarth`): 13-state
+quaternion form (r, v, q, ω) + Euler's equations, same J2/atmosphere
+plumbing, force/moment interface. Validate WITHOUT depending on capsule
+trim: (i) analytic goldens — torque-free angular-momentum and
+rotational-energy conservation to 1e-9, intermediate-axis (Dzhanibekov)
+tumble, quaternion norm; (ii) cross-stack goldens against C++ decks
+that are already trustworthy (spinning ballistic, gravity-gradient
+satellite). The frame-convention archaeology (the real cost center;
+M-01/M-02 sign-trap class) happens here, once, against clean cases.
+**Gate:** conservation + cross-stack trajectory match on the anchor
+cases. ~2 sessions.
+
+**J6b — capsule trim physics, C++ FIRST, then re-measure.** Add static
+stability/trim to the C++ capsule (Cm-α — real capsules trim via CG
+offset; `AeroDamping` exists for rates) and a faithful
+`ColdGasRCS` mirror (bang-bang + deadband + rate damping + propellant).
+Re-run the J5 gap study against the trimmed reference. **Gate:** the
+trimmed C++ 6-DOF vs 3-DOF gap re-measured; if it collapses to the roll
+channel (what trim is for), close the 6-DOF PARITY row as "lite
+suffices, by measurement"; the full mirror proceeds only if residual
+gaps matter. ~1–2 sessions.
+
+**J6c — differentiable actuation tier (conditional on J6b).** Smooth
+surrogates for the discontinuous controls (bang-bang RCS is vmap-fine
+but grad-dead): tanh switching or the J5 lag model, with a documented
+equivalence test against the faithful mode. ~half a session.
+
+Accepted costs, going in: an unused mirror can drift — the drift
+contract below plus CI is the mitigation; and each future vehicle's
+aero/moment model is its own PARITY row forever (the core is one
+effort, the tree is a program).
+
+## Drift contract (retroactive, adopted 2026-08-22)
+
+An analytic golden pins the mirror to the formulation as understood
+when written — it catches JAX bugs but lets a C++-side change through
+silently. **Every `mirrored` PARITY row must carry at least one
+cross-stack gate**: a test that exercises BOTH stacks (replay a
+`dsf run` through the mirror, or integrate both and compare
+trajectories). `py/tests/test_drift_gates.py` is the home for gates
+that don't belong to a phase suite.
+
+Audit of 2026-08-22 (analytic-only rows found → disposition):
+- ReentryAero **real-gas path** — grid decks all flew real_gas off.
+  → CLOSED: `test_drift_gates.py::TestRealGasCrossStack` (whole
+  trajectory vs a real_gas="1" deck, correction proven engaged).
+  Fixing this also surfaced and fixed a NaN-gradient landmine in the
+  atmosphere mirror's 91–110 km elliptic segment (double-where sqrt
+  guard; values bit-identical).
+- **SimpleAero** — analytic-only. → CLOSED:
+  `test_drift_gates.py::TestSimpleAeroCrossStack` (ballistic drop deck
+  integrated by both stacks, <500 m over 120 s of hard deceleration).
+- **GravityTurnGuidance** — mirror pins the constants, but the C++
+  block logs no pitch command, so nothing is replayable. → OPEN TASK:
+  add a `pitch_cmd` output to the C++ block (C++-first, trivial), then
+  replay logged falcon states through the mirror.
+- **WindProfile** — no C++ 3-DOF wind path exists to test against.
+  → OPEN TASK (also the right C++ fix on its own): wire the wind model
+  into `OblateEarth3DOF`'s air-relative velocity, then gate.
+- Already cross-stack (no action): atmosphere (implied-ρ + logged
+  Mach), gravity (falcon logged states), RocketProp (logged
+  thrust/mdot), eom_3dof (LEO re-propagation), flight-path EOM,
+  Sutton-Graves, density bias, trim tables, energy law, RCS envelope.
+
+CI note: these gates only catch drift if they RUN when either repo
+changes — they belong in the canary CI (the DSF-public/sixdof-private
+pin-and-fetch design).
+
 ## 5. Packaging & handoff
 
 - Land as a clean importable API in `sixdof/py/sixdof_jax` (keep the C++-mirror
