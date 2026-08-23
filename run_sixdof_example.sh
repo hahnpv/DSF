@@ -4,26 +4,29 @@
 
 set -e
 
-# Setup paths
-DSF_ROOT="/home/philip/git/DSF"
-SIXDOF_ROOT="/home/philip/git/sixdof"
+# Roots are derived from this script's own location, never hardcoded: the
+# checkouts have moved before (/home/philip/git/* -> /opt/*) and every
+# absolute path baked into a script or deck broke when they did. sixdof is
+# the sibling repo DSF's build already expects; override for other layouts.
+DSF_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SIXDOF_ROOT="${SIXDOF_ROOT:-$(cd "$DSF_ROOT/../sixdof" 2>/dev/null && pwd)}"
 BUILD_DIR="$DSF_ROOT/build"
+SIXDOF_BUILD="$SIXDOF_ROOT/build"
 DYNAMIC_EXE="$BUILD_DIR/examples/dynamic/dynamic"
 
-# Set library path to include both DSF and sixdof libraries
-export LD_LIBRARY_PATH="$BUILD_DIR:$BUILD_DIR/sixdof_build:$LD_LIBRARY_PATH"
+# Decks name the model library by bare soname (library="libsixdof.so"), so
+# the dynamic linker resolves it from here — see CLAUDE.md.
+export LD_LIBRARY_PATH="$BUILD_DIR:$SIXDOF_BUILD:$LD_LIBRARY_PATH"
 
-# Check if dynamic executable exists
 if [ ! -f "$DYNAMIC_EXE" ]; then
     echo "Error: dynamic executable not found at $DYNAMIC_EXE"
     echo "Please build first: make -C $BUILD_DIR -j\$(nproc)"
     exit 1
 fi
 
-# Check if libsixdof.so exists
-if [ ! -f "$BUILD_DIR/sixdof_build/libsixdof.so" ]; then
-    echo "Error: libsixdof.so not found at $BUILD_DIR/sixdof_build/libsixdof.so"
-    echo "Please build first: make -C $BUILD_DIR sixdof"
+if [ ! -f "$SIXDOF_BUILD/libsixdof.so" ]; then
+    echo "Error: libsixdof.so not found at $SIXDOF_BUILD/libsixdof.so"
+    echo "Please build sixdof first, or set SIXDOF_ROOT to its checkout."
     exit 1
 fi
 
@@ -32,7 +35,8 @@ if [ $# -eq 0 ]; then
     echo "Usage: $0 <example.xml>"
     echo ""
     echo "Available examples in $SIXDOF_ROOT/examples:"
-    ls -1 "$SIXDOF_ROOT/examples"/*.xml 2>/dev/null | xargs -n 1 basename || echo "  No .xml files found"
+    find "$SIXDOF_ROOT/examples" -name '*.xml' -printf '  %P\n' 2>/dev/null | sort \
+        || echo "  No .xml files found"
     exit 0
 fi
 
@@ -49,26 +53,22 @@ if [ ! -f "$EXAMPLE_FILE" ]; then
     fi
 fi
 
-# Check if example exists
 if [ ! -f "$EXAMPLE_FILE" ]; then
     echo "Error: Example file not found: $EXAMPLE_FILE"
     exit 1
 fi
 
-# Create a temporary modified XML file with correct library path
-TEMP_XML=$(mktemp --suffix=.xml)
-trap "rm -f $TEMP_XML" EXIT
-
-# Replace the library path in the XML
-sed "s|library=\"../sixdof/libsixdof.so\"|library=\"$BUILD_DIR/sixdof_build/libsixdof.so\"|g" "$EXAMPLE_FILE" > "$TEMP_XML"
+EXAMPLE_FILE="$(cd "$(dirname "$EXAMPLE_FILE")" && pwd)/$(basename "$EXAMPLE_FILE")"
 
 echo "======================================"
-echo "Running sixdof example: $(basename $EXAMPLE_FILE)"
+echo "Running sixdof example: $(basename "$EXAMPLE_FILE")"
 echo "Library path: $LD_LIBRARY_PATH"
 echo "======================================"
 echo ""
-echo $DYNAMIC_EXE
 
-# Run the simulation
-cd "$(dirname $EXAMPLE_FILE)"
-"$DYNAMIC_EXE" "$TEMP_XML"
+# Run the deck IN PLACE. It used to be copied to a temp file with its
+# library path rewritten; decks now name the library by soname, and running
+# from the deck's own directory is what makes its relative data references
+# (aero tables, terrain) resolve.
+cd "$(dirname "$EXAMPLE_FILE")"
+"$DYNAMIC_EXE" "$EXAMPLE_FILE"

@@ -450,6 +450,6 @@
     "metadata": {
         "dt": 0.1,
         "tmax": 56000.0,
-        "lib_path": "/home/philip/git/sixdof/build/libsixdof.so"
+        "lib_path": "/opt/sixdof/build/libsixdof.so"
     }
 }
