@@ -109,7 +109,7 @@ jobs:
     # (or accept the red canary and bump sixdof's DSF_VERSION pin right after).
     name: sixdof canary (downstream models)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     if: github.repository == 'hahnpv/DSF'
     env:
       SIXDOF_TOKEN: ${{ secrets.SIXDOF_TOKEN }}
@@ -183,3 +183,22 @@ jobs:
           LD_LIBRARY_PATH: ${{ github.workspace }}/build:${{ github.workspace }}/../sixdof/build
           QT_QPA_PLATFORM: offscreen
         run: xvfb-run -a python -m pytest python/tests -q -rs
+
+      - name: Install JAX (CPU) for the mirror drift gates
+        run: python -m pip install jax h5py
+
+      # Cross-stack drift gates from the sixdof JAX mirror suite (see
+      # sixdof py/sixdof_jax/PARITY.md): a DSF change that alters what the
+      # C++ stack computes must fail against the JAX mirrors here, at PR
+      # time. This is the cheaper cross-stack subset — sixdof's own CI
+      # runs the full mirror suite on its changes.
+      - name: JAX mirror drift gates (cross-stack subset)
+        working-directory: ../sixdof
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/build:${{ github.workspace }}/../sixdof/build
+        run: |
+          python -m pytest -q \
+            py/tests/test_jax_cross_validation.py \
+            py/tests/test_deck_jax_comparison.py \
+            py/tests/test_reentry_rollout.py \
+            py/tests/test_drift_gates.py

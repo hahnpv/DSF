@@ -298,13 +298,12 @@ Audit of 2026-08-22 (analytic-only rows found → disposition):
 - **SimpleAero** — analytic-only. → CLOSED:
   `test_drift_gates.py::TestSimpleAeroCrossStack` (ballistic drop deck
   integrated by both stacks, <500 m over 120 s of hard deceleration).
-- **GravityTurnGuidance** — mirror pins the constants, but the C++
-  block logs no pitch command, so nothing is replayable. → OPEN TASK:
-  add a `pitch_cmd` output to the C++ block (C++-first, trivial), then
-  replay logged falcon states through the mirror.
-- **WindProfile** — no C++ 3-DOF wind path exists to test against.
-  → OPEN TASK (also the right C++ fix on its own): wire the wind model
-  into `OblateEarth3DOF`'s air-relative velocity, then gate.
+- **GravityTurnGuidance** — CLOSED 2026-08-23 (Round-2 R3): C++ block
+  logs `GravTurn pitch_cmd`; falcon-replay gate at ≤1e-6 rad.
+- **WindProfile** — CLOSED 2026-08-23 (Round-2 R3): `OblateEarth3DOF`
+  honors an optional `<wind>` child (6-DOF contract); winded-entry
+  cross-stack gate. The gate caught a real lift-plane-reference bug in
+  the JAX wind branch (NED up vs the C++ ground-velocity-frame up).
 - Already cross-stack (no action): atmosphere (implied-ρ + logged
   Mach), gravity (falcon logged states), RocketProp (logged
   thrust/mdot), eom_3dof (LEO re-propagation), flight-path EOM,
