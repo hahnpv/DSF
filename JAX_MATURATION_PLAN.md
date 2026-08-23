@@ -220,6 +220,22 @@ attitude as a modeling boundary, not a small correction.
 - **Gate:** the gap between 3-DOF and 6-DOF-lite reproduces the sign and rough
   magnitude of the sixdof full-6-DOF gap on a reference case.
 
+### Post-plan: fp32 sweep mode + campaign driver — **LANDED 2026-08-22**
+`sixdof_jax` now defaults to fp64 on import (certification tier);
+setting `JAX_ENABLE_X64=0` before import opts a process into the fp32
+sweep mode (~60× FP32 compute on consumer GPUs; measured fidelity on
+the reference entry: <10 m drift over a full flight, q̇ 2.5e-5,
+gradients ~1e-4 vs fp64 — gated in `test_fp32_campaign.py`; same PRNG
+key draws different realizations across dtypes, so campaigns are
+bit-reproducible per dtype, statistically equivalent across).
+`sixdof_jax/campaign.py` (`python -m sixdof_jax.campaign spec.json`) is
+the headless driver: JSON spec in (dtype, dispersions, open- or
+closed-loop), npz + meta out (git SHA, key, backend, free VRAM),
+GPU-polite by default (no preallocation, mem_fraction/device knobs),
+`--benchmark` mode for real-box numbers. GPU box recipe:
+`py/sixdof_jax/GPU_OPERATIONS.md`. Remote transport and the DGX Spark
+are deliberately deferred.
+
 ## 5. Packaging & handoff
 
 - Land as a clean importable API in `sixdof/py/sixdof_jax` (keep the C++-mirror
