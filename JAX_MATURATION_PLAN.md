@@ -200,20 +200,21 @@ validated to J1 tolerance; and `body_roll="1"` on C++
 through the real RCS/6-DOF attitude path. Gates in
 `py/tests/test_sixdof_lite.py`.
 
-**Measured flyability-gap decomposition** (the gate, reinterpreted per
-what the reference case actually showed): the lite model reproduces the
-C++ RCS roll-channel response (reversal crossing duration within 1.5×)
-and its trajectory-level effect (km-class downrange extension through a
-through-zero reversal). But the FULL 3→6-DOF gap on this stack is
-dominated by attitude-trim absence — the capsule model has no pitch
-stability and the RCS commands roll only, so the lift orientation
-drifts with the rotating local horizon (~0.07°/s) while reported bank
-tracks perfectly; the trajectory diverges exponentially to hundreds of
-km by t=500 s. Gated as: gap_full > 10× gap_lite with the roll loop
-provably healthy. That is the flyability gap made concrete: 3-DOF's
-"held bank" assumption silently presumes attitude authority the
-modeled vehicle lacks. Consumers (ART): treat 3-DOF/lite optimism about
-attitude as a modeling boundary, not a small correction.
+**Measured flyability-gap decomposition — SUPERSEDED by Round-2 R1
+(2026-08-23).** The original J5 finding ("attitude-trim absence
+dominates; gap_full > 10× gap_lite, hundreds of km") was wrong: the R1
+trim study — pitch tracking the flight path to 0.01° while the
+trajectory still diverged — traced the dominant term to a C++ BUG in
+ReentryAero's body_roll path (bank double-counted: σ reported from
+euler.x AND re-applied on the physically-rolled lift axis, so 50°
+commanded flew as ~100°). With that fixed plus the R1 Cm_alpha/Cm_q
+trim physics, the full 6-DOF flies the 3-DOF trajectory to km-class
+over the whole entry and **gap_full ≈ gap_lite**: the residual 3→6-DOF
+gap IS the roll channel lite models (RCS deadband bank offset ~1.5°,
+reversal transient), with trim a second-order correction. Consumers
+(ART): 3-DOF/lite verification is far more faithful than the original
+J5 note claimed — the modeling boundary is the roll-channel envelope,
+not attitude wholesale. See sixdof JAX_MATURATION_ROUND2.md R1.
 - Add trim α(M), bank-rate limit, first-order actuator lag so the differentiable
   model *exposes* the 3→6-DOF flyability gap (BO measured this as the real
   residual: control authority, ~0.89 s divergence, real-gas crossrange delta).
